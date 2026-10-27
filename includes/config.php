@@ -238,7 +238,7 @@ function sendgrid_html_mail(string $to, string $subject, string $htmlBody, strin
 /**
  * Erstellt das HTML-Bestätigungs-E-Mail-Template für Anfragesteller.
  */
-function get_confirmation_email_html(string $name, string $formType = 'Kontaktanfrage'): string
+function get_confirmation_email_html(string $name, string $formType = 'Kontaktanfrage', bool $optinPending = false): string
 {
     $logoUrl  = htmlspecialchars(SITE_LOGO,  ENT_QUOTES);
     $siteUrl  = rtrim(htmlspecialchars(SITE_URL, ENT_QUOTES), '/');
@@ -298,6 +298,16 @@ function get_confirmation_email_html(string $name, string $formType = 'Kontaktan
                                         </td>
                                     </tr>
                                 </table>
+                                <?php if ($optinPending): ?>
+                                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fefce8;border-radius:12px;border-left:4px solid #eab308;margin:0 0 24px;">
+                                        <tr>
+                                            <td style="padding:14px 20px;">
+                                                <p style="margin:0 0 3px;color:#854d0e;font-size:.8rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;">Noch ein Klick</p>
+                                                <p style="margin:0;color:#713f12;font-size:.92rem;line-height:1.6;">Sie möchten über neue Immobilien informiert werden. Wir haben Ihnen dafür eine separate E-Mail zur Bestätigung geschickt. Erst nach Ihrem Klick auf den Link erhalten Sie Benachrichtigungen.</p>
+                                            </td>
+                                        </tr>
+                                    </table>
+                                <?php endif; ?>
                                 <p style="margin:0 0 14px;color:#334155;font-size:.97rem;line-height:1.7;">Bei dringenden Anliegen erreichen Sie uns direkt:</p>
                                 <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
                                     <tr>

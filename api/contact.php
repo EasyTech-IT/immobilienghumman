@@ -96,6 +96,9 @@ if (in_array($action, ['inquiry', 'general']) && $method === 'POST') {
     $errors = [];
     if (empty($name))                                                     $errors[] = 'Name ist erforderlich';
     if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL))      $errors[] = 'Gültige E-Mail-Adresse ist erforderlich';
+    $privacyOk = !empty($data['privacy_accept']) && $data['privacy_accept'] !== 'false' && $data['privacy_accept'] !== '0';
+    if (!empty($data['privacy_required']) && !$privacyOk)                 $errors[] = 'Bitte akzeptieren Sie die AGB und die Datenschutzerklärung';
+    $newsletterOptin = !empty($data['newsletter_optin']) && $data['newsletter_optin'] !== 'false' && $data['newsletter_optin'] !== '0';
 
     if (!empty($errors)) {
         http_response_code(400);
@@ -287,10 +290,23 @@ if (in_array($action, ['inquiry', 'general']) && $method === 'POST') {
         error_log('Contact mail (admin) konnte nicht gesendet werden.');
     }
 
-    $confirmHtml = get_confirmation_email_html($name, $formType ?: 'Allgemeine Kontaktanfrage');
+    $confirmHtml = get_confirmation_email_html($name, $subjectInput !== '' ? $subjectInput : ($propertyTitle !== '' ? 'Anfrage zu: ' . $propertyTitle : ($formType ?: 'Allgemeine Kontaktanfrage')), $newsletterOptin);
     $confirmSent = app_mail_html($email, 'Vielen Dank für Ihre Nachricht – ' . SITE_NAME, $confirmHtml);
     if (!$confirmSent) {
         error_log('Contact mail (confirmation) konnte nicht gesendet werden.');
+    }
+
+    // Workflow: Opt-in für Immobilien-Benachrichtigungen (Double-Opt-In, Aktivierung erst nach Klick)
+    if ($newsletterOptin) {
+        try {
+            require_once __DIR__ . '/../includes/subscribers.php';
+            $optin = subscribers_request_optin($pdo, $email, $name, $ip, $formType ?: ($propId ? 'Immobilienanfrage' : 'Kontaktformular'));
+            if ($optin === 'error') {
+                error_log('Newsletter opt-in mail konnte nicht gesendet werden.');
+            }
+        } catch (Throwable $e) {
+            error_log('Newsletter opt-in: ' . $e->getMessage());
+        }
     }
 
     exit;

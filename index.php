@@ -1172,6 +1172,9 @@ require_once __DIR__ . '/includes/header.php';
                                     <small class="kform-captcha-note">Zum Schutz vor Spam setzen wir Cloudflare Turnstile ein.</small>
                                 </div>
                             <?php endif; ?>
+                            <div class="kform-field kform-full">
+                                <?php $consentPrefix = 'kf'; include __DIR__ . '/includes/consent-fields.php'; ?>
+                            </div>
                         </div>
 
                         <button type="submit" id="kformSubmitBtn" class="kform-submit-btn">
@@ -1225,6 +1228,10 @@ require_once __DIR__ . '/includes/header.php';
             }
             if (!ok) {
                 showErr('Bitte füllen Sie alle Pflichtfelder korrekt aus.');
+                return;
+            }
+            if (!document.getElementById('kf_privacy')?.checked) {
+                showErr('Bitte bestätigen Sie die Datenschutzerklärung, damit wir Ihre Anfrage bearbeiten dürfen.');
                 return;
             }
 

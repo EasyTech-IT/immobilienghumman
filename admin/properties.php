@@ -6,6 +6,41 @@
 require_once __DIR__ . '/_auth_check.php';
 
 $pdo    = db();
+require_once __DIR__ . '/../includes/subscribers.php';
+
+/**
+ * Leitet sofort weiter und versendet danach (im Hintergrund) die Benachrichtigungen an Abonnenten.
+ */
+function redirect_and_notify(string $url, int $propertyId, bool $notify): void
+{
+    if (!$notify) {
+        header('Location: ' . $url);
+        exit;
+    }
+    ignore_user_abort(true);
+    @set_time_limit(0);
+    header('Location: ' . $url);
+    header('Connection: close');
+    header('Content-Length: 0');
+    if (session_status() === PHP_SESSION_ACTIVE) {
+        session_write_close();
+    }
+    if (function_exists('fastcgi_finish_request')) {
+        fastcgi_finish_request();
+    } else {
+        while (ob_get_level() > 0) {
+            @ob_end_flush();
+        }
+        @flush();
+    }
+    try {
+        $res = subscribers_notify_property(db(), $propertyId);
+        error_log(sprintf('Abonnenten-Benachrichtigung Immobilie #%d: %d gesendet, %d fehlgeschlagen', $propertyId, $res['sent'], $res['failed']));
+    } catch (Throwable $e) {
+        error_log('Abonnenten-Benachrichtigung fehlgeschlagen: ' . $e->getMessage());
+    }
+    exit;
+}
 $action = $_GET['action'] ?? 'list';
 $id     = isset($_GET['id']) ? (int)$_GET['id'] : null;
 $msg    = '';
@@ -196,8 +231,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && in_array($action, ['new', 'edit']))
                 }
 
                 $newId = $pdo->lastInsertId();
-                header("Location: " . BASE . "/admin/properties.php?action=edit&id=$newId&saved=1");
-                exit;
+                redirect_and_notify(BASE . "/admin/properties.php?action=edit&id=$newId&saved=1", (int)$newId, ($d['status'] ?? 'available') === 'available' && !empty($d['notify_subscribers']));
             } else {
                 $fields[] = $id;
                 if ($hasExtraDataColumn) {
@@ -208,8 +242,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && in_array($action, ['new', 'edit']))
                     $pdo->prepare('UPDATE properties SET title=?,slug=?,short_description=?,description=?,type=?,offer_type=?,price=?,extra_costs=?,heating_costs=?,warm_rent=?,deposit=?,area=?,rooms=?,bathrooms=?,location=?,zip=?,address=?,available_from=?,features=?,images=?,main_image=?,video_url=?,status=?,featured=? WHERE id=?')
                         ->execute($fields);
                 }
-                header("Location: " . BASE . "/admin/properties.php?action=edit&id=$id&saved=1");
-                exit;
+                redirect_and_notify(BASE . "/admin/properties.php?action=edit&id=$id&saved=1", (int)$id, ($d['status'] ?? 'available') === 'available' && !empty($d['notify_subscribers']));
             }
         }
     }
@@ -1265,6 +1298,36 @@ $pageTitle = $action === 'list' ? 'Immobilien' : ($action === 'new' ? 'Neue Immo
                                 </div>
                             </div>
                         </div>
+                    </div>
+
+                    <?php
+                    $subConfirmed = 0;
+                    $alreadyNotified = 0;
+                    try {
+                        subscribers_ensure_tables($pdo);
+                        $subConfirmed = (int)$pdo->query("SELECT COUNT(*) FROM subscribers WHERE status='confirmed'")->fetchColumn();
+                        if (!empty($property['id'])) {
+                            $nStmt = $pdo->prepare('SELECT COUNT(*) FROM property_notifications WHERE property_id = ?');
+                            $nStmt->execute([(int)$property['id']]);
+                            $alreadyNotified = (int)$nStmt->fetchColumn();
+                        }
+                    } catch (Throwable $e) {
+                        error_log('Abonnenten-Zähler: ' . $e->getMessage());
+                    }
+                    ?>
+                    <div class="card">
+                        <h2 style="margin:0 0 .6rem;font-size:1rem;color:#555;">📣 Abonnenten benachrichtigen</h2>
+                        <div class="check-wrap">
+                            <input type="checkbox" name="notify_subscribers" id="notify_subscribers" value="1" <?= ($action === 'new' && $subConfirmed > 0) ? 'checked' : '' ?>>
+                            <label for="notify_subscribers" style="margin:0;font-weight:normal;">
+                                Beim Speichern E-Mail an <strong><?= $subConfirmed ?></strong> bestätigte Abonnenten senden
+                            </label>
+                        </div>
+                        <p style="margin:.5rem 0 0;font-size:.82rem;color:#64748b;">
+                            Nur bei Status „Verfügbar“. Jeder Abonnent erhält pro Immobilie nur eine Mail
+                            <?php if ($alreadyNotified > 0): ?>(bereits an <?= $alreadyNotified ?> gesendet – es werden nur neue Abonnenten angeschrieben)<?php endif; ?>.
+                            Abonnenten verwalten: <a href="<?= BASE ?>/admin/subscribers.php">Abonnentenliste</a>.
+                        </p>
                     </div>
 
                     <div style="display:flex;gap:1rem;justify-content:space-between;align-items:center;flex-wrap:wrap;">

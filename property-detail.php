@@ -492,9 +492,10 @@ require_once __DIR__ . '/includes/header.php';
                 <input type="email" name="email" placeholder="Ihre E-Mail *" required autocomplete="email">
                 <input type="tel" name="phone" placeholder="Telefon (optional)" autocomplete="tel">
                 <textarea name="message" rows="3" placeholder="Ihre Nachricht (z. B. Besichtigungswunsch)"></textarea>
+                <?php $consentPrefix = 'pd'; include __DIR__ . '/includes/consent-fields.php'; ?>
                 <button type="submit" class="btn-primary"><i class="fas fa-paper-plane"></i> Anfrage senden</button>
                 <div id="propertyInquiryMsg" style="display:none;border-radius:8px;padding:.65rem .8rem;font-size:.9rem;"></div>
-                <p class="pd-privacy">Mit dem Absenden stimmen Sie der Verarbeitung Ihrer Daten gemäß <a href="<?= BASE ?>/datenschutz">Datenschutzerklärung</a> zu.</p>
+                <p class="pd-privacy">Ihre Daten werden nur zur Bearbeitung Ihrer Anfrage verwendet. Mehr in der <a href="<?= BASE ?>/datenschutz">Datenschutzerklärung</a>.</p>
             </form>
         </div>
     </aside>

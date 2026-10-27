@@ -455,6 +455,9 @@ $newContacts = $newContacts ?? 0;
                 <span class="nav-badge"><?= (int)$newContacts ?></span>
             <?php endif; ?>
         </a>
+        <a href="<?= BASE ?>/admin/subscribers.php" class="nav-item <?= $activePage === 'subscribers' ? 'active' : '' ?>">
+            <i class="fa fa-bell"></i> Abonnenten
+        </a>
         <div class="nav-section-label" style="margin-top:.5rem">Einstellungen</div>
         <a href="<?= BASE ?>/admin/settings.php" class="nav-item <?= $activePage === 'settings' ? 'active' : '' ?>">
             <i class="fa fa-gear"></i> Einstellungen

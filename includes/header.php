@@ -65,7 +65,7 @@ function nav_class(string $id, string $active): string
 
     <!-- Zusätzliche SEO Meta Tags -->
     <meta name="author" content="<?= SITE_NAME ?>">
-    <meta name="robots" content="index, follow">
+    <meta name="robots" content="<?= htmlspecialchars($robotsContent ?? 'index, follow', ENT_QUOTES) ?>">
     <meta name="language" content="de">
     <meta name="geo.region" content="DE-HE">
     <meta name="geo.placename" content="Bad Vilbel">
