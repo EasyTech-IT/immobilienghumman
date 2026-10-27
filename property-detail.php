@@ -367,7 +367,7 @@ $extraHead       = '<style>
         }
     </style>';
 $extraScripts    =
-    '<link rel="stylesheet" href="' . BASE . '/property-detail.css?v=2">
+    '<link rel="stylesheet" href="' . BASE . '/property-detail.css?v=' . (int)@filemtime(__DIR__ . '/property-detail.css') . '">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV/XN/WLcE=" crossorigin=""></script>
 <script src="' . BASE . '/js/api-client.js"></script>
