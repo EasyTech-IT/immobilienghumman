@@ -1,0 +1,60 @@
+# ============================================================
+# Admin-Ordner Zugriffsschutz – Immobilien Ghumman
+# ============================================================
+# Verzeichnislisting deaktivieren
+Options -Indexes
+
+# PHP-Hilfsdatei vor Direktzugriff schützen (immer aktiv)
+<Files "_auth_check.php">
+    Require all denied
+</Files>
+
+# ============================================================
+# OPTION A: IP-Whitelist (empfohlen bei statischer Büro-IP)
+# ============================================================
+# Kommentare entfernen und IPs anpassen, dann Option B auskommentieren.
+#
+# <RequireAny>
+#     Require ip 85.XXX.XXX.XXX  # Büro / Homeoffice IP → prüfen: https://myip.is
+# </RequireAny>
+
+# ============================================================
+# OPTION B: HTTP Basic Authentication (Passwortschutz)
+# ============================================================
+# 1. .htpasswd generieren (Kommandozeile):
+#    htpasswd -c /absoluter/pfad/admin/.htpasswd adminuser
+#
+# 2. Kommentare unten entfernen und Pfad anpassen:
+#
+# AuthType Basic
+# AuthName "Admin-Bereich – Zugang gesperrt"
+# AuthUserFile "/absoluter/pfad/admin/.htpasswd"
+# Require valid-user
+
+# ============================================================
+# OPTION C: IP-Whitelist + Basic Auth kombiniert (Produktion)
+# ============================================================
+# Erlaubt Zugriff von bekannten IPs ODER mit Passwort.
+# Sicherste Kombination für den Live-Server.
+#
+# AuthType Basic
+# AuthName "Admin-Bereich – Zugang gesperrt"
+# AuthUserFile "/var/www/html/immobilien/admin/.htpasswd"
+# <RequireAny>
+#     Require ip 85.XXX.XXX.XXX
+#     Require valid-user
+# </RequireAny>
+
+# ============================================================
+# Sonstige Sicherheitsregeln
+# ============================================================
+
+# .htpasswd-Datei niemals ausliefern
+<Files ".htpasswd">
+    Require all denied
+</Files>
+
+# Keine Direktzugriffe auf .sql oder .log Dateien
+<FilesMatch "\.(sql|log|bak|env|ini)$">
+    Require all denied
+</FilesMatch>

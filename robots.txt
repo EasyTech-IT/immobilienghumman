@@ -1,0 +1,10 @@
+User-agent: *
+Allow: /
+
+Disallow: /admin/
+Disallow: /api/
+Disallow: /includes/
+Disallow: /tools/
+Disallow: /database/
+
+Sitemap: https://www.immobilienghumman.de/sitemap.xml

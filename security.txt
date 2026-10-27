@@ -1,0 +1,4 @@
+Contact: mailto:info@immobilienghumman.de
+Expires: 2030-12-31T22:59:00.000Z
+Policy: https://www.immobilienghumman.de/impressum
+Policy: https://www.immobilienghumman.de/datenschutz

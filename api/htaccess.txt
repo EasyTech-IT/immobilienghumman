@@ -1,0 +1,20 @@
+Options -Indexes
+
+RewriteEngine On
+RewriteBase /api/
+
+# auth/login  → auth.php?action=login
+RewriteRule ^auth/login$   auth.php?action=login   [QSA,L]
+RewriteRule ^auth/logout$  auth.php?action=logout  [QSA,L]
+RewriteRule ^auth/me$      auth.php?action=me      [QSA,L]
+
+# properties/123  → properties.php?id=123
+RewriteRule ^properties/([0-9]+)$  properties.php?id=$1  [QSA,L]
+
+# contact/inquiries → contact.php?action=inquiries
+RewriteRule ^contact/inquiries$  contact.php?action=inquiries  [QSA,L]
+RewriteRule ^contact/inquiry$    contact.php?action=inquiry    [QSA,L]
+RewriteRule ^contact/general$    contact.php?action=general    [QSA,L]
+
+# Sicherheit: keine Direktzugriffe auf Hilfsdateien
+RewriteRule ^auth_helper\.php$  - [F,L]
