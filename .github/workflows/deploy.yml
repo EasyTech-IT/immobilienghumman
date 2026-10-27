@@ -50,5 +50,6 @@ jobs:
           set net:max-retries 2
           set cmd:fail-exit yes
           mirror -R --verbose=1 --parallel=4 ./_deploy "$SFTP_REMOTE_PATH"
+          put ./htaccess.txt -o "$SFTP_REMOTE_PATH/.htaccess"
           bye
           EOF
