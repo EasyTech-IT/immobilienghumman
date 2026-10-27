@@ -124,7 +124,7 @@ function updateHeroSection(property) {
     // Update title
     if (title) {
         const typeLabel = getTypeLabel(property.type);
-        title.innerHTML = `${typeLabel}: <span id="typewriter-text-property">${property.title}</span><span class="cursor">|</span>`;
+        title.textContent = `${typeLabel}: ${property.title}`;
     }
 
     // Update location
@@ -140,9 +140,22 @@ function updateHeroSection(property) {
     // Update price
     if (priceElement) {
         const formattedPrice = new Intl.NumberFormat('de-DE').format(property.price);
-        const priceType = property.offer_type === 'kauf' ? 'Kaufpreis' : 'Monat';
-        priceElement.textContent = `€ ${formattedPrice} / ${priceType}`;
+        priceElement.textContent = property.offer_type === 'kauf'
+            ? `€ ${formattedPrice}`
+            : `€ ${formattedPrice} / Monat`;
     }
+
+    const badges = document.querySelector('.pd-badges');
+    if (badges) {
+        const parts = [
+            `<span class="pd-badge pd-badge-offer">${property.offer_type === 'kauf' ? 'Zu verkaufen' : 'Zu vermieten'}</span>`,
+            `<span class="pd-badge">${getTypeLabel(property.type)}</span>`
+        ];
+        if (property.featured) parts.push('<span class="pd-badge pd-badge-top">Top-Angebot</span>');
+        badges.innerHTML = parts.join('');
+    }
+    const crumb = document.querySelector('.pd-crumb-current');
+    if (crumb) crumb.textContent = property.title;
 }
 
 function syncInquiryForm(property) {
@@ -470,8 +483,8 @@ function updateDescription(property) {
             ${description.split('\n').map(para => para.trim() ? `<p>${para}</p>` : '').join('')}
         </div>
         
-        <h3 style="margin-top: 2rem; color: var(--secondary-color);">Objektdaten im Detail</h3>
-        <div class="property-data-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.5rem; margin-top: 1rem;">
+        <h3 class="pd-sub">Objektdaten</h3>
+        <div class="pd-data-grid">
     `;
 
     // Create data sections
@@ -531,8 +544,7 @@ function updateDescription(property) {
             })
         });
     }
-    if (property.views) additionalInfo.push({ label: 'Aufrufe', value: property.views });
-    if (property.featured) additionalInfo.push({ label: 'Highlight', value: '⭐ Top-Angebot' });
+    if (property.featured) additionalInfo.push({ label: 'Highlight', value: 'Top-Angebot' });
 
     if (additionalInfo.length > 0) {
         dataGroups.push({ title: 'Weitere Informationen', items: additionalInfo });
@@ -541,18 +553,11 @@ function updateDescription(property) {
     // Generate HTML for data groups
     dataGroups.forEach(group => {
         html += `
-            <div class="data-group" style="background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
-                <h4 style="color: var(--primary-color); margin-bottom: 1rem; font-size: 1.1rem;">${group.title}</h4>
-                <table style="width: 100%; border-collapse: collapse;">
-                    <tbody>
-                        ${group.items.map(item => `
-                            <tr style="border-bottom: 1px solid #f0f0f0;">
-                                <td style="padding: 0.75rem 0; font-weight: 600; color: var(--text-gray);">${item.label}:</td>
-                                <td style="padding: 0.75rem 0; text-align: right; color: var(--secondary-color);">${item.value}</td>
-                            </tr>
-                        `).join('')}
-                    </tbody>
-                </table>
+            <div class="pd-data-group">
+                <h4>${group.title}</h4>
+                <dl>
+                    ${group.items.map(item => `<div><dt>${item.label}</dt><dd>${item.value}</dd></div>`).join('')}
+                </dl>
             </div>
         `;
     });
@@ -610,61 +615,8 @@ function updateFeatures(property) {
 function updateLocation(property) {
     const locationSection = document.querySelector('.location-info');
     if (!locationSection) return;
-
-    let locationHTML = `
-        <div class="container">
-            <h2>Lage & Standort</h2>
-    `;
-
-    // Main location info
-    locationHTML += `<div style="background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.08); margin-bottom: 2rem;">`;
-
-    if (property.city) {
-        locationHTML += `<h3 style="color: var(--primary-color); margin-bottom: 1rem;">📍 ${property.city}</h3>`;
-    }
-
-    if (property.address) {
-        locationHTML += `<p style="font-size: 1.1rem; margin-bottom: 0.5rem;"><strong>Adresse:</strong> ${property.address}</p>`;
-    }
-
-    if (property.zip_code && property.city) {
-        locationHTML += `<p style="margin-bottom: 0.5rem;"><strong>PLZ/Ort:</strong> ${property.zip_code} ${property.city}</p>`;
-    }
-
-    if (property.state) {
-        locationHTML += `<p style="margin-bottom: 0.5rem;"><strong>Bundesland:</strong> ${property.state}</p>`;
-    }
-
-    if (property.country) {
-        locationHTML += `<p style="margin-bottom: 0.5rem;"><strong>Land:</strong> ${property.country}</p>`;
-    }
-
-    if (property.location) {
-        locationHTML += `<p style="margin-top: 1rem; color: var(--text-gray); line-height: 1.6;">${property.location}</p>`;
-    }
-
-    locationHTML += `</div>`;
-
-    // Coordinates (if available)
-    if (property.latitude && property.longitude) {
-        locationHTML += `
-            <div style="background: #f8f9fa; padding: 1.5rem; border-radius: 8px; margin-bottom: 2rem;">
-                <h4 style="color: var(--secondary-color); margin-bottom: 1rem;">🗺️ Koordinaten</h4>
-                <p><strong>Breitengrad:</strong> ${property.latitude}</p>
-                <p><strong>Längengrad:</strong> ${property.longitude}</p>
-                <a href="https://www.google.com/maps?q=${property.latitude},${property.longitude}" 
-                   target="_blank" 
-                   class="cta-button" 
-                   style="display: inline-block; margin-top: 1rem; padding: 0.75rem 1.5rem; background: var(--primary-color); color: white; text-decoration: none; border-radius: 8px;">
-                    📍 Auf Google Maps öffnen
-                </a>
-            </div>
-        `;
-    }
-
-    locationHTML += `</div>`;
-
-    locationSection.innerHTML = locationHTML;
+    // Lagedaten stehen bereits in den Objektdaten; die Karte zeigt den Standort.
+    locationSection.style.display = 'none';
 }
 
 /**

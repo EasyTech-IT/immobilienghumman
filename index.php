@@ -67,12 +67,11 @@ require_once __DIR__ . '/includes/header.php';
     <div class="hero-premium-inner animate-fadeInUp">
 
         <div class="hero-premium-badge">
-            <i class="fas fa-map-marker-alt"></i> Ihr Immobilienmakler · Rhein-Main-Gebiet
+            <i class="fas fa-map-marker-alt"></i> Immobilienmakler · Rhein-Main
         </div>
 
         <h1>
-            Ihre Immobilie.<br>
-            <span style="color:#93c5fd">Unser Versprechen.</span>
+            Ihre Immobilie. <span style="color:#93c5fd">Unser Versprechen.</span>
         </h1>
         <!-- Search Box -->
         <form class="hero-search-box" action="<?= BASE ?>/immobilien-angebote" method="GET">
@@ -99,29 +98,24 @@ require_once __DIR__ . '/includes/header.php';
             <a href="<?= BASE ?>/immobilienbewertung" class="btn-hero-primary">
                 <i class="fas fa-calculator"></i> Kostenlose Bewertung
             </a>
-            <button class="btn-hero-secondary" id="heroPlayBtn">
-                <span style="width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,0.18);display:flex;align-items:center;justify-content:center;"><i class="fas fa-play" style="font-size:.8rem;margin-left:2px"></i></span>
-                Video ansehen
+            <button class="btn-hero-secondary" id="heroPlayBtn" type="button">
+                <i class="fas fa-play"></i> Video ansehen
             </button>
         </div>
 
-        <!-- Stats Strip -->
+        <!-- Trust Strip -->
         <div class="hero-stats-strip">
+            <a class="hero-stat hero-stat-google" href="#bewertungen" aria-label="Google-Rezensionen ansehen">
+                <span class="hero-stat-stars" aria-hidden="true">★★★★★</span>
+                <span class="hero-stat-label"><strong>20+</strong> Google-Rezensionen</span>
+            </a>
             <div class="hero-stat">
-                <div class="hero-stat-num" data-count="500" data-suffix="+">500+</div>
-                <div class="hero-stat-label">Vermittelte Objekte</div>
+                <span class="hero-stat-num" data-count="500" data-suffix="+">500+</span>
+                <span class="hero-stat-label">Objekte vermittelt</span>
             </div>
-            <div class="hero-stat" style="border-left:1px solid rgba(255,255,255,0.2);padding-left:1.5rem">
-                <div class="hero-stat-num" data-count="4.9" data-dec="1" data-suffix="&#9733;">4.9&#9733;</div>
-                <div class="hero-stat-label">Google Bewertung</div>
-            </div>
-            <div class="hero-stat" style="border-left:1px solid rgba(255,255,255,0.2);padding-left:1.5rem">
-                <div class="hero-stat-num" data-count="10" data-suffix="+">10+</div>
-                <div class="hero-stat-label">Jahre Erfahrung</div>
-            </div>
-            <div class="hero-stat" style="border-left:1px solid rgba(255,255,255,0.2);padding-left:1.5rem">
-                <div class="hero-stat-num" data-count="6" data-suffix="">6</div>
-                <div class="hero-stat-label">Regionen</div>
+            <div class="hero-stat">
+                <span class="hero-stat-num" data-count="10" data-suffix="+">10+</span>
+                <span class="hero-stat-label">Jahre Erfahrung</span>
             </div>
         </div>
 
@@ -674,165 +668,57 @@ require_once __DIR__ . '/includes/header.php';
      ═══════════════════════════════════════════════════════ -->
 <!-- Google Reviews styles → premium.css -->
 
+<?php $googleReviews = require __DIR__ . '/includes/google-reviews.php'; ?>
 <section class="google-reviews-section testimonials-section" id="bewertungen">
     <div class="container">
         <div class="section-header-center reveal" style="text-align:center">
             <span class="section-tag">Kundenstimmen</span>
             <h2 class="section-heading">Was unsere <span class="accent">Kunden sagen</span></h2>
             <div class="divider-gold centered"></div>
-            <p class="section-subheading">Echte Bewertungen von echten Kunden – direkt von Google.</p>
+            <p class="section-subheading">Echte Rezensionen unserer Kunden – direkt von Google.</p>
 
-            <!-- Aggregate Rating Badge -->
             <div style="display:flex;justify-content:center;margin-top:1.2rem;">
-                <div class="google-aggregate-badge reveal">
+                <a class="google-aggregate-badge reveal" href="<?= GOOGLE_REVIEWS_URL ?>" target="_blank" rel="noopener noreferrer" style="text-decoration:none">
                     <span class="g-logo" aria-hidden="true">G</span>
-                    <span class="agg-score">4,9</span>
                     <div>
-                        <div class="agg-stars">★★★★★</div>
-                        <div class="agg-count">Google-Bewertungen</div>
+                        <div class="agg-stars" aria-hidden="true">★★★★★</div>
+                        <div class="agg-count"><?= GOOGLE_REVIEWS_COUNT_LABEL ?> Google-Rezensionen · alle ansehen</div>
                     </div>
-                </div>
+                </a>
             </div>
         </div>
 
         <div class="reviews-slider-wrapper reveal">
             <div class="reviews-track" id="reviewsTrack">
 
-                <!-- Review 1 -->
-                <div class="review-card">
-                    <div class="review-card-header">
-                        <div class="review-avatar">M</div>
-                        <div class="review-meta">
-                            <div class="review-name">Markus R.</div>
-                            <div class="review-date">vor 2 Monaten · Bad Vilbel</div>
+                <?php foreach ($googleReviews as $rv): ?>
+                    <article class="review-card">
+                        <div class="review-card-header">
+                            <div class="review-avatar"><?= htmlspecialchars(mb_strtoupper(mb_substr($rv['name'], 0, 1)), ENT_QUOTES) ?></div>
+                            <div class="review-meta">
+                                <div class="review-name"><?= htmlspecialchars($rv['name'], ENT_QUOTES) ?></div>
+                                <div class="review-date">Google-Rezension</div>
+                            </div>
+                            <div class="review-google-badge">
+                                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                    <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
+                                    <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
+                                    <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05" />
+                                    <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
+                                </svg>
+                                Google
+                            </div>
                         </div>
-                        <div class="review-google-badge">
-                            <svg viewBox="0 0 24 24" fill="#4285F4" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                                <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
-                                <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05" />
-                                <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
-                            </svg>
-                            Google
-                        </div>
-                    </div>
-                    <div class="review-stars">★★★★★</div>
-                    <p class="review-text">„Herr Ghumman hat uns bei der Vermietung unserer Wohnung in Bad Vilbel <mark>hervorragend beraten</mark>. Die Abwicklung war <mark class="blue">extrem schnell</mark> und unkompliziert – absolut empfehlenswert!"</p>
-                </div>
-
-                <!-- Review 2 -->
-                <div class="review-card">
-                    <div class="review-card-header">
-                        <div class="review-avatar couple">S</div>
-                        <div class="review-meta">
-                            <div class="review-name">Sabine &amp; Thomas K.</div>
-                            <div class="review-date">vor 3 Monaten · Karben</div>
-                        </div>
-                        <div class="review-google-badge">
-                            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
-                                <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
-                                <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05" />
-                                <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
-                            </svg>
-                            Google
-                        </div>
-                    </div>
-                    <div class="review-stars">★★★★★</div>
-                    <p class="review-text">„<mark>Hochprofessionell und zuverlässig</mark>. Dank Immobilien Ghumman haben wir unsere Traumwohnung in Karben gefunden – der gesamte Prozess verlief <mark class="blue">stressfrei</mark> und transparent."</p>
-                </div>
-
-                <!-- Review 3 -->
-                <div class="review-card">
-                    <div class="review-card-header">
-                        <div class="review-avatar female">Y</div>
-                        <div class="review-meta">
-                            <div class="review-name">Familie Yilmaz</div>
-                            <div class="review-date">vor 5 Monaten · Usingen</div>
-                        </div>
-                        <div class="review-google-badge">
-                            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
-                                <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
-                                <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05" />
-                                <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
-                            </svg>
-                            Google
-                        </div>
-                    </div>
-                    <div class="review-stars">★★★★★</div>
-                    <p class="review-text">„Die Hausverwaltung läuft <mark class="blue">reibungslos</mark>. Alle Anliegen werden schnell bearbeitet und wir fühlen uns als Eigentümer <mark>bestens betreut</mark>. Sehr zu empfehlen!"</p>
-                </div>
-
-                <!-- Review 4 -->
-                <div class="review-card">
-                    <div class="review-card-header">
-                        <div class="review-avatar" style="background:linear-gradient(135deg,#d97706,#f59e0b)">A</div>
-                        <div class="review-meta">
-                            <div class="review-name">Andreas W.</div>
-                            <div class="review-date">vor 1 Monat · Frankfurt</div>
-                        </div>
-                        <div class="review-google-badge">
-                            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
-                                <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
-                                <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05" />
-                                <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
-                            </svg>
-                            Google
-                        </div>
-                    </div>
-                    <div class="review-stars">★★★★★</div>
-                    <p class="review-text">„<mark>Sehr kompetente Beratung</mark> beim Immobilienkauf. Herr Ghumman kannte den Markt genau und hat uns vor einem überteuerten Kauf bewahrt. Ein echter Profi!"</p>
-                </div>
-
-                <!-- Review 5 -->
-                <div class="review-card">
-                    <div class="review-card-header">
-                        <div class="review-avatar female" style="background:linear-gradient(135deg,#0891b2,#06b6d4)">L</div>
-                        <div class="review-meta">
-                            <div class="review-name">Laura M.</div>
-                            <div class="review-date">vor 4 Monaten · Bad Homburg</div>
-                        </div>
-                        <div class="review-google-badge">
-                            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
-                                <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
-                                <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05" />
-                                <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
-                            </svg>
-                            Google
-                        </div>
-                    </div>
-                    <div class="review-stars">★★★★★</div>
-                    <p class="review-text">„Die Nebenkostenabrechnung und Verwaltung meiner Wohnung läuft seit über 2 Jahren problemlos. <mark>Sehr empfehlenswert</mark> – immer erreichbar und <mark class="blue">schnelle Reaktionszeiten</mark>."</p>
-                </div>
-
-                <!-- Review 6 – Negative with company response -->
-                <div class="review-card negative-review">
-                    <div class="review-card-header">
-                        <div class="review-avatar" style="background:linear-gradient(135deg,#6b7280,#9ca3af)">R</div>
-                        <div class="review-meta">
-                            <div class="review-name">Robert S.</div>
-                            <div class="review-date">vor 7 Monaten · Friedberg</div>
-                        </div>
-                        <div class="review-google-badge">
-                            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
-                                <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
-                                <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05" />
-                                <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
-                            </svg>
-                            Google
-                        </div>
-                    </div>
-                    <div class="review-stars">★★★☆☆</div>
-                    <p class="review-text">„Die Beratung war grundsätzlich gut, jedoch hätte ich mir eine schnellere Rückmeldung bei einer dringenden Reparaturanfrage gewünscht."</p>
-                    <div class="company-response">
-                        <strong>Antwort von Immobilien Ghumman</strong>
-                        Vielen Dank für Ihr ehrliches Feedback, Herr S. Sie haben Recht – in diesem Fall haben wir die Reaktionszeit nicht erfüllt, die wir uns selbst setzen. Wir haben intern Anpassungen vorgenommen. Gerne würden wir persönlich mit Ihnen sprechen.
-                    </div>
-                </div>
+                        <div class="review-stars" aria-label="5 von 5 Sternen">★★★★★</div>
+                        <p class="review-text">„<?= htmlspecialchars($rv['text'], ENT_QUOTES) ?>“</p>
+                        <?php if (!empty($rv['reply'])): ?>
+                            <div class="company-response">
+                                <strong>Antwort von Immobilien Ghumman</strong>
+                                <?= htmlspecialchars($rv['reply'], ENT_QUOTES) ?>
+                            </div>
+                        <?php endif; ?>
+                    </article>
+                <?php endforeach; ?>
 
             </div><!-- /reviews-track -->
         </div><!-- /reviews-slider-wrapper -->

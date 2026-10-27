@@ -29,7 +29,7 @@ require_once __DIR__ . '/includes/header.php';
             <div class="analyser-trust-item"><i class="fas fa-shield-alt"></i> 100% kostenlos &amp; unverbindlich</div>
             <div class="analyser-trust-item"><i class="fas fa-lock"></i> DSGVO-konform &amp; sicher</div>
             <div class="analyser-trust-item"><i class="fas fa-clock"></i> Antwort in 24 Stunden</div>
-            <div class="analyser-trust-item"><i class="fas fa-star"></i> 4.9/5 Google-Bewertung</div>
+            <div class="analyser-trust-item"><i class="fas fa-star"></i> 20+ Google-Rezensionen</div>
         </div>
     </div>
 </div>

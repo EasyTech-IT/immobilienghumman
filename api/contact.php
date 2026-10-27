@@ -12,6 +12,7 @@
 require_once __DIR__ . '/../includes/config.php';
 require_once __DIR__ . '/../includes/db.php';
 require_once __DIR__ . '/auth_helper.php';
+require_once __DIR__ . '/../includes/inquiry-mail.php';
 
 header('Content-Type: application/json; charset=utf-8');
 // CORS: nur eigene Domain erlaubt
@@ -169,10 +170,20 @@ if (in_array($action, ['inquiry', 'general']) && $method === 'POST') {
         'condition',
         'analysis_type'
     ];
+    $extraLabels = [
+        'art' => 'Art', 'einheiten' => 'Einheiten', 'adresse' => 'Adresse', 'anlass' => 'Anlass',
+        'kreditbetrag' => 'Kreditbetrag', 'budget' => 'Budget', 'immobilientyp' => 'Immobilientyp',
+        'wohnflaeche' => 'Wohnfläche', 'baujahr' => 'Baujahr', 'kaufpreis' => 'Kaufpreis',
+        'standort' => 'Standort', 'property_type' => 'Objektart', 'address' => 'Adresse',
+        'area' => 'Fläche', 'year_built' => 'Baujahr', 'rooms' => 'Zimmer',
+        'condition' => 'Zustand', 'analysis_type' => 'Analyseart',
+    ];
     $extraInfo = '';
+    $extraRows = [];
     foreach ($extraFields as $field) {
-        if (!empty($data[$field])) {
+        if (!empty($data[$field]) && is_scalar($data[$field])) {
             $extraInfo .= ucfirst($field) . ': ' . $data[$field] . "\n";
+            $extraRows[$extraLabels[$field] ?? ucfirst($field)] = (string)$data[$field];
         }
     }
 
@@ -263,7 +274,15 @@ if (in_array($action, ['inquiry', 'general']) && $method === 'POST') {
         @flush();
     }
 
-    $adminSent = app_mail_text(MAIL_TO, $subject, $mailBody, $email);
+    $adminHtml = build_inquiry_email_html([
+        'name' => $name, 'email' => $email, 'phone' => $phone,
+        'subject' => $subjectInput !== '' ? $subjectInput : ($formType ?: 'Allgemeine Kontaktanfrage'),
+        'form_type' => $formType ?: 'Kontaktanfrage',
+        'message' => $message, 'created_at' => date('d.m.Y H:i', strtotime($createdAt)),
+        'property_id' => $propId, 'property_title' => $propertyTitle, 'property_url' => $propertyUrl,
+        'rows' => $extraRows,
+    ]);
+    $adminSent = mailer_send(MAIL_TO, $subject, $mailBody, $adminHtml, $email);
     if (!$adminSent) {
         error_log('Contact mail (admin) konnte nicht gesendet werden.');
     }
