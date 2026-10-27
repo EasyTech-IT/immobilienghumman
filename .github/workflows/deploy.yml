@@ -45,8 +45,10 @@ jobs:
           SFTP_REMOTE_PATH: ${{ secrets.SFTP_REMOTE_PATH }}
         run: |
           sudo apt-get install -y lftp >/dev/null
+          # Gepinnter Host-Key (ssh-ed25519) des IONOS-Servers
+          echo "$SFTP_SERVER ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINbBMvvDjN4IP04VAZlDH42A+HL25ifeIK9CorAvaMA/" > "$RUNNER_TEMP/known_hosts"
           lftp -u "$SFTP_USERNAME","$SFTP_PASSWORD" -p 22 "sftp://$SFTP_SERVER" <<EOF
-          set sftp:auto-confirm yes
+          set sftp:connect-program "ssh -a -x -o StrictHostKeyChecking=yes -o HostKeyAlgorithms=ssh-ed25519 -o UserKnownHostsFile=$RUNNER_TEMP/known_hosts"
           set net:max-retries 2
           set cmd:fail-exit yes
           mirror -R --verbose=1 --parallel=4 ./_deploy "$SFTP_REMOTE_PATH"
