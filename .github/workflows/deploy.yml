@@ -11,6 +11,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Check secrets
+        env:
+          S: ${{ secrets.SFTP_SERVER }}
+          U: ${{ secrets.SFTP_USERNAME }}
+          P: ${{ secrets.SFTP_PASSWORD }}
+          R: ${{ secrets.SFTP_REMOTE_PATH }}
+        run: |
+          for v in S U P R; do
+            if [ -z "${!v}" ]; then echo "::error::Secret fehlt oder leer (S=SFTP_SERVER, U=SFTP_USERNAME, P=SFTP_PASSWORD, R=SFTP_REMOTE_PATH): $v"; fail=1; fi
+          done
+          [ -z "$fail" ]
+
       # Nur die Dateien bereitstellen, die auf den Server gehören
       - name: Prepare deploy folder
         run: |
