@@ -62,6 +62,9 @@ async function loadPropertyDetails() {
  * Display property details on the page
  */
 function displayProperty(property) {
+    // Restore hero markup before filling it
+    hideLoading();
+
     const locationName = property.location || property.city || 'Unbekannt';
 
     // Update page title
@@ -860,18 +863,25 @@ function getTypeLabel(type) {
 /**
  * Show loading state
  */
+let heroOriginalHtml = null;
+
 function showLoading() {
     const heroSection = document.querySelector('.property-hero .container');
     if (heroSection) {
+        heroOriginalHtml = heroSection.innerHTML;
         heroSection.innerHTML = '<div class="loading-message">Immobilie wird geladen...</div>';
     }
 }
 
 /**
- * Hide loading state
+ * Hide loading state – restores the hero markup that showLoading() replaced
  */
 function hideLoading() {
-    // Loading message will be replaced by actual content
+    const heroSection = document.querySelector('.property-hero .container');
+    if (heroSection && heroOriginalHtml !== null) {
+        heroSection.innerHTML = heroOriginalHtml;
+        heroOriginalHtml = null;
+    }
 }
 
 /**
