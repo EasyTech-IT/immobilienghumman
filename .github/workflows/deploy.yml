@@ -1,0 +1,37 @@
+name: Deploy to IONOS (SFTP)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Nur die Dateien bereitstellen, die auf den Server gehören
+      - name: Prepare deploy folder
+        run: |
+          mkdir _deploy
+          rsync -a ./ _deploy/ \
+            --exclude '.git' \
+            --exclude '.github' \
+            --exclude '_deploy' \
+            --exclude '*.md' \
+            --exclude 'gitignore.txt' \
+            --exclude 'htaccess.txt' \
+            --exclude 'uploads' \
+            --exclude 'database'
+
+      - name: Upload via SFTP
+        uses: wlixcc/SFTP-Deploy-Action@v1.2.4
+        with:
+          server: ${{ secrets.SFTP_SERVER }}
+          port: 22
+          username: ${{ secrets.SFTP_USERNAME }}
+          password: ${{ secrets.SFTP_PASSWORD }}
+          sftp_only: true
+          local_path: './_deploy/*'
+          remote_path: ${{ secrets.SFTP_REMOTE_PATH }}
