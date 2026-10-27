@@ -87,7 +87,7 @@ require_once __DIR__ . '/includes/header.php';
                 <option value="Gewerbe">Gewerbe</option>
                 <option value="Grundstück">Grundstück</option>
             </select>
-            <input type="text" name="location" placeholder="Stadt, PLZ oder Region ..." aria-label="Standort">
+            <input type="text" name="location" placeholder="Ort oder PLZ" aria-label="Standort">
             <button type="submit" class="hero-search-btn">
                 <i class="fas fa-search"></i> Suchen
             </button>

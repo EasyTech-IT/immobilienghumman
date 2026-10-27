@@ -4188,3 +4188,14 @@ html, body {
   .hero-stats-strip .hero-stat { flex: 0 0 auto; }
   .btn-hero-secondary { width: auto; }
 }
+
+/* Fixe Navigation nicht überdecken lassen + ruhige Vertrauensleiste */
+.hero-premium { padding-top: clamp(7.5rem, 11vw, 9rem); padding-bottom: clamp(2.5rem, 5vw, 3.5rem); }
+.hero-stats-strip .hero-stat-num { font-size: 1.05rem; font-weight: 700; }
+.hero-stat-google { gap: 8px !important; padding: 7px 16px !important; }
+.hero-stat-google .hero-stat-stars { font-size: 1rem; letter-spacing: 2px; }
+.hero-stat-google .hero-stat-label strong { font-size: 1.05rem; font-weight: 700; }
+.hero-stat-google .hero-stat-label { display: inline; font-size: 0.9rem; }
+@media (max-width: 900px) {
+  .hero-premium { padding-top: 6.5rem; padding-bottom: 2rem; }
+}
