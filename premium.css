@@ -453,16 +453,13 @@
 }
 .hero-trust-badges img {
   display: block;
-  width: clamp(100px, 13vw, 150px);
-  height: clamp(100px, 13vw, 150px);
+  width: clamp(72px, 9vw, 105px);
+  height: clamp(72px, 9vw, 105px);
   object-fit: contain;
-  background: #fff;
-  border-radius: 12px;
-  padding: .35rem;
 }
 @media (max-width: 420px) {
   .hero-trust-badges { gap: .5rem; }
-  .hero-trust-badges img { width: 90px; height: 90px; }
+  .hero-trust-badges img { width: 70px; height: 70px; }
 }
 .hero-stats-strip {
   display: flex;
