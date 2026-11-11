@@ -1,0 +1,102 @@
+* { box-sizing: border-box; }
+body {
+    margin: 0;
+    background: #e9edf2;
+    color: #172332;
+    font: 15px/1.55 Arial, sans-serif;
+}
+.expose-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: .75rem 1.5rem;
+    padding: 1rem;
+    background: #102b46;
+}
+.expose-toolbar a { color: #fff; }
+.expose-toolbar button {
+    border: 0;
+    border-radius: 4px;
+    padding: .8rem 1rem;
+    background: #fff;
+    color: #102b46;
+    font: inherit;
+    font-weight: bold;
+    cursor: pointer;
+}
+.expose-toolbar a:focus-visible, .expose-toolbar button:focus-visible,
+.expose-document a:focus-visible { outline: 3px solid #d88d29; outline-offset: 3px; }
+.expose-document {
+    width: min(100% - 2rem, 210mm);
+    min-height: 260mm;
+    margin: 1.5rem auto;
+    padding: 18mm 20mm;
+    background: #fff;
+    box-shadow: 0 8px 30px rgba(16, 43, 70, .12);
+}
+.expose-header { display: flex; justify-content: space-between; align-items: flex-end; gap: 1rem; }
+.expose-sender { font-size: .68rem; font-weight: bold; }
+.expose-brand { width: 140px; flex: none; font-size: .68rem; line-height: 1.3; }
+.expose-brand img { display: block; width: 120px; max-height: 90px; object-fit: contain; margin-bottom: .35rem; }
+.expose-date { margin: 2rem 0 1rem; text-align: right; font-size: .85rem; }
+.expose-reference { color: #315777; font-size: .85rem; font-weight: bold; }
+h1 { margin: .25rem 0 1rem; color: #102b46; font-size: 1.6rem; line-height: 1.2; }
+h2 { color: #102b46; font-size: 1rem; }
+.expose-facts { margin: 1.5rem 0; font-size: .9rem; }
+.expose-facts div { display: grid; grid-template-columns: minmax(115px, 30%) 1fr; gap: .75rem; padding: .25rem 0; }
+.expose-facts dt { font-weight: bold; overflow-wrap: anywhere; }
+.expose-facts dd { margin: 0; overflow-wrap: anywhere; }
+.expose-text { display: grid; grid-template-columns: minmax(115px, 20%) 1fr; gap: .75rem; margin: 1.5rem 0; }
+.expose-text h2, .expose-text p, .expose-text ul { margin: 0; }
+.expose-text p + p { margin-top: .8rem; }
+.expose-text ul { padding-left: 1.2rem; }
+.expose-text .expose-attachment-note { margin-top: .5rem; font-size: .85rem; }
+.expose-document a { color: #174e7a; }
+.expose-contact { margin-top: 2rem; }
+.expose-gallery { margin-top: 2.5rem; }
+.expose-gallery h2 { margin-bottom: 1rem; }
+.expose-gallery figure { max-width: 520px; margin: 1.5rem auto; text-align: center; break-inside: avoid; }
+.expose-gallery img { display: block; width: 100%; max-height: 360px; object-fit: contain; }
+.expose-gallery figcaption { margin-top: .4rem; font-size: .85rem; }
+.expose-footer { padding: 0 1rem 2rem; text-align: center; font-size: .7rem; }
+@media screen {
+    body { display: flex; flex-direction: column; }
+    .expose-toolbar { order: 0; }
+    .expose-document { order: 1; }
+    .expose-footer { order: 2; }
+}
+@media (max-width: 600px) {
+    .expose-document { width: 100%; min-height: 0; margin: 0; padding: 1.5rem; box-shadow: none; }
+    .expose-header { align-items: flex-start; }
+    .expose-brand { width: 105px; }
+    .expose-brand img { width: 100px; }
+    .expose-text { display: block; }
+    .expose-text h2 { margin-bottom: .5rem; }
+    .expose-facts div { grid-template-columns: minmax(105px, 38%) 1fr; }
+    .expose-footer { padding-top: 1.5rem; background: #fff; }
+}
+@page {
+    size: A4;
+    margin: 16mm 20mm 20mm;
+    @bottom-left {
+        content: "Immobilien Ghumman | Nasir Ghumman | Homburger Straße 100, 61118 Bad Vilbel\A Tel. 0160 9878 7878 | immobilienghumman.de | info@immobilienghumman.de";
+        white-space: pre-wrap;
+        font: 7pt/1.4 Arial, sans-serif;
+    }
+}
+@media print {
+    body { background: #fff; color: #000; font-size: 10pt; }
+    .expose-toolbar { display: none; }
+    .expose-document { width: auto; min-height: 0; margin: 0; padding: 0; box-shadow: none; }
+    .expose-brand img { max-height: 70px; }
+    .expose-date { margin-top: 1.5rem; }
+    .expose-facts { margin: 1rem 0; }
+    .expose-facts div { padding: .1rem 0; }
+    .expose-text { margin: 1rem 0; }
+    .expose-gallery { break-before: page; margin: 0; }
+    .expose-gallery figure { max-width: 135mm; margin: 0 auto 6mm; break-inside: avoid; }
+    .expose-gallery img { max-height: 100mm; }
+    .expose-document a { color: inherit; text-decoration: none; }
+    .expose-footer { display: none; }
+}

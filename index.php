@@ -119,6 +119,12 @@ require_once __DIR__ . '/includes/header.php';
             </div>
         </div>
 
+        <div class="hero-trust-badges" aria-label="Auszeichnungen und Empfehlungssiegel">
+            <img src="<?= BASE ?>/assets/trust/wer-kennt-den-besten.png" alt="Wer kennt den Besten: Sehr gut">
+            <img src="<?= BASE ?>/assets/trust/empfehlungssiegel.png" alt="Trustsiegel.de: 100 Prozent Empfehlungen">
+            <img src="<?= BASE ?>/assets/trust/cylex-trusted.webp" alt="Cylex Trusted">
+        </div>
+
     </div>
 </section>
 

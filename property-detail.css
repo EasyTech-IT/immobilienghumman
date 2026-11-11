@@ -96,11 +96,12 @@ body { background: #f4f6f9; }
 .pd-grid .price-label { font-size: .75rem; text-transform: uppercase; letter-spacing: .05em; color: #6b7280; }
 .pd-grid .property-price { font-size: 1.9rem; font-weight: 800; color: #111827; line-height: 1.15; margin: .15rem 0 .8rem; }
 .pd-toolbar { display: flex; gap: .4rem; }
-.pd-toolbar button {
+.pd-toolbar button, .pd-toolbar .pd-expose-link {
     flex: 1; padding: .5rem .3rem; border: 1px solid #e5e7eb; background: #fff; border-radius: 10px;
     font-size: .8rem; color: #374151; cursor: pointer; transition: background .15s, border-color .15s;
+    text-align: center; text-decoration: none;
 }
-.pd-toolbar button:hover { background: #f3f4f6; }
+.pd-toolbar button:hover, .pd-toolbar .pd-expose-link:hover { background: #f3f4f6; }
 .pd-toolbar .fav-active { color: #dc2626; border-color: #fecaca; background: #fef2f2; }
 .pd-grid .contact-agent { display: flex; align-items: center; gap: .75rem; margin-bottom: .9rem; }
 .pd-grid .agent-avatar { width: 48px; height: 48px; border-radius: 50%; background: #f3f4f6; padding: 4px; object-fit: contain; }

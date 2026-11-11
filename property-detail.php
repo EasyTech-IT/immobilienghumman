@@ -462,7 +462,7 @@ require_once __DIR__ . '/includes/header.php';
                 <button type="button" class="fav-btn" id="detail-fav-btn" data-fav-id="" aria-label="Merken">
                     <i class="far fa-heart"></i> Merken
                 </button>
-                <button type="button" onclick="window.print()"><i class="fas fa-print"></i> Exposé</button>
+                <a class="pd-expose-link" href="<?= BASE ?>/expose.php?<?= $slugParam !== '' ? 'slug=' . rawurlencode($slugParam) : 'id=' . $idParam ?>"><i class="fas fa-file-alt"></i> Exposé</a>
                 <button type="button" id="pd-share"><i class="fas fa-share-alt"></i> Teilen</button>
             </div>
         </div>

@@ -443,6 +443,27 @@
 }
 
 /* Hero Stats */
+.hero-trust-badges {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: clamp(.65rem, 2vw, 1.25rem);
+  margin: 1.4rem auto 0;
+}
+.hero-trust-badges img {
+  display: block;
+  width: clamp(100px, 13vw, 150px);
+  height: clamp(100px, 13vw, 150px);
+  object-fit: contain;
+  background: #fff;
+  border-radius: 12px;
+  padding: .35rem;
+}
+@media (max-width: 420px) {
+  .hero-trust-badges { gap: .5rem; }
+  .hero-trust-badges img { width: 90px; height: 90px; }
+}
 .hero-stats-strip {
   display: flex;
   flex-wrap: wrap;
