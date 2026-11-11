@@ -73,6 +73,7 @@ require_once __DIR__ . '/includes/header.php';
         <h1>
             Ihre Immobilie. <span>Unser Versprechen.</span>
         </h1>
+        <p class="hero-lead">Persönliche Beratung, faire Bewertung und diskrete Vermarktung im Rhein-Main-Gebiet.</p>
         <!-- CTA Buttons -->
         <div class="hero-btn-group">
             <a href="<?= BASE ?>/immobilienbewertung" class="btn-hero-primary">
