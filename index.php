@@ -519,6 +519,7 @@ require_once __DIR__ . '/includes/header.php';
             if (grid.getAttribute('data-server-rendered') === '1' && grid.querySelector('.featured-card')) {
                 return;
             }
+            grid.innerHTML = '<div class="skeleton-card" aria-hidden="true"><div class="skeleton skeleton-img"></div><div class="skeleton-body"><div class="skeleton skeleton-line w-80"></div><div class="skeleton skeleton-line w-60"></div></div></div>'.repeat(3);
 
             var props = [];
             var fallbackMode = 'none';

@@ -61,17 +61,17 @@ require_once __DIR__ . '/includes/header.php';
                     <div class="form-row">
                         <div class="form-group">
                             <label for="name">Name *</label>
-                            <input type="text" id="name" name="name" placeholder="Ihr vollstaendiger Name" required>
+                            <input type="text" id="name" name="name" autocomplete="name" placeholder="Ihr vollstaendiger Name" required>
                         </div>
                         <div class="form-group">
                             <label for="email">E-Mail *</label>
-                            <input type="email" id="email" name="email" placeholder="ihre@email.de" required>
+                            <input type="email" id="email" name="email" autocomplete="email" placeholder="ihre@email.de" required>
                         </div>
                     </div>
                     <div class="form-row">
                         <div class="form-group">
                             <label for="phone">Telefon</label>
-                            <input type="tel" id="phone" name="phone" placeholder="+49 160 ...">
+                            <input type="tel" id="phone" name="phone" autocomplete="tel" placeholder="+49 160 ...">
                         </div>
                         <div class="form-group">
                             <label for="property_type">Objektart *</label>
@@ -89,7 +89,7 @@ require_once __DIR__ . '/includes/header.php';
                     </div>
                     <div class="form-group">
                         <label for="address">Adresse der Immobilie *</label>
-                        <input type="text" id="address" name="address" placeholder="Strasse, Hausnummer, PLZ, Ort" required>
+                        <input type="text" id="address" name="address" autocomplete="street-address" placeholder="Strasse, Hausnummer, PLZ, Ort" required>
                     </div>
                     <div class="form-row">
                         <div class="form-group">

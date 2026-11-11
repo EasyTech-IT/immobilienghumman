@@ -360,3 +360,17 @@ window.toggleFAQ = function (btn) {
     }
     if (!isOpen) { item.classList.add('active'); }
 };
+
+/* Formular-Rückmeldungen: Screenreader-Ansage und Sichtbarkeit nach dem Absenden */
+(function () {
+    var sel = '#formMessage, #kapitalMsg, #finanzierungsMeldung, #hwMeldung, [id$="Meldung"], .form-message, .form-success';
+    document.querySelectorAll(sel).forEach(function (box) {
+        box.setAttribute('role', 'status');
+        box.setAttribute('aria-live', 'polite');
+        new MutationObserver(function () {
+            if (box.offsetParent !== null && box.textContent.trim()) {
+                box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }).observe(box, { childList: true, characterData: true, subtree: true, attributes: true, attributeFilter: ['style'] });
+    });
+})();

@@ -187,11 +187,11 @@ require_once __DIR__ . '/includes/header.php';
             <div class="form-row">
                 <div class="form-group">
                     <label for="k_name">Name *</label>
-                    <input type="text" id="k_name" name="name" placeholder="Ihr Name" required>
+                    <input type="text" id="k_name" name="name" autocomplete="name" placeholder="Ihr Name" required>
                 </div>
                 <div class="form-group">
                     <label for="k_email">E-Mail *</label>
-                    <input type="email" id="k_email" name="email" placeholder="ihre@email.de" required>
+                    <input type="email" id="k_email" name="email" autocomplete="email" placeholder="ihre@email.de" required>
                 </div>
             </div>
             <div class="form-row">

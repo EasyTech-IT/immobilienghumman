@@ -4165,3 +4165,12 @@ a:focus-visible, button:focus-visible, summary:focus-visible, [tabindex]:focus-v
 .reviews-dot { position: relative; }
 .reviews-dot::after { content: ""; position: absolute; inset: -18px -3px; }
 .faq-tab, .faq-acc-trigger { min-height: 44px; }
+/* UX-Checkliste: einheitliche Regeln für alle Seiten */
+.sticky-cta-bar { padding-bottom: calc(0.65rem + env(safe-area-inset-bottom)); }
+.sticky-cta-bar a { min-height: 44px; padding: 0; background: transparent; border: 1.5px solid rgba(255,255,255,0.35); color: #fff; }
+.sticky-cta-bar a:active, .btn:active, button:active { transform: scale(0.98); }
+.sticky-cta-bar .scta-eval { flex: 1.4; background: var(--accent); border-color: var(--accent); }
+.sticky-cta-bar .scta-call, .sticky-cta-bar .scta-wa { background: transparent; }
+input:not([type=hidden]):not([type=checkbox]):not([type=range]), select, textarea { min-height: 44px; }
+input[type=checkbox] { width: 24px; height: 24px; }
+input:user-invalid, select:user-invalid, textarea:user-invalid { border-color: #c0392b !important; }

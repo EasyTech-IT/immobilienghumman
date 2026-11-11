@@ -227,12 +227,12 @@ require_once __DIR__ . '/includes/header.php';
             <input type="hidden" name="form_type" value="finanzierung">
             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(generate_csrf_token(), ENT_QUOTES) ?>">
             <div class="form-row">
-                <div class="form-group"><label>Vorname *</label><input type="text" name="vorname" placeholder="Max" required></div>
-                <div class="form-group"><label>Nachname *</label><input type="text" name="nachname" placeholder="Mustermann" required></div>
+                <div class="form-group"><label>Vorname *</label><input type="text" name="vorname" autocomplete="given-name" placeholder="Max" required></div>
+                <div class="form-group"><label>Nachname *</label><input type="text" name="nachname" autocomplete="family-name" placeholder="Mustermann" required></div>
             </div>
             <div class="form-row">
-                <div class="form-group"><label>E-Mail *</label><input type="email" name="email" placeholder="max@beispiel.de" required></div>
-                <div class="form-group"><label>Telefon *</label><input type="tel" name="phone" placeholder="+49 160 1234567" required></div>
+                <div class="form-group"><label>E-Mail *</label><input type="email" name="email" autocomplete="email" placeholder="max@beispiel.de" required></div>
+                <div class="form-group"><label>Telefon *</label><input type="tel" name="phone" autocomplete="tel" placeholder="+49 160 1234567" required></div>
             </div>
             <div class="form-row">
                 <div class="form-group">

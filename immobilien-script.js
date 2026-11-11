@@ -254,7 +254,7 @@ async function loadSampleProperties() {
     if (!propertiesGrid) return;
 
     // Show loading state
-    propertiesGrid.innerHTML = '<div class="loading-message">Immobilien werden geladen...</div>';
+    propertiesGrid.innerHTML = '<div class="skeleton-card" aria-hidden="true"><div class="skeleton skeleton-img"></div><div class="skeleton-body"><div class="skeleton skeleton-line w-80"></div><div class="skeleton skeleton-line w-60"></div></div></div>'.repeat(3);
 
     let properties = [];
 
