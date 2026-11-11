@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 require_once __DIR__ . '/includes/config.php';
 require_once __DIR__ . '/includes/db.php';
 
@@ -62,51 +62,85 @@ require_once __DIR__ . '/includes/header.php';
 <!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
      HERO – Premium Fullscreen
      â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
-<section class="hero-premium" id="home">
-    <canvas id="heroParticles" aria-hidden="true"></canvas>
-    <div class="hero-premium-inner animate-fadeInUp">
-
-        <div class="hero-premium-badge">
-            <i class="fas fa-map-marker-alt"></i> Immobilienmakler · Rhein-Main
-        </div>
-
-        <h1>
-            Ihre Immobilie. <span>Unser Versprechen.</span>
-        </h1>
-        <p class="hero-lead">Persönliche Beratung, faire Bewertung und diskrete Vermarktung im Rhein-Main-Gebiet.</p>
-        <!-- CTA Buttons -->
-        <div class="hero-btn-group">
-            <a href="<?= BASE ?>/immobilienbewertung" class="btn-hero-primary">
-                <i class="fas fa-calculator"></i> Kostenlose Bewertung
-            </a>
-            <button class="btn-hero-secondary" id="heroPlayBtn" type="button">
-                <i class="fas fa-play"></i> Video ansehen
-            </button>
-        </div>
-
-        <!-- Trust Strip -->
-        <div class="hero-stats-strip">
-            <a class="hero-stat hero-stat-google" href="#bewertungen" aria-label="Google-Rezensionen ansehen">
-                <span class="hero-stat-stars" aria-hidden="true">★★★★★</span>
-                <span class="hero-stat-label"><strong>20+</strong> Google-Rezensionen</span>
-            </a>
-            <div class="hero-stat">
-                <span class="hero-stat-num" data-count="500" data-suffix="+">500+</span>
-                <span class="hero-stat-label">Objekte vermittelt</span>
+<section class="hx" id="home">
+    <div class="hx-wrap">
+        <div class="hx-copy">
+            <p class="hx-eyebrow">Immobilienmakler · Rhein-Main</p>
+            <h1 class="hx-title">Ihre Immobilie.<span>Unser Versprechen.</span></h1>
+            <p class="hx-lead">Persönliche Beratung, faire Bewertung und diskrete Vermarktung im Rhein-Main-Gebiet.</p>
+            <div class="hx-actions">
+                <a href="<?= BASE ?>/immobilienbewertung" class="hx-cta">
+                    <span>Kostenlose Bewertung</span>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+                </a>
+                <button class="hx-play" id="heroPlayBtn" type="button">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
+                    <span>Video ansehen</span>
+                </button>
             </div>
-            <div class="hero-stat">
-                <span class="hero-stat-num" data-count="10" data-suffix="+">10+</span>
-                <span class="hero-stat-label">Jahre Erfahrung</span>
+            <div class="hx-proof" aria-label="Vertrauen und Auszeichnungen">
+                <a class="hx-rating" href="#bewertungen" aria-label="Google-Rezensionen ansehen">
+                    <span class="hx-stars" aria-hidden="true">★★★★★</span>
+                    <span><strong>20+</strong> Google-Rezensionen</span>
+                </a>
+                <div class="hx-stats">
+                    <div class="hx-stat"><span class="hero-stat-num" data-count="500" data-suffix="+">500+</span><span class="hx-stat-label">Objekte vermittelt</span></div>
+                    <div class="hx-stat"><span class="hero-stat-num" data-count="10" data-suffix="+">10+</span><span class="hx-stat-label">Jahre Erfahrung</span></div>
+                </div>
+                <div class="hx-seals" aria-label="Auszeichnungen und Empfehlungssiegel">
+                    <img src="<?= BASE ?>/assets/trust/wer-kennt-den-besten.png" alt="Wer kennt den Besten: Sehr gut">
+                    <img src="<?= BASE ?>/assets/trust/empfehlungssiegel.png" alt="Trustsiegel.de: 100 Prozent Empfehlungen">
+                    <img src="<?= BASE ?>/assets/trust/cylex-trusted.webp" alt="Cylex Trusted">
+                </div>
             </div>
         </div>
 
-        <div class="hero-trust-badges" aria-label="Auszeichnungen und Empfehlungssiegel">
-            <img src="<?= BASE ?>/assets/trust/wer-kennt-den-besten.png" alt="Wer kennt den Besten: Sehr gut">
-            <img src="<?= BASE ?>/assets/trust/empfehlungssiegel.png" alt="Trustsiegel.de: 100 Prozent Empfehlungen">
-            <img src="<?= BASE ?>/assets/trust/cylex-trusted.webp" alt="Cylex Trusted">
+        <?php
+        $heroSlides = [];
+        foreach (($homepageProperties ?? []) as $hp) {
+            if (!in_array(mb_strtolower((string)($hp['status'] ?? ''), 'UTF-8'), ['available', ''], true)) continue;
+            $hImgs = json_decode((string)($hp['images'] ?? '[]'), true);
+            $hImg = trim((string)($hp['main_image'] ?? ''));
+            if ($hImg === '' && is_array($hImgs) && !empty($hImgs)) {
+                $hImg = is_string($hImgs[0]) ? $hImgs[0] : (string)($hImgs[0]['url'] ?? '');
+            }
+            if ($hImg === '') continue;
+            $hp['_img'] = $hImg;
+            $heroSlides[] = $hp;
+        }
+        ?>
+        <?php if (!empty($heroSlides)): ?>
+        <div class="hx-media hx-slider" id="heroMedia" role="region" aria-roledescription="Karussell" aria-label="Aktuelle Immobilienangebote">
+            <?php foreach ($heroSlides as $i => $hp):
+                $hRent = mb_strtolower((string)($hp['offer_type'] ?? ''), 'UTF-8') === 'miete';
+                $hPrice = (float)($hp['price'] ?? 0);
+                $hArea = (float)($hp['area'] ?? 0);
+                $hRooms = (string)($hp['rooms'] ?? '');
+                $hUrl = !empty($hp['slug']) ? BASE . '/immobilie/' . rawurlencode((string)$hp['slug']) : BASE . '/property-detail?id=' . rawurlencode((string)($hp['id'] ?? ''));
+            ?>
+            <a class="hx-slide<?= $i === 0 ? ' is-active' : '' ?>" href="<?= htmlspecialchars($hUrl) ?>" <?= $i === 0 ? '' : 'tabindex="-1" aria-hidden="true"' ?>>
+                <img src="<?= htmlspecialchars($hp['_img']) ?>" alt="<?= htmlspecialchars((string)($hp['title'] ?? 'Immobilie')) ?>" <?= $i === 0 ? 'fetchpriority="high"' : 'loading="lazy"' ?>>
+                <span class="hx-slide-info">
+                    <span class="hx-slide-tag"><?= $hRent ? 'Zur Miete' : 'Zum Kauf' ?></span>
+                    <strong><?= htmlspecialchars((string)($hp['title'] ?? 'Immobilienangebot')) ?></strong>
+                    <span class="hx-slide-loc"><?= htmlspecialchars(trim((string)($hp['location'] ?? ''))) ?></span>
+                    <span class="hx-slide-meta">
+                        <?php if ($hRooms !== '' && $hRooms !== '0'): ?><span><?= htmlspecialchars($hRooms) ?> Zi.</span><?php endif; ?>
+                        <?php if ($hArea > 0): ?><span><?= htmlspecialchars(rtrim(rtrim(number_format($hArea, 1, '.', ''), '0'), '.')) ?> m²</span><?php endif; ?>
+                        <span class="hx-slide-price"><?= $hPrice > 0 ? number_format($hPrice, 0, ',', '.') . ' €' . ($hRent ? '/Mo.' : '') : 'Auf Anfrage' ?></span>
+                    </span>
+                </span>
+            </a>
+            <?php endforeach; ?>
+            <?php if (count($heroSlides) > 1): ?>
+            <div class="hx-dots" role="tablist" aria-label="Objekt wählen">
+                <?php foreach ($heroSlides as $i => $hp): ?><button type="button" class="hx-dot<?= $i === 0 ? ' is-active' : '' ?>" aria-label="Objekt <?= $i + 1 ?> anzeigen"></button><?php endforeach; ?>
+            </div>
+            <?php endif; ?>
         </div>
-
+        <?php endif; ?>
     </div>
+    <a class="hx-scroll" href="#analyse" aria-label="Weiter zur Immobilienanalyse"><i class="fas fa-chevron-down" aria-hidden="true"></i></a>
 </section>
 
 <!-- Video Modal -->

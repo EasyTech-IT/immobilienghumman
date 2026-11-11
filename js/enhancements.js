@@ -1,4 +1,4 @@
-﻿/**
+/**
  * enhancements.js - Immobilien Ghumman
  * Parallax . Particles . 3D-Tilt . Ripple . Magnetic . Carousel
  * Toast . Skeleton . Blur-up . Autocomplete . Process-Line . Lightbox
@@ -373,4 +373,40 @@ window.toggleFAQ = function (btn) {
             }
         }).observe(box, { childList: true, characterData: true, subtree: true, attributes: true, attributeFilter: ['style'] });
     });
+})();
+
+/* Hero (nur Desktop): Immobilien-Slider, wechselt automatisch alle 4 Sekunden */
+(function () {
+    var media = document.getElementById('heroMedia');
+    if (!media) return;
+    var slides = media.querySelectorAll('.hx-slide');
+    var dots = media.querySelectorAll('.hx-dot');
+    var still = window.matchMedia('(prefers-reduced-motion: reduce)');
+    var i = 0, timer = null, x0 = null;
+    function show(n) {
+        i = (n + slides.length) % slides.length;
+        slides.forEach(function (s, k) {
+            var on = k === i;
+            s.classList.toggle('is-active', on);
+            if (on) { s.removeAttribute('aria-hidden'); s.removeAttribute('tabindex'); } else { s.setAttribute('aria-hidden', 'true'); s.setAttribute('tabindex', '-1'); }
+        });
+        dots.forEach(function (d, k) { d.classList.toggle('is-active', k === i); });
+    }
+    function stop() { clearInterval(timer); timer = null; }
+    function play() { if (slides.length < 2 || still.matches || timer || document.hidden) return; timer = setInterval(function () { show(i + 1); }, 4000); }
+    dots.forEach(function (d, k) { d.addEventListener('click', function () { show(k); stop(); play(); }); });
+    media.addEventListener('mouseenter', stop);
+    media.addEventListener('mouseleave', play);
+    media.addEventListener('focusin', stop);
+    media.addEventListener('focusout', play);
+    media.addEventListener('pointerdown', function (e) { x0 = e.clientX; });
+    media.addEventListener('pointerup', function (e) {
+        if (x0 === null) return;
+        var dx = e.clientX - x0; x0 = null;
+        if (Math.abs(dx) > 40) { show(i + (dx < 0 ? 1 : -1)); stop(); play(); }
+    });
+    media.addEventListener('click', function (e) { if (Math.abs(e.clientX - (media._cx || e.clientX)) > 40) e.preventDefault(); });
+    media.addEventListener('pointerdown', function (e) { media._cx = e.clientX; });
+    document.addEventListener('visibilitychange', function () { document.hidden ? stop() : play(); });
+    play();
 })();

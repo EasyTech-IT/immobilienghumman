@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 $pageTitle       = 'Kostenlose Immobilienbewertung - Marktwert online ermitteln | Immobilien Ghumman';
 $pageDescription = 'Kostenlose Immobilienbewertung im Rhein-Main-Gebiet. Professionelle Marktpreisanalyse, Verkehrswertgutachten und Online-Bewertung fuer Haus, Wohnung und Grundstueck.';
 $pageKeywords    = 'Immobilienbewertung kostenlos, Haus Wert ermitteln, Marktwert Immobilie, Wohnung bewerten Bad Vilbel, Verkehrswertgutachten Frankfurt, Immobilie verkaufen Preis';
@@ -54,83 +54,8 @@ require_once __DIR__ . '/includes/header.php';
                 <span class="section-tag">Online-Formular</span>
                 <h2 class="section-heading">Bewertung <span class="accent">starten</span></h2>
                 <div class="divider-gold"></div>
-                <p style="color:var(--premium-text-lt);margin-bottom:2rem">Fuellen Sie das Formular aus – wir melden uns innerhalb von 24 Stunden mit Ihrer professionellen Immobilienbewertung.</p>
-                <form class="form-premium" action="<?= BASE ?>/api/contact.php" method="POST" id="bewertungsForm">
-                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(generate_csrf_token(), ENT_QUOTES) ?>">
-                    <input type="hidden" name="form_type" value="bewertung">
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="name">Name *</label>
-                            <input type="text" id="name" name="name" autocomplete="name" placeholder="Ihr vollstaendiger Name" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="email">E-Mail *</label>
-                            <input type="email" id="email" name="email" autocomplete="email" placeholder="ihre@email.de" required>
-                        </div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="phone">Telefon</label>
-                            <input type="tel" id="phone" name="phone" autocomplete="tel" placeholder="+49 160 ...">
-                        </div>
-                        <div class="form-group">
-                            <label for="property_type">Objektart *</label>
-                            <select id="property_type" name="property_type" required>
-                                <option value="">Bitte waehlen</option>
-                                <option value="Einfamilienhaus">Einfamilienhaus</option>
-                                <option value="Mehrfamilienhaus">Mehrfamilienhaus</option>
-                                <option value="Eigentumswohnung">Eigentumswohnung</option>
-                                <option value="Doppelhaushaelfte">Doppelhaushaelfte</option>
-                                <option value="Reihenhaus">Reihenhaus</option>
-                                <option value="Grundstueck">Grundstueck</option>
-                                <option value="Gewerbeimmobilie">Gewerbeimmobilie</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label for="address">Adresse der Immobilie *</label>
-                        <input type="text" id="address" name="address" autocomplete="street-address" placeholder="Strasse, Hausnummer, PLZ, Ort" required>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="area">Wohnflaeche (m²) *</label>
-                            <input type="number" id="area" name="area" placeholder="z. B. 120" min="10" max="2000" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="year_built">Baujahr</label>
-                            <input type="number" id="year_built" name="year_built" placeholder="z. B. 1990" min="1850" max="<?= date('Y') ?>">
-                        </div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="rooms">Zimmer</label>
-                            <input type="number" id="rooms" name="rooms" placeholder="z. B. 4" min="1" max="30" step="0.5">
-                        </div>
-                        <div class="form-group">
-                            <label for="condition">Zustand</label>
-                            <select id="condition" name="condition">
-                                <option value="">Bitte waehlen</option>
-                                <option value="Neubau">Neubau / Erstbezug</option>
-                                <option value="Sehr gut">Sehr gut (vollstaendig renoviert)</option>
-                                <option value="Gut">Gut (gepflegt)</option>
-                                <option value="Befriedigend">Befriedigend (Renovierungsbedarf)</option>
-                                <option value="Sanierungsbeduerftig">Sanierungsbeduerftig</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label for="message">Besonderheiten / Anmerkungen</label>
-                        <textarea id="message" name="message" rows="3" placeholder="z. B. Garage, Garten, Kellerausbau, Einliegerwohnung ..."></textarea>
-                    </div>
-                    <div class="form-group" style="display:flex;align-items:flex-start;gap:.75rem">
-                        <input type="checkbox" id="datenschutz" name="datenschutz" required style="margin-top:3px;flex-shrink:0">
-                        <label for="datenschutz" style="font-size:.85rem;cursor:pointer">Ich stimme der Verarbeitung meiner Daten gemaess der <a href="<?= BASE ?>/datenschutz" style="color:var(--premium-accent)">Datenschutzerklaerung</a> zu. *</label>
-                    </div>
-                    <button type="submit" class="btn-premium" style="width:100%;justify-content:center;font-size:1rem;padding:.9rem 2rem">
-                        <i class="fas fa-paper-plane"></i> Kostenlose Bewertung anfordern
-                    </button>
-                    <div id="formMessage" style="display:none;margin-top:1rem;padding:1rem;border-radius:var(--radius-md);text-align:center;font-weight:600"></div>
-                </form>
+                <p style="color:var(--premium-text-lt);margin-bottom:1.5rem">Beantworten Sie 12 kurze Fragen, meist mit einem Klick. Wir melden uns innerhalb von 24 Stunden mit Ihrer professionellen Immobilienbewertung.</p>
+                <?php require __DIR__ . '/includes/bewertung-wizard.php'; ?>
             </div>
 
             <!-- Why Us -->
@@ -313,6 +238,7 @@ require_once __DIR__ . '/includes/header.php';
                         msg.style.color = '#065f46';
                         msg.textContent = 'Vielen Dank! Wir melden uns innerhalb von 24 Stunden mit Ihrer Bewertung.';
                         form.reset();
+                        if (window.wzDone) window.wzDone();
                     } else {
                         msg.style.background = '#fee2e2';
                         msg.style.color = '#991b1b';
