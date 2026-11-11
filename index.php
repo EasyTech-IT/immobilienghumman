@@ -71,28 +71,8 @@ require_once __DIR__ . '/includes/header.php';
         </div>
 
         <h1>
-            Ihre Immobilie. <span style="color:#93c5fd">Unser Versprechen.</span>
+            Ihre Immobilie. <span>Unser Versprechen.</span>
         </h1>
-        <!-- Search Box -->
-        <form class="hero-search-box" action="<?= BASE ?>/immobilien-angebote" method="GET">
-            <select name="offer_type" aria-label="Kaufen oder Mieten">
-                <option value="">Kaufen & Mieten</option>
-                <option value="Kauf">Kaufen</option>
-                <option value="Miete">Mieten</option>
-            </select>
-            <select name="property_type" aria-label="Objektart">
-                <option value="">Alle Objektarten</option>
-                <option value="Haus">Haus</option>
-                <option value="Wohnung">Wohnung</option>
-                <option value="Gewerbe">Gewerbe</option>
-                <option value="Grundstück">Grundstück</option>
-            </select>
-            <input type="text" name="location" placeholder="Ort oder PLZ" aria-label="Standort">
-            <button type="submit" class="hero-search-btn">
-                <i class="fas fa-search"></i> Suchen
-            </button>
-        </form>
-
         <!-- CTA Buttons -->
         <div class="hero-btn-group">
             <a href="<?= BASE ?>/immobilienbewertung" class="btn-hero-primary">
@@ -767,11 +747,24 @@ require_once __DIR__ . '/includes/header.php';
         document.getElementById('reviewsPrev').addEventListener('click', () => goTo(current - 1));
         document.getElementById('reviewsNext').addEventListener('click', () => goTo(current + 1));
 
-        // Auto-play
-        let timer = setInterval(() => goTo((current + 1) % pages), 6000);
-        track.closest('.reviews-slider-wrapper').addEventListener('mouseenter', () => clearInterval(timer));
-        track.closest('.reviews-slider-wrapper').addEventListener('mouseleave', () => {
+        // Auto-play: aus bei reduzierter Bewegung, pausiert bei Hover und Tastaturfokus
+        const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        const wrapper = track.closest('.reviews-slider-wrapper');
+        const controls = document.querySelector('.reviews-controls');
+        let timer = null;
+        const stop = () => { clearInterval(timer); timer = null; };
+        const start = () => {
+            if (reduceMotion) return;
+            stop();
             timer = setInterval(() => goTo((current + 1) % pages), 6000);
+        };
+        start();
+        [wrapper, controls].forEach(el => {
+            if (!el) return;
+            el.addEventListener('mouseenter', stop);
+            el.addEventListener('mouseleave', start);
+            el.addEventListener('focusin', stop);
+            el.addEventListener('focusout', start);
         });
 
         // Responsive recalc
@@ -1056,14 +1049,19 @@ require_once __DIR__ . '/includes/header.php';
         });
         /* ── Accordion ── */
         document.querySelectorAll('.faq-acc-trigger').forEach(function(btn) {
+            btn.setAttribute('aria-expanded', 'false');
             btn.addEventListener('click', function() {
                 var item = btn.closest('.faq-acc-item');
                 var panel = item.closest('.faq-panel');
                 /* close siblings in same panel */
                 panel.querySelectorAll('.faq-acc-item.open').forEach(function(open) {
-                    if (open !== item) open.classList.remove('open');
+                    if (open !== item) {
+                        open.classList.remove('open');
+                        open.querySelector('.faq-acc-trigger').setAttribute('aria-expanded', 'false');
+                    }
                 });
                 item.classList.toggle('open');
+                btn.setAttribute('aria-expanded', item.classList.contains('open') ? 'true' : 'false');
             });
         });
     })();
@@ -1368,6 +1366,7 @@ require_once __DIR__ . '/includes/header.php';
             document.body.style.overflow = '';
             video.pause();
             video.currentTime = 0;
+            playBtn.focus();
         }
 
         playBtn.addEventListener('click', openModal);

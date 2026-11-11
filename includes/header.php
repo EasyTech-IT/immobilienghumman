@@ -126,6 +126,8 @@ function nav_class(string $id, string $active): string
     </script>
 </head>
 
+<a class="skip-link" href="#main-content">Zum Inhalt springen</a>
+
 <!-- Header Navigation -->
 <header class="header">
     <nav class="navbar">
@@ -232,6 +234,7 @@ function nav_class(string $id, string $active): string
         </div>
     </nav>
 </header>
+<div id="main-content" tabindex="-1"></div>
 
 <!-- WhatsApp Floating Button -->
 <div class="whatsapp-float">

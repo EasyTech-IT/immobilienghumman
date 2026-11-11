@@ -193,31 +193,6 @@
         document.querySelectorAll('img[data-src]').forEach(function (img) { img.classList.add('blur-up-init'); obs.observe(img); });
     }
 
-    /* --- 11. Location Autocomplete --- */
-    function initAutocomplete() {
-        var input = document.querySelector('.hero-search-box input[name="location"]');
-        if (!input) return;
-        var places = ['Bad Vilbel','Frankfurt am Main','Bad Homburg','Offenbach am Main','Wiesbaden','Mainz',
-            'Darmstadt','Hanau','Friedberg (Hessen)','Nidderau','Karben','Buedingen','Langen','Dreieich',
-            'Neu-Isenburg','Ruesselsheim','Gross-Gerau','Hofheim am Taunus','Eschborn','Bad Nauheim'];
-        var list = document.createElement('ul');
-        list.className = 'ac-list'; list.setAttribute('role', 'listbox');
-        input.setAttribute('autocomplete', 'off');
-        input.parentNode.style.position = 'relative';
-        input.parentNode.appendChild(list);
-        input.addEventListener('input', function () {
-            var v = input.value.toLowerCase().trim(); list.innerHTML = '';
-            if (v.length < 2) return;
-            places.filter(function (p) { return p.toLowerCase().includes(v); }).slice(0, 6).forEach(function (p) {
-                var li = document.createElement('li'); li.setAttribute('role', 'option');
-                li.innerHTML = '<i class="fas fa-map-marker-alt"></i> ' + p;
-                li.addEventListener('mousedown', function (e) { e.preventDefault(); input.value = p; list.innerHTML = ''; });
-                list.appendChild(li);
-            });
-        });
-        document.addEventListener('click', function (e) { if (!input.parentNode.contains(e.target)) list.innerHTML = ''; });
-    }
-
     /* --- 12. Process Timeline Line --- */
     function initProcessLine() {
         var steps = document.querySelector('.process-steps');
@@ -365,7 +340,7 @@
     document.addEventListener('DOMContentLoaded', function () {
         initBackToTop(); initParallax(); initParticles(); initCardTilt();
         initRipple(); initMagnetic(); initTestimonialCarousel(); initBlurUp();
-        initAutocomplete(); initProcessLine(); initHeroCounters(); initLightbox();
+        initProcessLine(); initHeroCounters(); initLightbox();
         initScrollReveal(); initStickyNav(); initFaqAccordion();
     });
 })();
