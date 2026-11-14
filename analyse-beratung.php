@@ -1,707 +1,168 @@
-﻿<?php
-$pageTitle       = 'Kostenlose Immobilienanalyse & Beratung | Immobilien Ghumman';
-$pageDescription = 'Starten Sie Ihre kostenlose Immobilienanalyse: Immobilienwert ermitteln, Finanzierung berechnen oder Hausverwaltungsangebot anfragen – in wenigen Minuten online.';
-$pageKeywords    = 'Immobilienanalyse kostenlos, Finanzierungsberatung, Hausverwaltung Angebot, Immobilienbewertung Rhein-Main';
-$activeNav       = 'analyse';
+<?php
+$pageTitle = 'Kostenlose Immobilienanalyse & Beratung | Immobilien Ghumman';
+$pageDescription = 'Immobilienanalyse, Baufinanzierungsberatung und Hausverwaltung einfach online anfragen.';
+$activeNav = 'analyse';
+require_once __DIR__ . '/includes/config.php';
+$extraHead = '<link rel="stylesheet" href="' . BASE . '/analyse-beratung.css?v=' . (int)filemtime(__DIR__ . '/analyse-beratung.css') . '">';
 require_once __DIR__ . '/includes/header.php';
+require_once __DIR__ . '/includes/analyse-fragen.php';
+$wzIconsOnly = true;
+require_once __DIR__ . '/includes/bewertung-wizard.php';
+$flows = analyse_flows();
+$escape = static fn($value) => htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');
 ?>
 
-<!-- PAGE HERO -->
-<section class="page-hero">
-    <div class="page-hero-inner">
-        <nav class="page-hero-breadcrumb" aria-label="Breadcrumb">
-            <a href="<?= BASE ?>/">Startseite</a><span>/</span><span>Analyse & Beratung</span>
-        </nav>
-        <div class="page-hero-badge"><i class="fas fa-magnifying-glass-chart"></i> Kostenlos & Unverbindlich</div>
-        <h1>Ihre kostenlose <span class="accent">Analyse</span></h1>
-        <p>Immobilienwert ermitteln, Finanzierung berechnen oder Hausverwaltungsangebot anfragen – alles in wenigen Minuten.</p>
-        <div class="page-hero-btns">
-            <a href="#analyser" class="btn-hero-primary"><i class="fas fa-play-circle"></i> Analyse starten</a>
-            <a href="tel:+4916098787878" class="btn-hero-secondary"><i class="fas fa-phone"></i> Direkt anrufen</a>
-        </div>
-    </div>
-</section>
-
-<!-- TRUST STRIP -->
-<div class="analyser-trust-strip">
-    <div class="container">
-        <div class="analyser-trust-items">
-            <div class="analyser-trust-item"><i class="fas fa-shield-alt"></i> 100% kostenlos &amp; unverbindlich</div>
-            <div class="analyser-trust-item"><i class="fas fa-lock"></i> DSGVO-konform &amp; sicher</div>
-            <div class="analyser-trust-item"><i class="fas fa-clock"></i> Antwort in 24 Stunden</div>
-            <div class="analyser-trust-item"><i class="fas fa-star"></i> 20+ Google-Rezensionen</div>
-        </div>
-    </div>
-</div>
-
-<!-- 3-TAB MULTI-STEP ANALYSER -->
-<section id="analyser" class="analyser-section">
-    <div class="container">
-
-        <!-- Tab Navigation -->
-        <div class="analyser-tabs" role="tablist">
-            <button class="analyser-tab active" role="tab" aria-selected="true" data-panel="tab-immo">
-                <i class="fas fa-home"></i>
-                <span>Immobilienanalyse</span>
-                <small>Wert & Markt</small>
-            </button>
-            <button class="analyser-tab" role="tab" aria-selected="false" data-panel="tab-finanz">
-                <i class="fas fa-chart-line"></i>
-                <span>Finanzierungsanalyse</span>
-                <small>Rate & Budget</small>
-            </button>
-            <button class="analyser-tab" role="tab" aria-selected="false" data-panel="tab-hausverwaltung">
-                <i class="fas fa-building"></i>
-                <span>Hausverwaltung</span>
-                <small>Angebot anfragen</small>
-            </button>
-        </div>
-
-        <!-- ═══ TAB 1: IMMOBILIENANALYSE ═══ -->
-        <div class="analyser-panel active" id="tab-immo" role="tabpanel">
-            <div class="analyser-card">
-
-                <!-- Progress Bar -->
-                <div class="step-progress" data-steps="3">
-                    <div class="sp-step active" data-step="1"><span>1</span><small>Objekt</small></div>
-                    <div class="sp-line"></div>
-                    <div class="sp-step" data-step="2"><span>2</span><small>Details</small></div>
-                    <div class="sp-line"></div>
-                    <div class="sp-step" data-step="3"><span>3</span><small>Kontakt</small></div>
-                </div>
-
-                <form id="form-immo" novalidate>
-                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(generate_csrf_token(), ENT_QUOTES) ?>">
-                    <input type="hidden" name="form_type" value="immobilienanalyse">
-
-                    <!-- STEP 1: Immobilientyp -->
-                    <div class="analyser-step active" data-step="1">
-                        <h3 class="analyser-step-title">Welchen Immobilientyp möchten Sie analysieren?</h3>
-                        <div class="type-card-grid">
-                            <?php
-                            $types = [
-                                ['wohnung',    'fas fa-building',        'Wohnung',     'Eigentumswohnung oder Mietwohnung'],
-                                ['haus',       'fas fa-house',           'Haus',        'Einfamilienhaus, DHH oder Reihenhaus'],
-                                ['mehrfamilien', 'fas fa-city',           'Mehrfamilienhaus', 'Renditeobjekt mit mehreren Einheiten'],
-                                ['grundstueck', 'fas fa-map',             'Grundstück',  'Bau- oder Investitionsgrundstück'],
-                                ['gewerbe',    'fas fa-store',           'Gewerbe',     'Büro, Einzelhandel oder Industrie'],
-                                ['sonstiges',  'fas fa-ellipsis-h',      'Sonstiges',   'Andere Immobilienart'],
-                            ];
-                            foreach ($types as $t): ?>
-                                <label class="type-card">
-                                    <input type="radio" name="immo_type" value="<?= $t[0] ?>" required>
-                                    <div class="type-card-inner">
-                                        <i class="<?= $t[1] ?>"></i>
-                                        <strong><?= $t[2] ?></strong>
-                                        <small><?= $t[3] ?></small>
-                                    </div>
-                                </label>
-                            <?php endforeach; ?>
-                        </div>
-                        <div class="analyser-step-nav">
-                            <div></div>
-                            <button type="button" class="btn-premium step-next" data-validate="immo_type">
-                                Weiter <i class="fas fa-arrow-right"></i>
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- STEP 2: Details -->
-                    <div class="analyser-step" data-step="2">
-                        <h3 class="analyser-step-title">Details zu Ihrer Immobilie</h3>
-                        <div class="analyser-form-grid">
-                            <div class="analyser-field">
-                                <label for="immo_zip">PLZ / Ort <span class="required">*</span></label>
-                                <input type="text" id="immo_zip" name="zip" placeholder="z.B. 61118 Bad Vilbel" required>
-                            </div>
-                            <div class="analyser-field">
-                                <label for="immo_area">Wohnfläche (m²) <span class="required">*</span></label>
-                                <input type="number" id="immo_area" name="area" placeholder="z.B. 95" min="1" required>
-                            </div>
-                            <div class="analyser-field">
-                                <label for="immo_rooms">Zimmer</label>
-                                <select id="immo_rooms" name="rooms">
-                                    <option value="">Bitte wählen</option>
-                                    <?php foreach (['1', '2', '3', '4', '5', '6+'] as $r): ?>
-                                        <option value="<?= $r ?>"><?= $r ?> Zimmer</option>
-                                    <?php endforeach; ?>
-                                </select>
-                            </div>
-                            <div class="analyser-field">
-                                <label for="immo_baujahr">Baujahr (ca.)</label>
-                                <input type="number" id="immo_baujahr" name="baujahr" placeholder="z.B. 2005" min="1850" max="2026">
-                            </div>
-                            <div class="analyser-field full">
-                                <label>Ziel der Analyse <span class="required">*</span></label>
-                                <div class="radio-pill-group">
-                                    <?php foreach (['Verkauf' => 'Ich möchte verkaufen', 'Kauf' => 'Ich möchte kaufen', 'Vermietung' => 'Ich möchte vermieten', 'Bewertung' => 'Nur Wertermittlung'] as $v => $l): ?>
-                                        <label class="radio-pill">
-                                            <input type="radio" name="ziel" value="<?= $v ?>" required>
-                                            <span><?= $l ?></span>
-                                        </label>
-                                    <?php endforeach; ?>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="analyser-step-nav">
-                            <button type="button" class="btn-outline-premium step-back">
-                                <i class="fas fa-arrow-left"></i> Zurück
-                            </button>
-                            <button type="button" class="btn-premium step-next" data-validate="zip,area,ziel">
-                                Weiter <i class="fas fa-arrow-right"></i>
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- STEP 3: Kontakt -->
-                    <div class="analyser-step" data-step="3">
-                        <h3 class="analyser-step-title">Wohin senden wir Ihre Analyse?</h3>
-                        <div class="analyser-form-grid">
-                            <div class="analyser-field">
-                                <label for="immo_name">Ihr Name <span class="required">*</span></label>
-                                <input type="text" id="immo_name" name="name" placeholder="Vorname Nachname" required>
-                            </div>
-                            <div class="analyser-field">
-                                <label for="immo_email">E-Mail-Adresse <span class="required">*</span></label>
-                                <input type="email" id="immo_email" name="email" placeholder="ihre@email.de" required>
-                            </div>
-                            <div class="analyser-field">
-                                <label for="immo_phone">Telefon (optional)</label>
-                                <input type="tel" id="immo_phone" name="phone" placeholder="+49 160 1234567">
-                            </div>
-                            <div class="analyser-field">
-                                <label for="immo_termin">Wunschtermin (optional)</label>
-                                <input type="date" id="immo_termin" name="termin" min="<?= date('Y-m-d', strtotime('+1 day')) ?>">
-                            </div>
-                            <div class="analyser-field full">
-                                <label for="immo_nachricht">Zusätzliche Informationen</label>
-                                <textarea id="immo_nachricht" name="nachricht" rows="3" placeholder="Was ist besonders wichtig für Ihre Analyse?"></textarea>
-                            </div>
-                            <div class="analyser-field full">
-                                <label class="dsgvo-check">
-                                    <input type="checkbox" name="datenschutz" required>
-                                    <span>Ich stimme der Verarbeitung meiner Daten gemäß der <a href="<?= BASE ?>/datenschutz">Datenschutzerklärung</a> zu. *</span>
-                                </label>
-                            </div>
-                        </div>
-                        <div class="analyser-step-nav">
-                            <button type="button" class="btn-outline-premium step-back">
-                                <i class="fas fa-arrow-left"></i> Zurück
-                            </button>
-                            <button type="submit" class="btn-premium btn-submit">
-                                <i class="fas fa-paper-plane"></i> Analyse kostenlos anfragen
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- RESULT -->
-                    <div class="analyser-result" style="display:none">
-                        <div class="result-icon"><i class="fas fa-check-circle"></i></div>
-                        <h3>Anfrage erfolgreich gesendet!</h3>
-                        <p>Wir melden uns innerhalb von <strong>24 Stunden</strong> mit Ihrer persönlichen Immobilienanalyse. Prüfen Sie auch Ihren Spam-Ordner.</p>
-                        <div class="result-actions">
-                            <a href="tel:+4916098787878" class="btn-premium"><i class="fas fa-phone"></i> Sofort anrufen</a>
-                            <a href="https://wa.me/4916098787878" class="btn-outline-premium" target="_blank" rel="noopener noreferrer"><i class="fab fa-whatsapp"></i> WhatsApp</a>
-                        </div>
-                    </div>
-                </form>
+<main class="analysis-page" id="analyser">
+    <div class="analysis-shell">
+        <div class="analysis-heading">
+            <div>
+                <h1>Bewertung und Beratung starten</h1>
+                <p>Online-Formular: Wählen Sie Ihr Anliegen und beantworten Sie zwölf kurze Fragen. Wir beraten Sie persönlich und unverbindlich.</p>
             </div>
+            <a href="tel:+4916098787878" class="analysis-phone"><i class="fas fa-phone" aria-hidden="true"></i> Lieber anrufen</a>
         </div>
 
-        <!-- ═══ TAB 2: FINANZIERUNGSANALYSE ═══ -->
-        <div class="analyser-panel" id="tab-finanz" role="tabpanel">
-            <div class="analyser-card">
-
-                <!-- Live Kalkulator -->
-                <div class="finanz-live-calc">
-                    <h3 class="analyser-step-title">Schnell-Kalkulation</h3>
-                    <div class="finanz-slider-grid">
-                        <div class="finanz-slider-item">
-                            <div class="finanz-slider-label">
-                                <span>Kaufpreis</span>
-                                <strong id="fCalcPrice">350.000 €</strong>
-                            </div>
-                            <input type="range" id="fPrice" min="50000" max="2000000" step="10000" value="350000" class="finanz-range">
-                        </div>
-                        <div class="finanz-slider-item">
-                            <div class="finanz-slider-label">
-                                <span>Eigenkapital</span>
-                                <strong id="fCalcEquity">70.000 €</strong>
-                            </div>
-                            <input type="range" id="fEquity" min="0" max="800000" step="5000" value="70000" class="finanz-range">
-                        </div>
-                        <div class="finanz-slider-item">
-                            <div class="finanz-slider-label">
-                                <span>Zinssatz (p.a.)</span>
-                                <strong id="fCalcRate">3,8 %</strong>
-                            </div>
-                            <input type="range" id="fRate" min="0.5" max="8" step="0.1" value="3.8" class="finanz-range">
-                        </div>
-                        <div class="finanz-slider-item">
-                            <div class="finanz-slider-label">
-                                <span>Laufzeit</span>
-                                <strong id="fCalcTerm">20 Jahre</strong>
-                            </div>
-                            <input type="range" id="fTerm" min="5" max="35" step="1" value="20" class="finanz-range">
-                        </div>
-                    </div>
-                    <div class="finanz-result-grid">
-                        <div class="finanz-result-item">
-                            <span>Darlehensbetrag</span>
-                            <strong id="fResLoan">280.000 €</strong>
-                        </div>
-                        <div class="finanz-result-item highlight">
-                            <span>Monatliche Rate</span>
-                            <strong id="fResRate">ca. 1.690 €</strong>
-                        </div>
-                        <div class="finanz-result-item">
-                            <span>Gesamtzinsen</span>
-                            <strong id="fResInterest">ca. 125.600 €</strong>
-                        </div>
-                        <div class="finanz-result-item">
-                            <span>Eigenkapitalquote</span>
-                            <strong id="fResEquityPct">20,0 %</strong>
-                        </div>
-                    </div>
-                    <p class="finanz-disclaimer">* Vereinfachte Berechnung. Unverbindlich. Für individuelle Konditionen anfragen.</p>
-                </div>
-
-                <!-- Kontaktformular -->
-                <div class="finanz-form-wrap">
-                    <h3 class="analyser-step-title">Vollständige Finanzierungsberatung anfragen</h3>
-                    <form id="form-finanz" novalidate>
-                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(generate_csrf_token(), ENT_QUOTES) ?>">
-                        <input type="hidden" name="form_type" value="finanzierungsanalyse">
-                        <input type="hidden" name="finanz_data" id="finanz_data_hidden">
-                        <div class="analyser-form-grid">
-                            <div class="analyser-field">
-                                <label for="fn_name">Name <span class="required">*</span></label>
-                                <input type="text" id="fn_name" name="name" placeholder="Vor- und Nachname" required>
-                            </div>
-                            <div class="analyser-field">
-                                <label for="fn_email">E-Mail <span class="required">*</span></label>
-                                <input type="email" id="fn_email" name="email" placeholder="ihre@email.de" required>
-                            </div>
-                            <div class="analyser-field">
-                                <label for="fn_phone">Telefon</label>
-                                <input type="tel" id="fn_phone" name="phone" placeholder="+49 ...">
-                            </div>
-                            <div class="analyser-field">
-                                <label for="fn_einkommen">Monatliches Netto-Einkommen</label>
-                                <select id="fn_einkommen" name="einkommen">
-                                    <option value="">Bitte wählen</option>
-                                    <option value="bis 2000">bis 2.000 €</option>
-                                    <option value="2000-3000">2.000 – 3.000 €</option>
-                                    <option value="3000-4000">3.000 – 4.000 €</option>
-                                    <option value="4000-5000">4.000 – 5.000 €</option>
-                                    <option value="5000-7000">5.000 – 7.000 €</option>
-                                    <option value="über 7000">über 7.000 €</option>
-                                </select>
-                            </div>
-                            <div class="analyser-field full">
-                                <label class="dsgvo-check">
-                                    <input type="checkbox" name="datenschutz" required>
-                                    <span>Ich stimme der Verarbeitung meiner Daten gemäß der <a href="<?= BASE ?>/datenschutz">Datenschutzerklärung</a> zu. *</span>
-                                </label>
-                            </div>
-                        </div>
-                        <button type="submit" class="btn-premium btn-submit" style="width:100%;justify-content:center">
-                            <i class="fas fa-paper-plane"></i> Beratung anfragen
-                        </button>
-                        <div class="analyser-result" style="display:none">
-                            <div class="result-icon"><i class="fas fa-check-circle"></i></div>
-                            <h3>Anfrage gesendet!</h3>
-                            <p>Wir melden uns innerhalb von 24 Stunden mit Ihrem persönlichen Finanzierungsangebot.</p>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </div>
-
-        <!-- ═══ TAB 3: HAUSVERWALTUNG ═══ -->
-        <div class="analyser-panel" id="tab-hausverwaltung" role="tabpanel">
-            <div class="analyser-card">
-                <div class="step-progress" data-steps="2">
-                    <div class="sp-step active" data-step="1"><span>1</span><small>Objekt</small></div>
-                    <div class="sp-line"></div>
-                    <div class="sp-step" data-step="2"><span>2</span><small>Kontakt</small></div>
-                </div>
-
-                <form id="form-hausverwaltung" novalidate>
-                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(generate_csrf_token(), ENT_QUOTES) ?>">
-                    <input type="hidden" name="form_type" value="hausverwaltung">
-
-                    <!-- STEP 1 -->
-                    <div class="analyser-step active" data-step="1">
-                        <h3 class="analyser-step-title">Ihr Objekt</h3>
-                        <div class="analyser-form-grid">
-                            <div class="analyser-field full">
-                                <label>Objektart <span class="required">*</span></label>
-                                <div class="radio-pill-group">
-                                    <?php foreach (['WEG (Eigentümergemeinschaft)' => 'WEG', 'Mietwohnungen' => 'Miete', 'Gewerbeimmobilie' => 'Gewerbe', 'Gemischt (Wohnen + Gewerbe)' => 'Gemischt'] as $l => $v): ?>
-                                        <label class="radio-pill">
-                                            <input type="radio" name="objekt_art" value="<?= $v ?>" required>
-                                            <span><?= $l ?></span>
-                                        </label>
-                                    <?php endforeach; ?>
-                                </div>
-                            </div>
-                            <div class="analyser-field">
-                                <label for="hv_einheiten">Anzahl Einheiten <span class="required">*</span></label>
-                                <select id="hv_einheiten" name="einheiten" required>
-                                    <option value="">Bitte wählen</option>
-                                    <option value="1-3">1 – 3 Einheiten</option>
-                                    <option value="4-10">4 – 10 Einheiten</option>
-                                    <option value="11-20">11 – 20 Einheiten</option>
-                                    <option value="21-50">21 – 50 Einheiten</option>
-                                    <option value="50+">Über 50 Einheiten</option>
-                                </select>
-                            </div>
-                            <div class="analyser-field">
-                                <label for="hv_standort">Standort (PLZ / Stadt) <span class="required">*</span></label>
-                                <input type="text" id="hv_standort" name="standort" placeholder="z.B. 61118 Bad Vilbel" required>
-                            </div>
-                            <div class="analyser-field full">
-                                <label>Aktueller Verwaltungsstatus</label>
-                                <div class="radio-pill-group">
-                                    <?php foreach (['Keine Verwaltung' => 'keine', 'Selbstverwaltet' => 'selbst', 'Andere Verwaltung' => 'andere'] as $l => $v): ?>
-                                        <label class="radio-pill">
-                                            <input type="radio" name="verwaltung_status" value="<?= $v ?>">
-                                            <span><?= $l ?></span>
-                                        </label>
-                                    <?php endforeach; ?>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="analyser-step-nav">
-                            <div></div>
-                            <button type="button" class="btn-premium step-next" data-validate="objekt_art,einheiten,standort">
-                                Weiter <i class="fas fa-arrow-right"></i>
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- STEP 2: Kontakt -->
-                    <div class="analyser-step" data-step="2">
-                        <h3 class="analyser-step-title">Ihr kostenloses Angebot anfordern</h3>
-                        <div class="analyser-form-grid">
-                            <div class="analyser-field">
-                                <label for="hv_name">Name <span class="required">*</span></label>
-                                <input type="text" id="hv_name" name="name" placeholder="Vor- und Nachname" required>
-                            </div>
-                            <div class="analyser-field">
-                                <label for="hv_email">E-Mail <span class="required">*</span></label>
-                                <input type="email" id="hv_email" name="email" placeholder="ihre@email.de" required>
-                            </div>
-                            <div class="analyser-field">
-                                <label for="hv_phone">Telefon</label>
-                                <input type="tel" id="hv_phone" name="phone" placeholder="+49 ...">
-                            </div>
-                            <div class="analyser-field">
-                                <label for="hv_nachricht">Anmerkungen</label>
-                                <textarea id="hv_nachricht" name="nachricht" rows="3" placeholder="Besonderheiten, Wünsche ..."></textarea>
-                            </div>
-                            <div class="analyser-field full">
-                                <label class="dsgvo-check">
-                                    <input type="checkbox" name="datenschutz" required>
-                                    <span>Ich stimme der Verarbeitung meiner Daten gemäß der <a href="<?= BASE ?>/datenschutz">Datenschutzerklärung</a> zu. *</span>
-                                </label>
-                            </div>
-                        </div>
-                        <div class="analyser-step-nav">
-                            <button type="button" class="btn-outline-premium step-back">
-                                <i class="fas fa-arrow-left"></i> Zurück
-                            </button>
-                            <button type="submit" class="btn-premium btn-submit">
-                                <i class="fas fa-paper-plane"></i> Kostenloses Angebot anfragen
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- RESULT -->
-                    <div class="analyser-result" style="display:none">
-                        <div class="result-icon"><i class="fas fa-check-circle"></i></div>
-                        <h3>Anfrage gesendet!</h3>
-                        <p>Wir erstellen Ihnen ein <strong>individuelles Hausverwaltungsangebot</strong> und melden uns innerhalb von 24 Stunden.</p>
-                        <div class="result-actions">
-                            <a href="<?= BASE ?>/hausverwaltung" class="btn-outline-premium"><i class="fas fa-building"></i> Zur Hausverwaltung</a>
-                        </div>
-                    </div>
-                </form>
-            </div>
-        </div>
-
-    </div><!-- /container -->
-</section>
-
-<!-- USPs SECTION -->
-<section style="padding:var(--section-gap) 0;background:var(--premium-offwhite)">
-    <div class="container">
-        <div class="section-header-center reveal">
-            <span class="section-tag">Warum wir?</span>
-            <h2 class="section-heading">Daten statt <span class="accent">Bauchgefühl</span></h2>
-            <div class="divider-gold centered"></div>
-        </div>
-        <div class="services-grid" style="margin-top:2.5rem">
-            <?php
-            $usps = [
-                ['fas fa-chart-bar', '#2d6cdf', 'Marktanalyse', 'Aktuelle Preistrends und Angebots-/Nachfragedaten für Ihren Zielstandort.'],
-                ['fas fa-map-marked-alt', '#059669', 'Standortbewertung', 'Infrastruktur, Verkehrsanbindung, Sozialstruktur und Zukunftspotenzial.'],
-                ['fas fa-chart-line', '#c9a84c', 'Renditeanalyse', 'Brutto- und Nettomietrendite, Cashflow und Amortisationszeitraum.'],
-                ['fas fa-scale-balanced', '#ef4444', 'Kaufpreisprüfung', 'Ist der Preis marktgerecht? Wir prüfen und verhandeln für Sie.'],
-                ['fas fa-home-user', '#7c3aed', 'Mietmarktanalyse', 'Realistischer Mietpreisspiegel und Mietprognose für Ihr Objekt.'],
-                ['fas fa-lightbulb', '#0891b2', 'Strategieberatung', 'Langfristige Strategie für Eigennutzung, Vermietung oder Portfolio.'],
-            ];
-            foreach ($usps as $u): ?>
-                <div class="service-card reveal">
-                    <div class="service-card-icon" style="background:<?= $u[1] ?>18;color:<?= $u[1] ?>"><i class="<?= $u[0] ?>"></i></div>
-                    <h3><?= $u[2] ?></h3>
-                    <p><?= $u[3] ?></p>
-                </div>
+        <div class="analysis-tabs" role="tablist" aria-label="Anliegen auswählen">
+            <?php foreach ($flows as $type => $flow): ?>
+                <?php $first = $type === 'analyse_immobilie'; ?>
+                <button type="button" class="analysis-tab<?= $first ? ' is-active' : '' ?>" role="tab"
+                        id="tab-<?= $escape($type) ?>" aria-controls="panel-<?= $escape($type) ?>"
+                        aria-label="<?= $escape($flow['title']) ?>" aria-selected="<?= $first ? 'true' : 'false' ?>" tabindex="<?= $first ? '0' : '-1' ?>">
+                    <span class="analysis-tab-icon"><i class="fas <?= $escape($flow['icon']) ?>" aria-hidden="true"></i></span>
+                    <span><strong><span class="analysis-tab-full"><?= $escape($flow['title']) ?></span><span class="analysis-tab-short" aria-hidden="true"><?= $escape($type === 'analyse_immobilie' ? 'Immobilien' : ($type === 'analyse_finanzierung' ? 'Finanzierung' : 'Hausverwaltung')) ?></span></strong><small><?= $escape($flow['description']) ?></small><?php if ($first): ?><span class="analysis-recommended">Unsere Empfehlung</span><?php endif; ?></span>
+                </button>
             <?php endforeach; ?>
         </div>
-    </div>
-</section>
 
-<!-- CTA BANNER -->
-<section class="cta-banner">
-    <div class="container-sm">
-        <h2>Lieber persönlich beraten?</h2>
-        <p>Unser Team ist täglich für Sie erreichbar – telefonisch, per WhatsApp oder vor Ort.</p>
-        <div class="cta-banner-btns">
-            <a href="tel:+4916098787878" class="btn-hero-primary"><i class="fas fa-phone"></i> Jetzt anrufen</a>
-            <a href="https://wa.me/4916098787878" class="btn-hero-secondary" target="_blank" rel="noopener noreferrer"><i class="fab fa-whatsapp"></i> WhatsApp</a>
+        <?php foreach ($flows as $type => $flow): ?>
+            <?php $first = $type === 'analyse_immobilie'; ?>
+            <section class="analysis-panel" role="tabpanel" id="panel-<?= $escape($type) ?>"
+                     aria-labelledby="tab-<?= $escape($type) ?>"<?= $first ? '' : ' hidden' ?>>
+                <div class="analysis-panel-header">
+                    <div><h2><?= $escape($flow['title']) ?></h2><p><?= $escape($flow['description']) ?></p></div>
+                    <span><i class="fas fa-shield-halved" aria-hidden="true"></i> Kostenlos &amp; unverbindlich</span>
+                </div>
+                <div class="analysis-progress">
+                    <span class="analysis-progress-text" aria-live="polite">Frage 1 von 12</span>
+                    <progress value="1" max="12" aria-label="Fortschritt"></progress>
+                </div>
+
+                <form class="analysis-form" action="<?= BASE ?>/api/contact.php?action=general" method="post" novalidate>
+                    <input type="hidden" name="csrf_token" value="<?= $escape(generate_csrf_token()) ?>">
+                    <input type="hidden" name="form_type" value="<?= $escape($type) ?>">
+                    <input type="hidden" name="privacy_required" value="1">
+                    <?php foreach ($flow['questions'] as $index => $question): ?>
+                        <fieldset class="analysis-step" data-step="<?= $index + 1 ?>"<?= !empty($question['multiple']) ? ' data-multiple="true"' : '' ?><?= $index === 0 ? '' : ' hidden' ?>>
+                            <legend tabindex="-1"><?= $escape($question['label']) ?></legend>
+                            <?php if (!empty($question['hint'])): ?><p class="analysis-hint"><?= $escape($question['hint']) ?></p><?php endif; ?>
+                            <?php if (!empty($question['multiple'])): ?><p class="analysis-hint">Mehrere Antworten möglich. Danach auf Weiter klicken.</p><?php endif; ?>
+                                <div class="analysis-options">
+                                    <?php foreach ($question['options'] as $option): ?>
+                                        <label class="analysis-option">
+                                            <?php $bound = $type === 'analyse_finanzierung' ? analyse_amount_bound($question['name'], $option) : null; ?>
+                                            <input type="<?= !empty($question['multiple']) ? 'checkbox' : 'radio' ?>" name="analyse_<?= $escape($question['name']) ?><?= !empty($question['multiple']) ? '[]' : '' ?>" value="<?= $escape($option) ?>"<?= $bound !== null ? ' data-amount-bound="' . $bound . '"' : '' ?><?= !empty($question['multiple']) && $option === $question['exclusive'] ? ' data-exclusive="true"' : '' ?><?= empty($question['multiple']) ? ' required' : '' ?>>
+                                            <span><?= wz_icon(analyse_option_icon($question['name'], $option)) ?><span class="analysis-option-label"><?= $escape($option) ?></span><span class="analysis-option-mark" aria-hidden="true"><i class="fas fa-check"></i></span></span>
+                                        </label>
+                                    <?php endforeach; ?>
+                                </div>
+                        </fieldset>
+                    <?php endforeach; ?>
+
+                    <fieldset class="analysis-step analysis-review" data-step="13" hidden>
+                        <legend tabindex="-1">Prüfen Sie Ihre Angaben</legend>
+                        <p class="analysis-hint">Hier sehen Sie alle Antworten. Sie können jede Angabe vor dem Absenden ändern.</p>
+                        <dl class="analysis-review-list"></dl>
+                        <?php if ($type === 'analyse_finanzierung'): ?>
+                            <p class="analysis-calculation">Eine genaue Finanzierungsberechnung besprechen wir persönlich mit Ihnen. Die ausgewählten Bereiche sind noch kein Finanzierungsangebot.</p>
+                        <?php endif; ?>
+                    </fieldset>
+
+                    <fieldset class="analysis-step analysis-contact" data-step="14" hidden>
+                        <legend tabindex="-1">Wie erreichen wir Sie?</legend>
+                        <p class="analysis-hint">Sie erhalten eine Eingangsbestätigung per E-Mail.</p>
+                        <div class="analysis-contact-grid">
+                            <label>Name <input name="name" autocomplete="name" maxlength="200" required></label>
+                            <label>E-Mail <input type="email" name="email" autocomplete="email" maxlength="200" required></label>
+                            <label>Telefon <span>(optional)</span><input type="tel" name="phone" autocomplete="tel" maxlength="50"></label>
+                            <label>Ort oder Adresse des Objekts <span>(optional)</span><input name="adresse" autocomplete="off" maxlength="200"></label>
+                        </div>
+                        <label class="analysis-consent">
+                            <input type="checkbox" name="privacy_accept" value="1" required>
+                            <span>Ich stimme der Verarbeitung und Weiterleitung meiner Angaben an Immobilien Ghumman und EasyTech IT zur Bearbeitung meiner Anfrage gemäß der <a href="<?= BASE ?>/datenschutz" target="_blank" rel="noopener">Datenschutzerklärung</a> zu. *</span>
+                        </label>
+                        <?php if (TURNSTILE_ENABLED): ?>
+                            <div class="analysis-turnstile"><div class="cf-turnstile" data-sitekey="<?= $escape(TURNSTILE_SITE_KEY) ?>" data-theme="light"></div></div>
+                        <?php endif; ?>
+                    </fieldset>
+                    <p class="analysis-error" role="alert" hidden></p>
+                    <div class="analysis-actions">
+                        <button class="analysis-back" type="button" hidden><i class="fas fa-arrow-left" aria-hidden="true"></i> Zurück</button>
+                        <button class="analysis-next" type="button">Weiter <i class="fas fa-arrow-right" aria-hidden="true"></i></button>
+                        <button class="analysis-submit" type="submit" hidden>Anfrage senden <i class="fas fa-arrow-right" aria-hidden="true"></i></button>
+                    </div>
+                </form>
+                <div class="analysis-result" role="status" hidden></div>
+            </section>
+        <?php endforeach; ?>
+
+        <div class="analysis-support">
+            <div><i class="fas fa-lock" aria-hidden="true"></i><span>Ihre Angaben werden vertraulich behandelt.</span></div>
+            <div><i class="fas fa-comments" aria-hidden="true"></i><span>Persönliche Beratung statt automatischer Bewertung.</span></div>
         </div>
+        <div class="analysis-trust" aria-label="Unsere Vertrauenssiegel">
+            <img src="<?= BASE ?>/assets/trust/wer-kennt-den-besten.png" alt="Wer kennt den Besten: Sehr gut" loading="lazy">
+            <img src="<?= BASE ?>/assets/trust/empfehlungssiegel.png" alt="Trustsiegel.de: 100 Prozent Empfehlungen" loading="lazy">
+            <img src="<?= BASE ?>/assets/trust/cylex-trusted.webp" alt="Cylex Trusted" loading="lazy">
+        </div>
+        <?php $googleReviews = require __DIR__ . '/includes/google-reviews.php'; ?>
+        <section class="analysis-info analysis-reviews" aria-labelledby="analysis-reviews">
+            <div class="analysis-info-heading">
+                <h2 id="analysis-reviews">Erfahrungen mit Immobilien Ghumman</h2>
+                <p>Eine Auswahl der Google-Rezensionen, die auch auf unserer Startseite stehen.</p>
+            </div>
+            <p class="analysis-scroll-hint">Weitere Bewertungen seitlich ansehen <span aria-hidden="true">→</span></p>
+            <div class="analysis-review-cards" tabindex="0" role="region" aria-label="Kundenbewertungen">
+                <?php foreach (array_slice($googleReviews, 0, 4) as $review): ?>
+                    <article>
+                        <div class="analysis-stars" aria-label="5 von 5 Sternen">★★★★★</div>
+                        <p>„<?= $escape($review['text']) ?>“</p>
+                        <strong><?= $escape($review['name']) ?></strong>
+                        <span>Google-Rezension</span>
+                    </article>
+                <?php endforeach; ?>
+            </div>
+            <div class="analysis-faq-actions"><a class="analysis-info-cta" href="<?= $escape(GOOGLE_REVIEWS_URL) ?>" target="_blank" rel="noopener noreferrer">Alle Bewertungen ansehen</a></div>
+        </section>
+        <section class="analysis-info analysis-regions" aria-labelledby="analysis-regions">
+            <div class="analysis-info-heading">
+                <h2 id="analysis-regions">Immobilienberatung in Ihrer Region</h2>
+                <p>Von Bad Vilbel aus begleiten wir Sie im Rhein-Main-Gebiet.</p>
+            </div>
+            <p class="analysis-scroll-hint">Regionen seitlich ansehen <span aria-hidden="true">→</span></p>
+            <div class="analysis-region-cards" tabindex="0" role="region" aria-label="Unsere Regionen">
+                <article><i class="fas fa-location-dot" aria-hidden="true"></i><h3>Bad Vilbel</h3><p>Unser Standort und die nähere Umgebung.</p></article>
+                <article><i class="fas fa-city" aria-hidden="true"></i><h3>Frankfurt am Main</h3><p>Beratung für Ihre Immobilie in Frankfurt.</p></article>
+                <article><i class="fas fa-map" aria-hidden="true"></i><h3>Wetterau</h3><p>Für Eigentümer und Interessenten in der Region.</p></article>
+                <article><i class="fas fa-house" aria-hidden="true"></i><h3>Rhein-Main</h3><p>Persönliche Begleitung im Rhein-Main-Gebiet.</p></article>
+            </div>
+            <div class="analysis-faq-actions"><a class="analysis-info-cta" href="<?= BASE ?>/analyse-beratung?bereich=immobilie#analyser" data-analysis-target="immobilie">Immobilienanalyse starten</a></div>
+        </section>
+        <section class="analysis-info" aria-labelledby="analysis-faq">
+            <div class="analysis-info-heading"><h2 id="analysis-faq">Häufige Fragen zur Immobilienbewertung</h2><p>Das sollten Sie vor Ihrer Anfrage wissen.</p></div>
+            <div class="analysis-faq">
+                <details><summary>Was kostet die Anfrage zur Immobilienbewertung?</summary><p>Ihre Anfrage und die erste Beratung sind kostenlos und unverbindlich. Den weiteren Ablauf besprechen wir persönlich mit Ihnen.</p></details>
+                <details><summary>Welche Angaben helfen bei der Bewertung?</summary><p>Art, Lage, Größe und Zustand der Immobilie sind wichtige Anhaltspunkte. Auch unbekannte Angaben können Sie im Formular auswählen.</p></details>
+                <details><summary>Erhalte ich sofort einen Immobilienwert?</summary><p>Nein. Wir prüfen Ihre Angaben und besprechen die nächsten Schritte persönlich mit Ihnen.</p></details>
+                <details><summary>Was passiert nach dem Absenden?</summary><p>Ihre Anfrage wird zur Bearbeitung an Immobilien Ghumman und EasyTech IT weitergeleitet. Sie erhalten eine Eingangsbestätigung per E-Mail.</p></details>
+                <details><summary>Kann ich meine Antworten ändern?</summary><p>Ja. In der Übersicht vor dem Kontaktformular können Sie jede Antwort überprüfen und ändern.</p></details>
+                <details><summary>Ist die Bewertung ein Gutachten für Gericht oder Finanzamt?</summary><p>Eine persönliche Immobilienbewertung ersetzt nicht automatisch ein Verkehrswertgutachten. Teilen Sie uns den Anlass Ihrer Bewertung mit.</p></details>
+            </div>
+            <div class="analysis-faq-actions">
+                <a class="analysis-info-cta" href="<?= BASE ?>/analyse-beratung?bereich=finanzierung#analyser" data-analysis-target="finanzierung">Baufinanzierung anfragen</a>
+                <a class="analysis-info-cta" href="<?= BASE ?>/analyse-beratung?bereich=hausverwaltung#analyser" data-analysis-target="hausverwaltung">Hausverwaltung anfragen</a>
+            </div>
+        </section>
     </div>
-</section>
-
-<script>
-    /* ── Analyser Script ──────────────────────────────────────── */
-    (function() {
-        'use strict';
-
-        function parseApiResponse(r) {
-            return r.text().then(function(raw) {
-                var cleaned = (raw || '').replace(/^\uFEFF+/, '').trim();
-                var json = {};
-                try {
-                    json = cleaned ? JSON.parse(cleaned) : {};
-                } catch (e) {
-                    json = {
-                        success: false,
-                        message: cleaned || ('HTTP ' + r.status)
-                    };
-                }
-                json._httpOk = r.ok;
-                json._status = r.status;
-                return json;
-            });
-        }
-
-        /* Tab-Wechsel */
-        document.querySelectorAll('.analyser-tab').forEach(function(tab) {
-            tab.addEventListener('click', function() {
-                document.querySelectorAll('.analyser-tab').forEach(t => {
-                    t.classList.remove('active');
-                    t.setAttribute('aria-selected', 'false');
-                });
-                document.querySelectorAll('.analyser-panel').forEach(p => p.classList.remove('active'));
-                this.classList.add('active');
-                this.setAttribute('aria-selected', 'true');
-                var target = this.dataset.panel;
-                var panel = document.getElementById(target);
-                if (panel) {
-                    panel.classList.add('active');
-                    panel.scrollIntoView({
-                        behavior: 'smooth',
-                        block: 'nearest'
-                    });
-                }
-            });
-        });
-
-        /* Multi-Step Navigation */
-        function initSteps(formId) {
-            var form = document.getElementById(formId);
-            if (!form) return;
-            var steps = form.querySelectorAll('.analyser-step');
-            var progress = form.closest('.analyser-card').querySelector('.step-progress');
-
-            function showStep(n) {
-                steps.forEach(s => s.classList.remove('active'));
-                var target = form.querySelector('[data-step="' + n + '"]');
-                if (target) {
-                    target.classList.add('active');
-                    target.scrollIntoView({
-                        behavior: 'smooth',
-                        block: 'nearest'
-                    });
-                }
-                if (progress) {
-                    progress.querySelectorAll('.sp-step').forEach(function(sp) {
-                        var sn = parseInt(sp.dataset.step);
-                        sp.classList.toggle('active', sn === n);
-                        sp.classList.toggle('done', sn < n);
-                    });
-                }
-            }
-
-            form.querySelectorAll('.step-next').forEach(function(btn) {
-                btn.addEventListener('click', function() {
-                    var cur = form.querySelector('.analyser-step.active');
-                    if (!cur) return;
-                    var fields = (this.dataset.validate || '').split(',').filter(Boolean);
-                    var valid = true;
-                    fields.forEach(function(fname) {
-                        var inputs = cur.querySelectorAll('[name="' + fname + '"]');
-                        if (inputs.length === 0) return;
-                        var isRadio = inputs[0].type === 'radio';
-                        var filled = isRadio ?
-                            Array.from(inputs).some(i => i.checked) :
-                            inputs[0].value.trim() !== '';
-                        inputs[0].closest('.analyser-field, .type-card-grid, .radio-pill-group').classList.toggle('field-error', !filled);
-                        if (!filled) valid = false;
-                    });
-                    if (!valid) return;
-                    showStep(parseInt(cur.dataset.step) + 1);
-                });
-            });
-
-            form.querySelectorAll('.step-back').forEach(function(btn) {
-                btn.addEventListener('click', function() {
-                    var cur = form.querySelector('.analyser-step.active');
-                    if (cur) showStep(Math.max(1, parseInt(cur.dataset.step) - 1));
-                });
-            });
-
-            /* Form Submit */
-            form.addEventListener('submit', function(e) {
-                e.preventDefault();
-                var submitBtn = this.querySelector('.btn-submit');
-                var origText = submitBtn.innerHTML;
-                submitBtn.disabled = true;
-                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Wird gesendet ...';
-
-                // Finanzierungsdaten einsammeln
-                var finanzHidden = document.getElementById('finanz_data_hidden');
-                if (finanzHidden) {
-                    finanzHidden.value = JSON.stringify({
-                        kaufpreis: document.getElementById('fPrice')?.value,
-                        eigenkapital: document.getElementById('fEquity')?.value,
-                        zinssatz: document.getElementById('fRate')?.value,
-                        laufzeit: document.getElementById('fTerm')?.value,
-                    });
-                }
-
-                fetch('<?= BASE ?>/api/contact.php?action=general', {
-                        method: 'POST',
-                        body: new FormData(this),
-                    })
-                    .then(parseApiResponse)
-                    .then(function(json) {
-                        if (json.success && json._httpOk) {
-                            form.querySelectorAll('.analyser-step').forEach(s => s.style.display = 'none');
-                            if (progress) progress.style.display = 'none';
-                            var result = form.querySelector('.analyser-result');
-                            if (result) result.style.display = 'block';
-                        } else {
-                            alert(json.message || 'Fehler. Bitte rufen Sie uns direkt an.');
-                            submitBtn.disabled = false;
-                            submitBtn.innerHTML = origText;
-                        }
-                    })
-                    .catch(function() {
-                        alert('Verbindungsfehler. Bitte rufen Sie uns direkt an: 0160 9878 7878');
-                        submitBtn.disabled = false;
-                        submitBtn.innerHTML = origText;
-                    });
-            });
-        }
-
-        initSteps('form-immo');
-        initSteps('form-hausverwaltung');
-
-        /* Finanzierungsformular Submit */
-        var finanzForm = document.getElementById('form-finanz');
-        if (finanzForm) {
-            finanzForm.addEventListener('submit', function(e) {
-                e.preventDefault();
-                if (!this.checkValidity()) {
-                    this.reportValidity();
-                    return;
-                }
-                var submitBtn = this.querySelector('.btn-submit');
-                var origText = submitBtn.innerHTML;
-                submitBtn.disabled = true;
-                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Wird gesendet ...';
-                var finanzHidden = document.getElementById('finanz_data_hidden');
-                if (finanzHidden) {
-                    finanzHidden.value = JSON.stringify({
-                        kaufpreis: document.getElementById('fPrice')?.value,
-                        eigenkapital: document.getElementById('fEquity')?.value,
-                        zinssatz: document.getElementById('fRate')?.value,
-                        laufzeit: document.getElementById('fTerm')?.value,
-                    });
-                }
-                fetch('<?= BASE ?>/api/contact.php?action=general', {
-                        method: 'POST',
-                        body: new FormData(this),
-                    })
-                    .then(parseApiResponse)
-                    .then(function(json) {
-                        if (json.success && json._httpOk) {
-                            finanzForm.querySelector('.analyser-form-grid').style.display = 'none';
-                            finanzForm.querySelector('button[type="submit"]').style.display = 'none';
-                            var result = finanzForm.querySelector('.analyser-result');
-                            if (result) result.style.display = 'block';
-                        } else {
-                            alert(json.message || 'Fehler. Bitte rufen Sie uns direkt an.');
-                            submitBtn.disabled = false;
-                            submitBtn.innerHTML = origText;
-                        }
-                    })
-                    .catch(function() {
-                        alert('Verbindungsfehler. Bitte rufen Sie uns direkt an: 0160 9878 7878');
-                        submitBtn.disabled = false;
-                        submitBtn.innerHTML = origText;
-                    });
-            });
-        }
-
-        /* Finanz-Live-Kalkulator */
-        function calcFinanz() {
-            var price = parseInt(document.getElementById('fPrice').value);
-            var equity = parseInt(document.getElementById('fEquity').value);
-            var rate = parseFloat(document.getElementById('fRate').value);
-            var termYr = parseInt(document.getElementById('fTerm').value);
-            equity = Math.min(equity, price);
-            var loan = price - equity;
-            var monthlyR = rate / 100 / 12;
-            var n = termYr * 12;
-            var monthly = loan > 0 && monthlyR > 0 ?
-                Math.round(loan * monthlyR * Math.pow(1 + monthlyR, n) / (Math.pow(1 + monthlyR, n) - 1)) :
-                Math.round(loan / n);
-            var totalInterest = Math.max(0, monthly * n - loan);
-            var equityPct = price > 0 ? (equity / price * 100).toFixed(1) : '0.0';
-
-            var fmt = n => new Intl.NumberFormat('de-DE').format(n);
-            document.getElementById('fCalcPrice').textContent = fmt(price) + ' €';
-            document.getElementById('fCalcEquity').textContent = fmt(equity) + ' €';
-            document.getElementById('fCalcRate').textContent = rate.toFixed(1).replace('.', ',') + ' %';
-            document.getElementById('fCalcTerm').textContent = termYr + ' Jahre';
-            document.getElementById('fResLoan').textContent = fmt(loan) + ' €';
-            document.getElementById('fResRate').textContent = 'ca. ' + fmt(monthly) + ' €';
-            document.getElementById('fResInterest').textContent = 'ca. ' + fmt(Math.round(totalInterest)) + ' €';
-            document.getElementById('fResEquityPct').textContent = equityPct.replace('.', ',') + ' %';
-        }
-
-        ['fPrice', 'fEquity', 'fRate', 'fTerm'].forEach(function(id) {
-            var el = document.getElementById(id);
-            if (el) el.addEventListener('input', calcFinanz);
-        });
-        calcFinanz();
-
-    })();
-</script>
-
+</main>
+<script src="<?= BASE ?>/js/analyse-beratung.js?v=<?= (int)filemtime(__DIR__ . '/js/analyse-beratung.js') ?>" defer></script>
 <?php require_once __DIR__ . '/includes/footer.php'; ?>

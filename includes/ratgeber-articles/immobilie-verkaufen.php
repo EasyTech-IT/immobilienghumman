@@ -8,7 +8,7 @@ return [
     'updated'     => '2026-10-27',
     'intro'       => 'Ein guter Verkaufspreis entsteht aus drei Dingen: einer realistischen Bewertung, einer sauberen Vorbereitung und einer professionellen Vermarktung. Dieser Leitfaden zeigt den typischen Ablauf.',
     'sections'    => [
-        ['1. Den Marktwert realistisch ermitteln', '<p>Ein zu hoher Angebotspreis führt zu wenigen Anfragen und langer Vermarktungsdauer – am Ende wird oft unter dem erzielbaren Preis verkauft. Ein zu niedriger Preis verschenkt Geld. Gängige Verfahren sind das <strong>Vergleichswertverfahren</strong> (Wohnungen, Standardhäuser), das <strong>Ertragswertverfahren</strong> (vermietete Objekte) und das <strong>Sachwertverfahren</strong> (individuelle Häuser). Eine fundierte Einschätzung erhalten Sie über unsere <a href="/immobilienbewertung">kostenlose Immobilienbewertung</a>.</p>'],
+        ['1. Den Marktwert realistisch ermitteln', '<p>Ein zu hoher Angebotspreis führt zu wenigen Anfragen und langer Vermarktungsdauer – am Ende wird oft unter dem erzielbaren Preis verkauft. Ein zu niedriger Preis verschenkt Geld. Gängige Verfahren sind das <strong>Vergleichswertverfahren</strong> (Wohnungen, Standardhäuser), das <strong>Ertragswertverfahren</strong> (vermietete Objekte) und das <strong>Sachwertverfahren</strong> (individuelle Häuser). Eine fundierte Einschätzung erhalten Sie über unsere <a href="/analyse-beratung?bereich=immobilie#analyser">kostenlose Immobilienbewertung</a>.</p>'],
         ['2. Unterlagen zusammenstellen', '<ul>
 <li>Aktueller Grundbuchauszug und Flurkarte</li>
 <li>Energieausweis (gesetzlich bei Vermarktung erforderlich)</li>
@@ -30,5 +30,5 @@ return [
         ['Brauche ich einen Energieausweis?', 'Ja. Sobald Sie eine Immobilie öffentlich anbieten, müssen in der Anzeige bestimmte Energiekennwerte genannt werden, und der Ausweis muss Interessenten spätestens bei der Besichtigung vorliegen.'],
     ],
     'related' => ['immobilie-kaufen', 'immobilien-steuer', 'immobilienmarkt-rhein-main'],
-    'cta'     => ['Was ist Ihre Immobilie wert?', 'Erhalten Sie eine kostenlose, unverbindliche Einschätzung vom Immobilienmakler aus Bad Vilbel.', 'Kostenlose Bewertung starten', '/immobilienbewertung'],
+    'cta'     => ['Was ist Ihre Immobilie wert?', 'Erhalten Sie eine kostenlose, unverbindliche Einschätzung vom Immobilienmakler aus Bad Vilbel.', 'Kostenlose Bewertung starten', '/analyse-beratung?bereich=immobilie#analyser'],
 ];

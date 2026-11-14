@@ -1,4 +1,4 @@
-﻿<!-- Premium Footer -->
+<!-- Premium Footer -->
 <footer class="footer-premium">
     <div class="container">
         <div class="footer-premium-grid">
@@ -39,7 +39,7 @@
                     <li><a href="<?= BASE ?>/immobilien-angebote?offer_type=Kauf"><i class="fas fa-chevron-right"></i> Immobilien kaufen</a></li>
                     <li><a href="<?= BASE ?>/immobilien-angebote?offer_type=Miete"><i class="fas fa-chevron-right"></i> Immobilien mieten</a></li>
                     <li><a href="<?= BASE ?>/kapitalanlage"><i class="fas fa-chevron-right"></i> Kapitalanlagen</a></li>
-                    <li><a href="<?= BASE ?>/immobilienbewertung"><i class="fas fa-chevron-right"></i> Immobilienbewertung</a></li>
+                    <li><a href="<?= BASE ?>/analyse-beratung?bereich=immobilie#analyser"><i class="fas fa-chevron-right"></i> Immobilienbewertung</a></li>
                     <li><a href="<?= BASE ?>/analyse-beratung"><i class="fas fa-chevron-right"></i> Analyse &amp; Beratung</a></li>
                     <li><a href="<?= BASE ?>/blog"><i class="fas fa-chevron-right"></i> Blog</a></li>
                 </ul>

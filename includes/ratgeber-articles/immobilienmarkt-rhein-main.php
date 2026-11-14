@@ -18,7 +18,7 @@ return [
         ['Orientierung für Käufer', '<p>Vergleichen Sie Angebote mit tatsächlich erzielten Preisen, etwa aus den Bodenrichtwerten und Kaufpreissammlungen der Gutachterausschüsse. Planen Sie Sanierungskosten ein und prüfen Sie die Finanzierung unter verschiedenen Zinsszenarien. Mehr dazu im <a href="/ratgeber/immobilie-kaufen">Kaufratgeber</a>.</p>'],
         ['Orientierung für Verkäufer', '<p>Auch in gefragten Lagen lässt sich ein überhöhter Preis nicht durchsetzen. Eine fundierte Bewertung und gute Präsentation sind entscheidend – siehe <a href="/ratgeber/immobilie-verkaufen">Verkaufsratgeber</a>.</p>'],
         ['Kapitalanleger', '<p>In nachgefragten Lagen sind stabile Mieten und geringe Leerstände möglich, die Kaufpreise führen aber oft zu moderaten Anfangsrenditen. Entscheidend sind Lage, Zustand und Finanzierung – mehr im Beitrag <a href="/ratgeber/kapitalanlage-tipps">Kapitalanlage</a>.</p>'],
-        ['Aktuelle Zahlen für Ihr Objekt', '<p>Preise unterscheiden sich von Straße zu Straße. Für eine belastbare Einschätzung nutzen Sie unsere <a href="/immobilienbewertung">kostenlose Immobilienbewertung</a> oder fragen Sie uns direkt nach dem aktuellen Preisniveau in Ihrer Lage.</p>'],
+        ['Aktuelle Zahlen für Ihr Objekt', '<p>Preise unterscheiden sich von Straße zu Straße. Für eine belastbare Einschätzung nutzen Sie unsere <a href="/analyse-beratung?bereich=immobilie#analyser">kostenlose Immobilienbewertung</a> oder fragen Sie uns direkt nach dem aktuellen Preisniveau in Ihrer Lage.</p>'],
     ],
     'faq' => [
         ['Sind Immobilien im Rhein-Main-Gebiet noch eine gute Investition?', 'Das hängt von Lage, Preis, Zustand und Finanzierung ab. Eine pauschale Aussage ist nicht seriös; eine Einzelfallprüfung mit Renditerechnung ist notwendig.'],
@@ -26,5 +26,5 @@ return [
         ['Lohnt sich Warten auf sinkende Preise oder Zinsen?', 'Das lässt sich nicht verlässlich vorhersagen. Entscheidend ist, dass Ihre Finanzierung auch bei höheren Zinsen tragbar bleibt.'],
     ],
     'related' => ['immobilie-kaufen', 'immobilie-verkaufen', 'kapitalanlage-tipps'],
-    'cta'     => ['Aktuelle Marktlage für Ihre Immobilie', 'Wir ordnen Preise, Nachfrage und Chancen in Ihrer Lage persönlich für Sie ein.', 'Kostenlose Bewertung', '/immobilienbewertung'],
+    'cta'     => ['Aktuelle Marktlage für Ihre Immobilie', 'Wir ordnen Preise, Nachfrage und Chancen in Ihrer Lage persönlich für Sie ein.', 'Kostenlose Bewertung', '/analyse-beratung?bereich=immobilie#analyser'],
 ];

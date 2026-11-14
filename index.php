@@ -68,7 +68,7 @@ require_once __DIR__ . '/includes/header.php';
             <h1 class="hx-title">Ihre Immobilie.<span>In guten Händen.</span></h1>
             <p class="hx-lead">Von der Bewertung bis zur Vermarktung: Wir begleiten Sie persönlich und diskret im Rhein-Main-Gebiet.</p>
             <div class="hx-actions">
-                <a href="<?= BASE ?>/immobilienbewertung" class="hx-cta">
+                <a href="<?= BASE ?>/analyse-beratung?bereich=immobilie#analyser" class="hx-cta">
                     <span>Kostenlose Bewertung</span>
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
                 </a>
@@ -214,7 +214,7 @@ require_once __DIR__ . '/includes/header.php';
                     <li>Kostenlos &amp; unverbindlich – 100% DSGVO-konform</li>
                     <li>Ergebnis in 24 Stunden</li>
                 </ul>
-                <a href="<?= BASE ?>/immobilienbewertung" class="btn-premium">
+                <a href="<?= BASE ?>/analyse-beratung?bereich=immobilie#analyser" class="btn-premium">
                     <i class="fas fa-calculator"></i> Jetzt kostenlos bewerten
                 </a>
             </div>
@@ -239,7 +239,7 @@ require_once __DIR__ . '/includes/header.php';
                             </div>
                         </div>
                     <?php endforeach; ?>
-                    <a href="<?= BASE ?>/immobilienbewertung" class="btn-premium" style="width:100%;justify-content:center;margin-top:1.75rem">
+                    <a href="<?= BASE ?>/analyse-beratung?bereich=immobilie#analyser" class="btn-premium" style="width:100%;justify-content:center;margin-top:1.75rem">
                         <i class="fas fa-arrow-right"></i> Bewertung starten
                     </a>
                 </div>
@@ -274,7 +274,7 @@ require_once __DIR__ . '/includes/header.php';
                 <div class="svc-card-icon"><i class="fas fa-landmark"></i></div>
                 <span class="svc-card-name">Immobilienfinanzierung</span>
             </a>
-            <a href="<?= BASE ?>/immobilienbewertung" class="svc-card reveal anim-delay-4">
+            <a href="<?= BASE ?>/analyse-beratung?bereich=immobilie#analyser" class="svc-card reveal anim-delay-4">
                 <div class="svc-card-icon"><i class="fas fa-magnifying-glass-dollar"></i></div>
                 <span class="svc-card-name">Immobilienbewertung</span>
             </a>

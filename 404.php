@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 require_once __DIR__ . '/includes/config.php';
 
 http_response_code(404);
@@ -31,7 +31,7 @@ require_once __DIR__ . '/includes/header.php';
             <h3 style="margin:1.25rem 0 .7rem;color:var(--premium-text,#0f172a)">Beliebte Seiten</h3>
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:.6rem">
                 <a href="<?= BASE ?>/immobilien-angebote" class="svc-card" style="text-decoration:none"><span class="svc-card-name">Immobilienangebote</span></a>
-                <a href="<?= BASE ?>/immobilienbewertung" class="svc-card" style="text-decoration:none"><span class="svc-card-name">Immobilienbewertung</span></a>
+                <a href="<?= BASE ?>/analyse-beratung?bereich=immobilie#analyser" class="svc-card" style="text-decoration:none"><span class="svc-card-name">Immobilienbewertung</span></a>
                 <a href="<?= BASE ?>/hausverwaltung" class="svc-card" style="text-decoration:none"><span class="svc-card-name">Hausverwaltung</span></a>
                 <a href="tel:+4916098787878" class="svc-card" style="text-decoration:none"><span class="svc-card-name">Direkt anrufen</span></a>
             </div>

@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 
 /**
  * api/contact.php
@@ -13,6 +13,7 @@ require_once __DIR__ . '/../includes/config.php';
 require_once __DIR__ . '/../includes/db.php';
 require_once __DIR__ . '/auth_helper.php';
 require_once __DIR__ . '/../includes/inquiry-mail.php';
+require_once __DIR__ . '/../includes/analyse-fragen.php';
 
 header('Content-Type: application/json; charset=utf-8');
 // CORS: nur eigene Domain erlaubt
@@ -67,6 +68,8 @@ if (in_array($action, ['inquiry', 'general']) && $method === 'POST') {
     $phone    = trim($data['phone']   ?? '');
     $message  = trim($data['message'] ?? '');
     $formType = trim($data['form_type'] ?? '');
+    $analysisFlows = analyse_flows();
+    $isAnalysis = isset($analysisFlows[$formType]);
     $propId   = isset($data['property_id']) ? (int)$data['property_id'] : null;
     $subjectInput = trim((string)($data['subject'] ?? $data['betreff'] ?? ''));
 
@@ -97,7 +100,10 @@ if (in_array($action, ['inquiry', 'general']) && $method === 'POST') {
     if (empty($name))                                                     $errors[] = 'Name ist erforderlich';
     if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL))      $errors[] = 'Gültige E-Mail-Adresse ist erforderlich';
     $privacyOk = !empty($data['privacy_accept']) && $data['privacy_accept'] !== 'false' && $data['privacy_accept'] !== '0';
-    if (!empty($data['privacy_required']) && !$privacyOk)                 $errors[] = 'Bitte akzeptieren Sie die AGB und die Datenschutzerklärung';
+    if ((!empty($data['privacy_required']) || $isAnalysis) && !$privacyOk) {
+        $errors[] = $isAnalysis ? 'Bitte akzeptieren Sie die Datenschutzerklärung' : 'Bitte akzeptieren Sie die AGB und die Datenschutzerklärung';
+    }
+    if ($isAnalysis && analyse_validate_answers($formType, $data))         $errors[] = 'Bitte beantworten Sie alle Fragen vollständig und gültig.';
     $newsletterOptin = !empty($data['newsletter_optin']) && $data['newsletter_optin'] !== 'false' && $data['newsletter_optin'] !== '0';
 
     if (!empty($errors)) {
@@ -189,6 +195,14 @@ if (in_array($action, ['inquiry', 'general']) && $method === 'POST') {
             $extraRows[$extraLabels[$field] ?? ucfirst($field)] = (string)$data[$field];
         }
     }
+    if ($isAnalysis) {
+        foreach ($analysisFlows[$formType]['questions'] as $question) {
+            $answer = $data['analyse_' . $question['name']];
+            $value = is_array($answer) ? implode(', ', $answer) : trim($answer);
+            $extraInfo .= $question['label'] . ' ' . $value . "\n";
+            $extraRows[$question['label']] = $value;
+        }
+    }
 
     // In Datenbank speichern
     $createdAt = date('Y-m-d H:i:s');
@@ -259,6 +273,38 @@ if (in_array($action, ['inquiry', 'general']) && $method === 'POST') {
     if ($extraInfo) $mailBody .= "\nWeitere Angaben:\n$extraInfo";
     $mailBody .= "\n---\nGesendet ueber www.immobilienghumman.de\n";
 
+    $adminHtml = build_inquiry_email_html([
+        'name' => $name, 'email' => $email, 'phone' => $phone,
+        'subject' => $subjectInput !== '' ? $subjectInput : ($formType ?: 'Allgemeine Kontaktanfrage'),
+        'form_type' => $formType ?: 'Kontaktanfrage',
+        'message' => $message, 'created_at' => date('d.m.Y H:i', strtotime($createdAt)),
+        'property_id' => $propId, 'property_title' => $propertyTitle, 'property_url' => $propertyUrl,
+        'rows' => $extraRows,
+    ]);
+
+    if ($isAnalysis) {
+        ignore_user_abort(true);
+        $confirmHtml = get_confirmation_email_html($name, $analysisFlows[$formType]['title'], false);
+        $delivery = analyse_send_notifications(
+            MAIL_TO,
+            $email,
+            static fn($to) => mailer_send($to, $subject, $mailBody, $adminHtml, $email),
+            static fn($to) => app_mail_html($to, 'Vielen Dank für Ihre Nachricht – ' . SITE_NAME, $confirmHtml)
+        );
+        if (in_array(false, $delivery, true)) {
+            error_log('Analyse-Mail fehlgeschlagen: intern=' . (int)$delivery['admin'] . ', Partner=' . (int)$delivery['partner'] . ', Bestätigung=' . (int)$delivery['confirmation']);
+            http_response_code(503);
+            echo json_encode([
+                'success' => false,
+                'stored' => true,
+                'message' => 'Ihre Anfrage wurde gespeichert, aber nicht alle E-Mails konnten versendet werden. Bitte senden Sie sie nicht erneut und kontaktieren Sie uns telefonisch.',
+            ], JSON_UNESCAPED_UNICODE);
+        } else {
+            echo json_encode(['success' => true, 'message' => 'Ihre Anfrage wurde gesendet. Sie erhalten eine Bestätigung per E-Mail.'], JSON_UNESCAPED_UNICODE);
+        }
+        exit;
+    }
+
     $successPayload = ['success' => true, 'message' => 'Ihre Anfrage wurde erfolgreich gesendet. Wir melden uns in Kürze!'];
 
     // Antwort immer sofort zurückgeben, damit der Browser nicht in einen Timeout läuft.
@@ -277,14 +323,6 @@ if (in_array($action, ['inquiry', 'general']) && $method === 'POST') {
         @flush();
     }
 
-    $adminHtml = build_inquiry_email_html([
-        'name' => $name, 'email' => $email, 'phone' => $phone,
-        'subject' => $subjectInput !== '' ? $subjectInput : ($formType ?: 'Allgemeine Kontaktanfrage'),
-        'form_type' => $formType ?: 'Kontaktanfrage',
-        'message' => $message, 'created_at' => date('d.m.Y H:i', strtotime($createdAt)),
-        'property_id' => $propId, 'property_title' => $propertyTitle, 'property_url' => $propertyUrl,
-        'rows' => $extraRows,
-    ]);
     $adminSent = mailer_send(MAIL_TO, $subject, $mailBody, $adminHtml, $email);
     if (!$adminSent) {
         error_log('Contact mail (admin) konnte nicht gesendet werden.');

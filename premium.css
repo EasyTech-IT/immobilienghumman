@@ -4312,3 +4312,76 @@ input:user-invalid, select:user-invalid, textarea:user-invalid { border-color: #
 }
 @media (prefers-reduced-transparency: reduce) { .hx::after { -webkit-backdrop-filter: none; backdrop-filter: none; } }
 @media (prefers-contrast: more) { .hx::before { opacity: .25; } .hx-lead, .hx-stat-label { color: #0f2a45; } }
+
+/* Mobile: getrennte Navigation, Schnellzugriffe und kompakte Kartenraster */
+.cookie-settings-float { display: none; }
+@media (max-width: 960px) {
+  .header, .header.scrolled {
+    top: max(0.6rem, env(safe-area-inset-top)); width: 100%; max-width: none;
+    transform: translateX(-50%); box-shadow: none; pointer-events: none;
+  }
+  .header .navbar, .header.scrolled .navbar {
+    padding: 0; border: 0; background: transparent; box-shadow: none;
+    -webkit-backdrop-filter: none; backdrop-filter: none;
+  }
+  .navbar::before { display: none; }
+  .nav-container {
+    display: flex; justify-content: space-between; height: auto;
+    padding: 0 0.85rem;
+  }
+  .nav-logo a, .nav-hamburger {
+    display: flex; align-items: center; justify-content: center;
+    min-width: 52px; min-height: 52px; border: 1px solid #d5e5f2;
+    border-radius: 16px; background: #fff; box-shadow: 0 4px 16px rgba(15,42,69,.15);
+    pointer-events: auto;
+  }
+  .nav-logo a { padding: 0.3rem 0.5rem; }
+  .nav-logo img.logo { max-width: 92px; height: 40px; }
+  .nav-contacts { display: flex !important; height: auto; padding: 0; }
+  .nav-contacts .contact-icon { display: none; }
+  .nav-hamburger { gap: 5px; }
+  .mobile-menu-overlay { z-index: 10000; }
+  .mobile-menu { z-index: 10001; }
+}
+@media (max-width: 768px) {
+  .sticky-cta-bar, .mobile-bottom-nav { display: none !important; }
+  .whatsapp-float { display: flex; right: 0.85rem; bottom: calc(0.85rem + env(safe-area-inset-bottom)); }
+  .whatsapp-float-label, .whatsapp-float:hover .whatsapp-float-label { display: none; }
+  .whatsapp-float-btn { width: 52px; height: 52px; }
+  .whatsapp-float-btn::before { display: none; }
+  .cookie-settings-float {
+    position: fixed; z-index: 9999; left: 0.85rem;
+    bottom: calc(0.85rem + env(safe-area-inset-bottom));
+    display: grid; place-items: center; width: 52px; height: 52px;
+    border: 1px solid #d5e5f2; border-radius: 50%; background: #fff; color: #1e5a88;
+    box-shadow: 0 4px 16px rgba(15,42,69,.18); cursor: pointer;
+  }
+  .cookie-settings-float svg { width: 24px; height: 24px; }
+  .cookie-settings-float:focus-visible, .nav-hamburger:focus-visible, .nav-logo a:focus-visible {
+    outline: 3px solid #3070a0 !important; outline-offset: 3px;
+  }
+}
+@media (max-width: 560px) {
+  #analyse .analyse-benefits,
+  #services .services-grid-compact,
+  #prozess .onboarding-steps-grid,
+  #immobilien .featured-grid,
+  #immobilien .skeleton-grid-3,
+  #ueber-uns .uu-kpi-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 0.75rem;
+  }
+  #analyse .analyse-benefit, #services .svc-card, #prozess .ob-step-card {
+    min-width: 0; padding: 1rem 0.65rem; overflow-wrap: anywhere;
+  }
+  #analyse .analyse-benefit-icon, #services .svc-card-icon, #prozess .ob-step-icon-wrap {
+    width: 48px; height: 48px; margin-bottom: 0.75rem; font-size: 1.15rem;
+  }
+  #analyse .analyse-benefit h4, #prozess .ob-step-card h3, #services .svc-card-name { font-size: 0.9rem; }
+  #analyse .analyse-benefit p, #prozess .ob-step-card p { font-size: 0.8rem; line-height: 1.5; }
+  #immobilien .featured-card { min-width: 0; }
+  #immobilien .featured-card-img { height: 125px; }
+  #immobilien .featured-card-body { padding: 0.75rem; overflow-wrap: anywhere; }
+  #immobilien .featured-meta { flex-wrap: wrap; gap: 0.25rem 0.6rem; }
+  #immobilien .featured-price { overflow-wrap: anywhere; }
+}

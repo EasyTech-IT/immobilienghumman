@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 
 /**
  * includes/header.php
@@ -36,22 +36,9 @@ function nav_class(string $id, string $active): string
 <html lang="de">
 
 <head>
-    <!-- Google tag (gtag.js) -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-Q5J1C2PTR2"></script>
-    <script>
-        window.dataLayer = window.dataLayer || [];
-
-        function gtag() {
-            dataLayer.push(arguments);
-        }
-        gtag('js', new Date());
-        gtag('config', 'G-Q5J1C2PTR2');
-    </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= htmlspecialchars($pageTitle, ENT_QUOTES) ?></title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="preconnect" href="https://res.cloudinary.com" crossorigin>
     <link rel="preload" as="image" href="<?= SITE_LOGO ?>">
 
@@ -115,7 +102,7 @@ function nav_class(string $id, string $active): string
     </script>
     <?php endif; ?>
 
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,300;1,400&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="<?= BASE ?>/Montserrat.css?v=<?= (int)@filemtime(__DIR__ . '/../Montserrat.css') ?>">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
     <link rel="stylesheet" href="<?= BASE ?>/immobilien-styles.css">
     <link rel="stylesheet" href="<?= BASE ?>/premium.css?v=<?= (int)@filemtime(__DIR__ . '/../premium.css') ?>">
@@ -157,7 +144,7 @@ function nav_class(string $id, string $active): string
                         <a href="<?= BASE ?>/immobilien-angebote?offer_type=Miete"><i class="fas fa-sign-hanging"></i> Immobilien mieten</a>
                         <div class="nav-dropdown-divider"></div>
                         <a href="<?= BASE ?>/kapitalanlage"><i class="fas fa-chart-line"></i> Kapitalanlagen</a>
-                        <a href="<?= BASE ?>/immobilienbewertung"><i class="fas fa-magnifying-glass-dollar"></i> Immobilie bewerten</a>
+                        <a href="<?= BASE ?>/analyse-beratung?bereich=immobilie#analyser"><i class="fas fa-magnifying-glass-dollar"></i> Immobilie bewerten</a>
                     </div>
                 </li>
 
@@ -227,7 +214,7 @@ function nav_class(string $id, string $active): string
                         <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893A11.821 11.821 0 0020.885 3.488" />
                     </svg>
                 </a>
-                <button class="nav-hamburger" id="navHamburger" aria-label="Menü öffnen">
+                <button class="nav-hamburger" id="navHamburger" type="button" aria-label="Menü öffnen" aria-controls="mobileMenu" aria-expanded="false">
                     <span></span><span></span><span></span>
                 </button>
             </div>
@@ -240,22 +227,31 @@ function nav_class(string $id, string $active): string
 <div class="whatsapp-float">
     <span class="whatsapp-float-label">WhatsApp schreiben</span>
     <a href="https://wa.me/4916098787878?text=Guten%20Tag%2C%20ich%20interessiere%20mich%20f%C3%BCr%20Ihre%20Immobiliendienstleistungen." class="whatsapp-float-btn" target="_blank" rel="noopener noreferrer" aria-label="WhatsApp Chat">
-        <i class="fab fa-whatsapp"></i>
+        <svg width="25" height="25" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c0-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893A11.821 11.821 0 0020.885 3.488" />
+        </svg>
     </a>
 </div>
+
+<button type="button" class="cookie-settings-float" id="cookieSettingsFloat" aria-label="Cookie-Einstellungen öffnen">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M20.5 12.5a8.5 8.5 0 1 1-9-9 3.2 3.2 0 0 0 4 4 3.2 3.2 0 0 0 5 5Z" />
+        <circle cx="8.5" cy="11" r=".7" fill="currentColor" /><circle cx="11" cy="16" r=".7" fill="currentColor" /><circle cx="15" cy="13" r=".7" fill="currentColor" />
+    </svg>
+</button>
 
 <!-- Sticky Bottom CTA Bar (mobile) -->
 <div class="sticky-cta-bar">
     <a href="tel:+4916098787878" class="scta-call"><i class="fas fa-phone"></i> Anrufen</a>
     <a href="https://wa.me/4916098787878" class="scta-wa" target="_blank" rel="noopener noreferrer"><i class="fab fa-whatsapp"></i> WhatsApp</a>
-    <a href="<?= BASE ?>/immobilienbewertung" class="scta-eval"><i class="fas fa-calculator"></i> Bewertung</a>
+    <a href="<?= BASE ?>/analyse-beratung?bereich=immobilie#analyser" class="scta-eval"><i class="fas fa-calculator"></i> Bewertung</a>
 </div>
 
 <!-- Mobile Menu Overlay -->
 <div class="mobile-menu-overlay" id="mobileOverlay"></div>
 
 <!-- Mobile Sidebar Menu -->
-<div class="mobile-menu" id="mobileMenu" role="dialog" aria-modal="true" aria-label="Navigation">
+<div class="mobile-menu" id="mobileMenu" role="dialog" aria-modal="true" aria-label="Navigation" aria-hidden="true" inert>
     <div class="mobile-menu-header">
         <img src="<?= SITE_LOGO ?>" alt="Immobilien Ghumman" style="height:44px;">
         <button class="mobile-menu-close" id="mobileMenuClose" aria-label="Menü schließen">&times;</button>
@@ -295,7 +291,7 @@ function nav_class(string $id, string $active): string
             </ul>
         </li>
 
-        <li><a href="<?= BASE ?>/immobilienbewertung" class="<?= $activeNav === 'bewertung' ? 'active' : '' ?>"><i class="fas fa-calculator"></i> Immobilienbewertung</a></li>
+        <li><a href="<?= BASE ?>/analyse-beratung?bereich=immobilie#analyser" class="<?= $activeNav === 'bewertung' ? 'active' : '' ?>"><i class="fas fa-calculator"></i> Immobilienbewertung</a></li>
         <li><a href="<?= BASE ?>/kapitalanlage" class="<?= $activeNav === 'kapitalanlage' ? 'active' : '' ?>"><i class="fas fa-chart-line"></i> Kapitalanlage</a></li>
         <li><a href="<?= BASE ?>/analyse-beratung" class="<?= $activeNav === 'analyse' ? 'active' : '' ?>"><i class="fas fa-magnifying-glass-chart"></i> Analyse & Beratung</a></li>
         <li><a href="<?= BASE ?>/ratgeber" class="<?= $activeNav === 'ratgeber' ? 'active' : '' ?>"><i class="fas fa-book-open"></i> Ratgeber</a></li>
@@ -318,12 +314,21 @@ function nav_class(string $id, string $active): string
 
         function openMenu() {
             menu.classList.add('is-open');
+            menu.removeAttribute('inert');
+            menu.setAttribute('aria-hidden', 'false');
+            ham.setAttribute('aria-expanded', 'true');
             overlay.classList.add('is-open');
             document.body.style.overflow = 'hidden';
+            closeBtn.focus();
         }
 
         function closeMenu() {
+            if (!menu.classList.contains('is-open')) return;
             menu.classList.remove('is-open');
+            ham.focus();
+            menu.setAttribute('inert', '');
+            menu.setAttribute('aria-hidden', 'true');
+            ham.setAttribute('aria-expanded', 'false');
             overlay.classList.remove('is-open');
             document.body.style.overflow = '';
         }

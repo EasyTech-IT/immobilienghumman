@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 $pageTitle       = 'Immobilien Ratgeber - Expertentipps fuer Kauf, Verkauf & Verwaltung | Immobilien Ghumman';
 $pageDescription = 'Kostenloser Immobilien-Ratgeber von Immobilien Ghumman: Expertentipps zu Kauf, Verkauf, Finanzierung, Hausverwaltung, Kapitalanlage und Steuern im Rhein-Main-Gebiet.';
 $pageKeywords    = 'Immobilien Ratgeber, Immobilie kaufen Tipps, Haus verkaufen Ratgeber, Baufinanzierung Infos, Hausverwaltung Wissen, Kapitalanlage Immobilien Guide';
@@ -112,7 +112,7 @@ $articles = [
         <p>Kostenlose Expertentipps zu Kauf, Verkauf, Finanzierung, Hausverwaltung, Kapitalanlage und Steuern – verstaendlich erklaert von unseren Experten.</p>
         <div class="page-hero-btns">
             <a href="#artikel" class="btn-hero-primary"><i class="fas fa-book-open"></i> Zum Ratgeber</a>
-            <a href="<?= BASE ?>/immobilienbewertung" class="btn-hero-secondary"><i class="fas fa-calculator"></i> Kostenlose Bewertung</a>
+            <a href="<?= BASE ?>/analyse-beratung?bereich=immobilie#analyser" class="btn-hero-secondary"><i class="fas fa-calculator"></i> Kostenlose Bewertung</a>
         </div>
     </div>
 </section>
@@ -186,7 +186,7 @@ $articles = [
                 <div style="display:grid;gap:1rem">
                     <?php
                     $quicktipps = [
-                        ['fas fa-calculator', 'Kostenlose Immobilienbewertung', 'Erfahren Sie in 24 h den Marktwert Ihrer Immobilie.', BASE . '/immobilienbewertung'],
+                        ['fas fa-calculator', 'Kostenlose Immobilienbewertung', 'Erfahren Sie in 24 h den Marktwert Ihrer Immobilie.', BASE . '/analyse-beratung?bereich=immobilie#analyser'],
                         ['fas fa-chart-line', 'Kapitalanlage-Beratung', 'Renditechancen im Rhein-Main-Gebiet entdecken.', BASE . '/kapitalanlage'],
                         ['fas fa-magnifying-glass-chart', 'Marktanalyse anfragen', 'Datenbasierte Entscheidungsgrundlage erhalten.', BASE . '/analyse-beratung'],
                     ];
@@ -216,7 +216,7 @@ $articles = [
         <div class="cta-banner-btns">
             <a href="tel:+4916098787878" class="btn-hero-primary"><i class="fas fa-phone"></i> Jetzt anrufen</a>
             <a href="https://wa.me/4916098787878" class="btn-hero-secondary" target="_blank" rel="noopener noreferrer"><i class="fab fa-whatsapp"></i> WhatsApp</a>
-            <a href="<?= BASE ?>/immobilienbewertung" class="btn-hero-secondary"><i class="fas fa-calculator"></i> Kostenlose Bewertung</a>
+            <a href="<?= BASE ?>/analyse-beratung?bereich=immobilie#analyser" class="btn-hero-secondary"><i class="fas fa-calculator"></i> Kostenlose Bewertung</a>
         </div>
     </div>
 </section>

@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 
 /**
  * Datenbankverbindung (PDO / MySQLi)

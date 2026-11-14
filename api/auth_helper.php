@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 
 /**
  * api/auth_helper.php

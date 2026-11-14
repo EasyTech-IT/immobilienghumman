@@ -29,8 +29,7 @@ $staticPages = [
     ['loc' => '/',                                         'priority' => '1.00', 'freq' => 'weekly',  'lastmod' => $now],
     // Kernleistungen
     ['loc' => '/immobilien-angebote',                  'priority' => '0.90', 'freq' => 'daily',   'lastmod' => $now],
-    ['loc' => '/immobilienbewertung',                  'priority' => '0.85', 'freq' => 'monthly', 'lastmod' => $now],
-    ['loc' => '/analyse-beratung',                     'priority' => '0.80', 'freq' => 'monthly', 'lastmod' => $now],
+    ['loc' => '/analyse-beratung',                     'priority' => '0.85', 'freq' => 'monthly', 'lastmod' => $now],
     ['loc' => '/finanzierung',                         'priority' => '0.75', 'freq' => 'monthly', 'lastmod' => $now],
     ['loc' => '/kapitalanlage',                        'priority' => '0.75', 'freq' => 'monthly', 'lastmod' => $now],
     ['loc' => '/hausverwaltung',                       'priority' => '0.75', 'freq' => 'monthly', 'lastmod' => $now],

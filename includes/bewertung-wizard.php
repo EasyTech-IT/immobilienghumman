@@ -50,6 +50,7 @@ function wz_options($name, $options, $type = 'radio', $wide = false) {
     }
     return $out . '</div>';
 }
+if (!empty($wzIconsOnly)) return;
 ?>
 <link rel="stylesheet" href="<?= BASE ?>/bewertung-wizard.css">
 <form class="form-premium wz" action="<?= BASE ?>/api/contact.php" method="POST" id="bewertungsForm" novalidate>

@@ -167,21 +167,20 @@ require_once __DIR__ . '/includes/header.php';
                 <p>Diese Cookies sind für den Betrieb der Website erforderlich und können nicht deaktiviert werden.
                     Sie speichern keine persönlich identifizierbaren Informationen.</p>
                 <ul>
-                    <li><strong>cookie_consent:</strong> Speichert Ihre Cookie-Präferenzen (1 Jahr)</li>
+                    <li><strong>cookie_consent:</strong> Speichert Ihre Auswahl für ein Jahr im lokalen Speicher Ihres Browsers</li>
                     <li><strong>Session-Cookies:</strong> Werden nach Schließen des Browsers gelöscht</li>
                 </ul>
                 <p><strong>Rechtsgrundlage:</strong> § 25 Abs. 2 TTDSG (technisch notwendige Cookies) sowie Art. 6 Abs. 1 lit. f DSGVO (berechtigtes Interesse)</p>
 
                 <h3>4.2 Analyse-Cookies (optional)</h3>
-                <p>Diese Cookies helfen uns zu verstehen, wie Besucher mit unserer Website interagieren. Alle Daten
-                    werden anonymisiert erfasst. Diese Cookies werden nur mit Ihrer ausdrücklichen Einwilligung
-                    gesetzt.</p>
+                <p>Diese Cookies helfen uns zu verstehen, wie Besucher mit unserer Website interagieren.
+                    Google Analytics wird nur mit Ihrer ausdrücklichen Einwilligung geladen.</p>
                 <p><strong>Rechtsgrundlage:</strong> § 25 Abs. 1 TTDSG sowie Art. 6 Abs. 1 lit. a DSGVO (Einwilligung)</p>
 
                 <h3>4.3 Cookie-Einstellungen ändern</h3>
                 <p>Sie können Ihre Cookie-Einstellungen jederzeit ändern:</p>
                 <button type="button" class="cookie-settings-btn"
-                    onclick="if(typeof CookieConsent !== 'undefined') CookieConsent.reset(); else alert('Cookie-Einstellungen werden beim nächsten Seitenaufruf angezeigt.');">
+                    onclick="if(typeof CookieConsent !== 'undefined') CookieConsent.show(); else alert('Cookie-Einstellungen werden beim nächsten Seitenaufruf angezeigt.');">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
                         <path
                             d="M19.14 12.94c.04-.31.06-.63.06-.94 0-.31-.02-.63-.06-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z" />
@@ -200,11 +199,10 @@ require_once __DIR__ . '/includes/header.php';
                     durch das Cookie erzeugten Informationen werden in der Regel an einen Server von Google in den
                     USA übertragen und dort gespeichert.</p>
 
-                <h3>IP-Anonymisierung</h3>
-                <p>Wir haben auf dieser Website die Funktion IP-Anonymisierung aktiviert. Dadurch wird Ihre
-                    IP-Adresse von Google innerhalb von Mitgliedstaaten der Europäischen Union oder in anderen
-                    Vertragsstaaten des Abkommens über den Europäischen Wirtschaftsraum vor der Übermittlung in die
-                    USA gekürzt.</p>
+                <h3>Verarbeitung von Nutzungsdaten</h3>
+                <p>Bei der Nutzung von Google Analytics werden auch technische Informationen wie die IP-Adresse
+                    verarbeitet. Dabei können Daten an Google in die USA übermittelt werden. Weitere Informationen
+                    finden Sie in den Datenschutzhinweisen von Google.</p>
 
                 <h3>Einwilligung erforderlich</h3>
                 <p>Google Analytics wird nur aktiviert, wenn Sie dem über unser Cookie-Banner ausdrücklich
@@ -238,6 +236,9 @@ require_once __DIR__ . '/includes/header.php';
                 </ul>
 
                 <p>Diese Daten geben wir nicht ohne Ihre Einwilligung weiter.</p>
+                <p>Bei Anfragen über „Analyse &amp; Beratung“ werden Ihre Angaben einschließlich der Antworten
+                    zu Ihrem Anliegen mit Ihrer Einwilligung zur Bearbeitung an EasyTech IT
+                    (info@easytechit.de) weitergeleitet. Sie erhalten eine Eingangsbestätigung per E-Mail.</p>
 
                 <p><strong>Rechtsgrundlage:</strong> Art. 6 Abs. 1 lit. b DSGVO (vorvertragliche Maßnahmen) und Art.
                     6 Abs. 1 lit. f DSGVO (berechtigtes Interesse an der Bearbeitung von Kundenanfragen)</p>
