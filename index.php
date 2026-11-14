@@ -65,9 +65,8 @@ require_once __DIR__ . '/includes/header.php';
 <section class="hx" id="home">
     <div class="hx-wrap">
         <div class="hx-copy">
-            <p class="hx-eyebrow">Immobilienmakler · Rhein-Main</p>
-            <h1 class="hx-title">Ihre Immobilie.<span>Unser Versprechen.</span></h1>
-            <p class="hx-lead">Persönliche Beratung, faire Bewertung und diskrete Vermarktung im Rhein-Main-Gebiet.</p>
+            <h1 class="hx-title">Ihre Immobilie.<span>In guten Händen.</span></h1>
+            <p class="hx-lead">Von der Bewertung bis zur Vermarktung: Wir begleiten Sie persönlich und diskret im Rhein-Main-Gebiet.</p>
             <div class="hx-actions">
                 <a href="<?= BASE ?>/immobilienbewertung" class="hx-cta">
                     <span>Kostenlose Bewertung</span>
@@ -99,18 +98,13 @@ require_once __DIR__ . '/includes/header.php';
         $heroSlides = [];
         foreach (($homepageProperties ?? []) as $hp) {
             if (!in_array(mb_strtolower((string)($hp['status'] ?? ''), 'UTF-8'), ['available', ''], true)) continue;
-            $hImgs = json_decode((string)($hp['images'] ?? '[]'), true);
-            $hImg = trim((string)($hp['main_image'] ?? ''));
-            if ($hImg === '' && is_array($hImgs) && !empty($hImgs)) {
-                $hImg = is_string($hImgs[0]) ? $hImgs[0] : (string)($hImgs[0]['url'] ?? '');
-            }
-            if ($hImg === '') continue;
-            $hp['_img'] = $hImg;
             $heroSlides[] = $hp;
         }
         ?>
         <?php if (!empty($heroSlides)): ?>
         <div class="hx-media hx-slider" id="heroMedia" role="region" aria-roledescription="Karussell" aria-label="Aktuelle Immobilienangebote">
+            <p class="hx-media-heading">Aktuelle Angebote</p>
+            <div class="hx-slides">
             <?php foreach ($heroSlides as $i => $hp):
                 $hRent = mb_strtolower((string)($hp['offer_type'] ?? ''), 'UTF-8') === 'miete';
                 $hPrice = (float)($hp['price'] ?? 0);
@@ -119,7 +113,6 @@ require_once __DIR__ . '/includes/header.php';
                 $hUrl = !empty($hp['slug']) ? BASE . '/immobilie/' . rawurlencode((string)$hp['slug']) : BASE . '/property-detail?id=' . rawurlencode((string)($hp['id'] ?? ''));
             ?>
             <a class="hx-slide<?= $i === 0 ? ' is-active' : '' ?>" href="<?= htmlspecialchars($hUrl) ?>" <?= $i === 0 ? '' : 'tabindex="-1" aria-hidden="true"' ?>>
-                <img src="<?= htmlspecialchars($hp['_img']) ?>" alt="<?= htmlspecialchars((string)($hp['title'] ?? 'Immobilie')) ?>" <?= $i === 0 ? 'fetchpriority="high"' : 'loading="lazy"' ?>>
                 <span class="hx-slide-info">
                     <span class="hx-slide-tag"><?= $hRent ? 'Zur Miete' : 'Zum Kauf' ?></span>
                     <strong><?= htmlspecialchars((string)($hp['title'] ?? 'Immobilienangebot')) ?></strong>
@@ -132,9 +125,10 @@ require_once __DIR__ . '/includes/header.php';
                 </span>
             </a>
             <?php endforeach; ?>
+            </div>
             <?php if (count($heroSlides) > 1): ?>
-            <div class="hx-dots" role="tablist" aria-label="Objekt wählen">
-                <?php foreach ($heroSlides as $i => $hp): ?><button type="button" class="hx-dot<?= $i === 0 ? ' is-active' : '' ?>" aria-label="Objekt <?= $i + 1 ?> anzeigen"></button><?php endforeach; ?>
+            <div class="hx-dots" role="group" aria-label="Objekt wählen">
+                <?php foreach ($heroSlides as $i => $hp): ?><button type="button" class="hx-dot<?= $i === 0 ? ' is-active' : '' ?>" aria-label="Objekt <?= $i + 1 ?> anzeigen" aria-pressed="<?= $i === 0 ? 'true' : 'false' ?>"></button><?php endforeach; ?>
             </div>
             <?php endif; ?>
         </div>

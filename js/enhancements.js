@@ -375,14 +375,14 @@ window.toggleFAQ = function (btn) {
     });
 })();
 
-/* Hero (nur Desktop): Immobilien-Slider, wechselt automatisch alle 4 Sekunden */
+/* Hero: aktuelle Angebote, wechseln automatisch alle 4 Sekunden */
 (function () {
     var media = document.getElementById('heroMedia');
     if (!media) return;
     var slides = media.querySelectorAll('.hx-slide');
     var dots = media.querySelectorAll('.hx-dot');
     var still = window.matchMedia('(prefers-reduced-motion: reduce)');
-    var i = 0, timer = null, x0 = null;
+    var i = 0, timer = null, x0 = null, dragged = false;
     function show(n) {
         i = (n + slides.length) % slides.length;
         slides.forEach(function (s, k) {
@@ -390,23 +390,27 @@ window.toggleFAQ = function (btn) {
             s.classList.toggle('is-active', on);
             if (on) { s.removeAttribute('aria-hidden'); s.removeAttribute('tabindex'); } else { s.setAttribute('aria-hidden', 'true'); s.setAttribute('tabindex', '-1'); }
         });
-        dots.forEach(function (d, k) { d.classList.toggle('is-active', k === i); });
+        dots.forEach(function (d, k) {
+            d.classList.toggle('is-active', k === i);
+            d.setAttribute('aria-pressed', k === i ? 'true' : 'false');
+        });
     }
     function stop() { clearInterval(timer); timer = null; }
-    function play() { if (slides.length < 2 || still.matches || timer || document.hidden) return; timer = setInterval(function () { show(i + 1); }, 4000); }
+    function play() { if (slides.length < 2 || still.matches || timer || document.hidden || media.contains(document.activeElement) || media.matches(':hover')) return; timer = setInterval(function () { show(i + 1); }, 4000); }
     dots.forEach(function (d, k) { d.addEventListener('click', function () { show(k); stop(); play(); }); });
     media.addEventListener('mouseenter', stop);
     media.addEventListener('mouseleave', play);
     media.addEventListener('focusin', stop);
-    media.addEventListener('focusout', play);
-    media.addEventListener('pointerdown', function (e) { x0 = e.clientX; });
+    media.addEventListener('focusout', function () { setTimeout(play, 0); });
+    media.addEventListener('pointerdown', function (e) { x0 = e.clientX; dragged = false; });
     media.addEventListener('pointerup', function (e) {
         if (x0 === null) return;
         var dx = e.clientX - x0; x0 = null;
-        if (Math.abs(dx) > 40) { show(i + (dx < 0 ? 1 : -1)); stop(); play(); }
+        if (Math.abs(dx) > 40) { dragged = true; show(i + (dx < 0 ? 1 : -1)); stop(); play(); }
     });
-    media.addEventListener('click', function (e) { if (Math.abs(e.clientX - (media._cx || e.clientX)) > 40) e.preventDefault(); });
-    media.addEventListener('pointerdown', function (e) { media._cx = e.clientX; });
+    media.addEventListener('pointercancel', function () { x0 = null; });
+    media.addEventListener('click', function (e) { if (dragged) { e.preventDefault(); dragged = false; } });
+    if (still.addEventListener) still.addEventListener('change', function () { still.matches ? stop() : play(); });
     document.addEventListener('visibilitychange', function () { document.hidden ? stop() : play(); });
     play();
 })();
