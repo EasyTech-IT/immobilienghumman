@@ -171,11 +171,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && in_array($action, ['new', 'edit']))
             'energy_value' => $energyValue,
             'energy_efficiency_class' => $energyClass,
             'energy_source' => $energySource,
+            'energy_valid_until' => trim((string)($d['energy_valid_until'] ?? '')),
+            'energy_building_year' => (($d['energy_building_year'] ?? '') !== '' ? (int)$d['energy_building_year'] : null),
+            'heating_type' => trim((string)($d['heating_type'] ?? '')),
+            'heating_year' => (($d['heating_year'] ?? '') !== '' ? (int)$d['heating_year'] : null),
             'building_year' => $buildingYear,
             'floor' => trim((string)($d['floor'] ?? '')),
+            'floors_total' => (($d['floors_total'] ?? '') !== '' ? (int)$d['floors_total'] : null),
+            'bedrooms' => (($d['bedrooms'] ?? '') !== '' ? (int)$d['bedrooms'] : null),
+            'balcony_area' => (($d['balcony_area'] ?? '') !== '' ? (float)$d['balcony_area'] : null),
+            'has_balcony_terrace' => !empty($d['has_balcony_terrace']),
+            'has_builtin_kitchen' => !empty($d['has_builtin_kitchen']),
+            'has_basement' => !empty($d['has_basement']),
+            'bath_features' => trim((string)($d['bath_features'] ?? '')),
+            'flooring' => trim((string)($d['flooring'] ?? '')),
+            'condition' => trim((string)($d['condition'] ?? '')),
             'has_elevator' => !empty($d['has_elevator']),
             'last_modernization_year' => (($d['last_modernization_year'] ?? '') !== '' ? (int)$d['last_modernization_year'] : null),
             'house_fee' => (($d['house_fee'] ?? '') !== '' ? (float)$d['house_fee'] : null),
+            'parking_spaces' => (($d['parking_spaces'] ?? '') !== '' ? (int)$d['parking_spaces'] : null),
+            'parking_type' => trim((string)($d['parking_type'] ?? '')),
             'parking_info' => trim((string)($d['parking_info'] ?? '')),
             'commission_required' => !empty($d['commission_required']),
             'commission_amount' => (($d['commission_amount'] ?? '') !== '' ? (float)$d['commission_amount'] : null),
@@ -628,6 +643,29 @@ $pageTitle = $action === 'list' ? 'Immobilien' : ($action === 'new' ? 'Neue Immo
                     </div>
 
                     <div class="card">
+                        <h2 style="margin:0 0 1rem;font-size:1rem;color:#555;">Fakten für die Detailseite</h2>
+                        <div class="form-row three">
+                            <div class="form-group"><label>Schlafzimmer</label><input type="number" name="bedrooms" min="0" step="1" value="<?= htmlspecialchars((string)($extraData['bedrooms'] ?? '')) ?>"></div>
+                            <div class="form-group"><label>Etagen im Gebäude</label><input type="number" name="floors_total" min="0" step="1" value="<?= htmlspecialchars((string)($extraData['floors_total'] ?? '')) ?>"></div>
+                            <div class="form-group"><label>Balkon-/Terrassenfläche (m²)</label><input type="number" name="balcony_area" min="0" step="0.01" value="<?= htmlspecialchars((string)($extraData['balcony_area'] ?? '')) ?>"></div>
+                        </div>
+                        <div class="form-row three">
+                            <div class="form-group"><label>Stellplätze</label><input type="number" name="parking_spaces" min="0" step="1" value="<?= htmlspecialchars((string)($extraData['parking_spaces'] ?? '')) ?>"></div>
+                            <div class="form-group"><label>Stellplatztyp</label><input type="text" name="parking_type" value="<?= htmlspecialchars((string)($extraData['parking_type'] ?? '')) ?>" placeholder="z.B. Tiefgarage"></div>
+                            <div class="form-group"><label>Zustand</label><input type="text" name="condition" value="<?= htmlspecialchars((string)($extraData['condition'] ?? '')) ?>" placeholder="z.B. gepflegt"></div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group"><label>Bad</label><input type="text" name="bath_features" value="<?= htmlspecialchars((string)($extraData['bath_features'] ?? '')) ?>" placeholder="z.B. Dusche, Wanne"></div>
+                            <div class="form-group"><label>Bodenbelag</label><input type="text" name="flooring" value="<?= htmlspecialchars((string)($extraData['flooring'] ?? '')) ?>" placeholder="z.B. Parkett, Fliesen"></div>
+                        </div>
+                        <div class="form-row three">
+                            <div class="form-group"><div class="check-wrap"><input type="checkbox" name="has_balcony_terrace" id="has_balcony_terrace" value="1" <?= !empty($extraData['has_balcony_terrace']) ? 'checked' : '' ?>><label for="has_balcony_terrace" style="margin:0;font-weight:normal;">Balkon/Terrasse vorhanden</label></div></div>
+                            <div class="form-group"><div class="check-wrap"><input type="checkbox" name="has_builtin_kitchen" id="has_builtin_kitchen" value="1" <?= !empty($extraData['has_builtin_kitchen']) ? 'checked' : '' ?>><label for="has_builtin_kitchen" style="margin:0;font-weight:normal;">Einbauküche vorhanden</label></div></div>
+                            <div class="form-group"><div class="check-wrap"><input type="checkbox" name="has_basement" id="has_basement" value="1" <?= !empty($extraData['has_basement']) ? 'checked' : '' ?>><label for="has_basement" style="margin:0;font-weight:normal;">Keller vorhanden</label></div></div>
+                        </div>
+                    </div>
+
+                    <div class="card">
                         <h2 style="margin:0 0 1rem;font-size:1rem;color:#555;">Energieausweis (Pflicht für verfügbare Inserate)</h2>
                         <div class="form-row three">
                             <div class="form-group">
@@ -668,6 +706,15 @@ $pageTitle = $action === 'list' ? 'Immobilien' : ($action === 'new' ? 'Neue Immo
                                 </select>
                             </div>
                             <div class="form-group"><label>Baujahr Gebäude</label><input type="number" name="building_year" value="<?= htmlspecialchars((string)($extraData['building_year'] ?? '')) ?>" min="1800" max="2100"></div>
+                        </div>
+                        <div class="form-row three">
+                            <div class="form-group"><label>Gültig bis</label><input type="date" name="energy_valid_until" value="<?= htmlspecialchars((string)($extraData['energy_valid_until'] ?? '')) ?>"></div>
+                            <div class="form-group"><label>Baujahr lt. Energieausweis</label><input type="number" name="energy_building_year" value="<?= htmlspecialchars((string)($extraData['energy_building_year'] ?? '')) ?>" min="1800" max="2100"></div>
+                            <div class="form-group"><label>Heizungsart</label><input type="text" name="heating_type" value="<?= htmlspecialchars((string)($extraData['heating_type'] ?? '')) ?>" placeholder="z.B. Zentralheizung"></div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group"><label>Baujahr Heizung</label><input type="number" name="heating_year" value="<?= htmlspecialchars((string)($extraData['heating_year'] ?? '')) ?>" min="1800" max="2100"></div>
+                            <div></div>
                         </div>
                     </div>
 

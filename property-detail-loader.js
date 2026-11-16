@@ -1,929 +1,837 @@
 /**
  * Property Detail Page Loader
- * Loads specific property from database and displays it
- * Datenquelle: ausschließlich API/DB
+ * Lädt eine Immobilie per Slug/ID aus der API und rendert die Detailseite.
+ * Datenquelle: ausschließlich API/DB – es werden keine Objektdaten erfunden.
  */
+(function () {
+    'use strict';
 
-// Gallery state
-let currentImageIndex = 0;
-let propertyImages = [];
+    const SITE_BASE = window.SITE_BASE || '';
+    const API_BASE = window.API_BASE_URL || (SITE_BASE + '/api');
+    const FETCH_TIMEOUT_MS = 15000;
+    const PHONE_TEL = '+4916098787878';
+    const PHONE_LABEL = '+49 160 98787878';
+    const EMAIL = 'info@immobilienghumman.de';
+    const WA_BASE = 'https://wa.me/4916098787878';
+    const AGENT_IMG = 'https://res.cloudinary.com/dlpdbr0ey/image/upload/v1755051245/7ae1aa7d-b239-4ee5-8090-6b8339e15d4e-removebg-preview_m6fipk.png';
 
-/**
- * Load property from URL parameter
- */
-async function loadPropertyDetails() {
-    // Get property ID or slug from URL
-    const urlParams = new URLSearchParams(window.location.search);
-    const propertyId = urlParams.get('id');
-    let slug = urlParams.get('slug');
-    if (!slug) {
-        const pathMatch = window.location.pathname.match(/\/immobilie\/([^/?#]+)/i);
-        if (pathMatch && pathMatch[1]) {
-            slug = decodeURIComponent(pathMatch[1]);
+    let images = [];
+    let current = 0;
+    let property = null;
+    let lastFocus = null;
+
+    /* ───────────── Helpers ───────────── */
+    const $ = (sel, root) => (root || document).querySelector(sel);
+    const $$ = (sel, root) => Array.from((root || document).querySelectorAll(sel));
+
+    function esc(v) {
+        return String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    }
+
+    function parseNum(v) {
+        if (v == null || v === '') return null;
+        if (typeof v === 'number') return isFinite(v) ? v : null;
+        let s = String(v).trim().replace(/[^\d,.\-]/g, '');
+        if (!s) return null;
+        if (s.includes(',')) s = s.replace(/\./g, '').replace(',', '.');
+        const n = parseFloat(s);
+        return isFinite(n) ? n : null;
+    }
+
+    const moneyFmt = new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR', minimumFractionDigits: 0, maximumFractionDigits: 2 });
+    const numFmt = new Intl.NumberFormat('de-DE', { maximumFractionDigits: 2 });
+    const money = v => { const n = parseNum(v); return n == null ? '' : moneyFmt.format(n); };
+    const fmtNum = v => { const n = parseNum(v); return n == null ? '' : numFmt.format(n); };
+    const hasVal = v => v !== null && v !== undefined && String(v).trim() !== '' && v !== 0 && v !== '0' && v !== '0.00';
+
+    function parseDate(v) {
+        if (!v) return null;
+        const s = String(v).trim();
+        let m = s.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+        if (m) return new Date(+m[3], +m[2] - 1, +m[1]);
+        m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+        if (m) return new Date(+m[1], +m[2] - 1, +m[3]);
+        return null;
+    }
+
+    function fmtDate(v) {
+        if (!v) return '';
+        const d = parseDate(v);
+        return d && !isNaN(d) ? d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }) : String(v);
+    }
+
+    function assetUrl(u) {
+        if (!u) return '';
+        u = String(u).trim();
+        if (/^(https?:)?\/\//i.test(u)) return u;
+        if (/^[a-z][a-z0-9+.\-]*:/i.test(u)) return '';
+        if (u.startsWith('/')) return (SITE_BASE && !u.startsWith(SITE_BASE + '/') ? SITE_BASE : '') + u;
+        return SITE_BASE + '/' + u;
+    }
+
+    const TYPE_LABELS = { wohnung: 'Wohnung', haus: 'Haus', gewerbe: 'Gewerbe', 'grundstück': 'Grundstück', grundstueck: 'Grundstück' };
+    const typeLabel = t => { if (!t) return ''; const k = String(t).toLowerCase(); return TYPE_LABELS[k] || (String(t).charAt(0).toUpperCase() + String(t).slice(1)); };
+    const isRent = p => /miet/i.test(p.offer_type || '');
+    const offerLabel = p => (isRent(p) ? 'Miete' : (p.offer_type ? 'Kauf' : ''));
+    const STATUS = { available: 'Verfügbar', reserved: 'Reserviert', sold: 'Verkauft', rented: 'Vermietet' };
+
+    function toast(text) {
+        let t = document.getElementById('fav-toast');
+        if (!t) {
+            t = document.createElement('div');
+            t.id = 'fav-toast';
+            t.setAttribute('role', 'status');
+            document.body.appendChild(t);
+        }
+        t.textContent = text;
+        t.classList.add('visible');
+        clearTimeout(toast._t);
+        toast._t = setTimeout(() => t.classList.remove('visible'), 2500);
+    }
+
+    /* ───────────── State handling ───────────── */
+    function setState(state) {
+        const loading = $('#pd-loading'), error = $('#pd-error'), content = $('#pd-content'), root = $('#pd-root');
+        if (loading) loading.hidden = state !== 'loading';
+        if (error) error.hidden = state !== 'error';
+        if (content) content.hidden = state !== 'ready';
+        if (root) root.setAttribute('aria-busy', state === 'loading' ? 'true' : 'false');
+    }
+
+    function showError(code, detail) {
+        const box = $('#pd-error');
+        const messages = {
+            not_found: ['Diese Immobilie ist nicht verfügbar', 'Das Objekt wurde nicht gefunden oder ist nicht mehr online. Schauen Sie sich gern unsere aktuellen Angebote an.'],
+            invalid: ['Ungültiger Link', 'Es wurde keine gültige Immobilie angegeben. Bitte wählen Sie ein Objekt aus unseren Angeboten.'],
+            timeout: ['Die Anfrage hat zu lange gedauert', 'Der Server antwortet gerade nicht rechtzeitig. Bitte versuchen Sie es erneut oder kontaktieren Sie uns direkt.'],
+            network: ['Keine Verbindung', 'Die Immobilie konnte nicht geladen werden. Bitte prüfen Sie Ihre Internetverbindung oder kontaktieren Sie uns direkt.'],
+            render: ['Anzeige nicht möglich', 'Die Objektdaten konnten nicht vollständig angezeigt werden. Bitte laden Sie die Seite neu oder kontaktieren Sie uns direkt.'],
+            server: ['Vorübergehend nicht erreichbar', 'Die Objektdaten konnten nicht geladen werden. Bitte versuchen Sie es später erneut oder kontaktieren Sie uns direkt.']
+        };
+        const m = messages[code] || messages.server;
+        if (box) {
+            const canRetry = code !== 'not_found' && code !== 'invalid';
+            box.innerHTML = `
+                <div class="pd-error-icon"><i class="fas fa-house-circle-exclamation" aria-hidden="true"></i></div>
+                <h2>${esc(m[0])}</h2>
+                <p>${esc(m[1])}</p>
+                <div class="pd-error-actions">
+                    ${canRetry ? '<button type="button" class="pd-btn pd-btn-primary" data-retry><i class="fas fa-rotate-right"></i> Erneut versuchen</button>' : ''}
+                    <a class="pd-btn pd-btn-outline" href="${esc(SITE_BASE)}/immobilien-angebote"><i class="fas fa-building"></i> Alle Immobilien</a>
+                    <a class="pd-btn pd-btn-outline" href="tel:${PHONE_TEL}"><i class="fas fa-phone"></i> ${PHONE_LABEL}</a>
+                    <a class="pd-btn pd-btn-wa" href="${WA_BASE}" target="_blank" rel="noopener noreferrer"><i class="fab fa-whatsapp"></i> WhatsApp</a>
+                    <a class="pd-btn pd-btn-outline" href="mailto:${EMAIL}"><i class="fas fa-envelope"></i> E-Mail</a>
+                </div>`;
+            const retry = $('[data-retry]', box);
+            if (retry) retry.addEventListener('click', loadPropertyDetails);
+        }
+        setState('error');
+        console.error('Property detail error:', code, detail || '');
+    }
+
+    /* ───────────── Data loading ───────────── */
+    async function fetchProperty(ref) {
+        const url = ref.slug
+            ? `${API_BASE}/properties.php?slug=${encodeURIComponent(ref.slug)}`
+            : `${API_BASE}/properties.php?id=${encodeURIComponent(ref.id)}`;
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
+        const fail = (code, msg) => Object.assign(new Error(msg || code), { code });
+        try {
+            const res = await fetch(url, { headers: { Accept: 'application/json' }, signal: ctrl.signal, credentials: 'same-origin' });
+            const raw = (await res.text()).replace(/^\uFEFF+/, '').trim();
+            let data = null;
+            try { data = raw ? JSON.parse(raw) : null; } catch (e) { data = null; }
+            if (res.status === 404) throw fail('not_found');
+            if (!res.ok || !data) throw fail('server', `HTTP ${res.status}`);
+            if (!data.property || typeof data.property !== 'object') throw fail('not_found');
+            return data.property;
+        } catch (e) {
+            if (e.name === 'AbortError') throw fail('timeout');
+            if (!e.code) e.code = 'network';
+            throw e;
+        } finally {
+            clearTimeout(timer);
         }
     }
 
-    if (!propertyId && !slug) {
-        showError('Keine gueltige Immobilien-ID oder kein Slug angegeben');
-        return;
-    }
-
-    let property = null;
-
-    try {
-        // Show loading state
-        showLoading();
-
-        // Check if API client is available
-        if (typeof PropertyAPI !== 'undefined') {
-            const api = new PropertyAPI();
-            if (slug) {
-                const bySlug = await api.getPropertyBySlug(slug);
-                property = bySlug?.property || null;
-            } else {
-                const byId = await api.getProperty(propertyId);
-                property = byId?.property || null;
+    async function loadPropertyDetails() {
+        const params = new URLSearchParams(window.location.search);
+        let slug = params.get('slug');
+        const id = params.get('id');
+        if (!slug) {
+            const m = window.location.pathname.match(/\/immobilie\/([^/?#]+)/i);
+            if (m && m[1]) {
+                try { slug = decodeURIComponent(m[1]); } catch (e) { slug = m[1]; }
             }
         }
-    } catch (error) {
-        console.warn('API error, trying static fallback:', error.message);
+        if (!slug && !id) { showError('invalid'); return; }
+
+        setState('loading');
+        let data = null;
+        let lastErr = null;
+        for (let attempt = 0; attempt < 2 && !data; attempt++) {
+            try {
+                data = await fetchProperty({ slug, id });
+            } catch (e) {
+                lastErr = e;
+                if (e.code === 'not_found') break;
+            }
+        }
+        if (!data) { showError(lastErr ? lastErr.code : 'server', lastErr); return; }
+
+        try {
+            property = data;
+            displayProperty(data);
+            setState('ready');
+        } catch (e) {
+            showError('render', e);
+        }
     }
 
-    if (!property) {
-        showError('Immobilie nicht gefunden');
-        return;
-    }
+    /* ───────────── Rendering ───────────── */
+    function displayProperty(p) {
+        const place = [p.zip, p.location || p.city].filter(Boolean).join(' ');
+        document.title = `${p.title} – ${p.location || p.city || ''} | Immobilien Ghumman`.replace(' –  |', ' |');
+        const meta = $('meta[name="description"]');
+        const desc = (p.short_description || p.description || '').toString().replace(/\s+/g, ' ').trim().slice(0, 155);
+        if (meta && desc) meta.setAttribute('content', desc);
+        const crumb = $('#pd-crumb-title');
+        if (crumb) crumb.textContent = p.title || 'Objekt';
 
-    // Display property details
-    displayProperty(property);
-}
+        initImages(p);
 
-/**
- * Display property details on the page
- */
-function displayProperty(property) {
-    // Restore hero markup before filling it
-    hideLoading();
-
-    const locationName = property.location || property.city || 'Unbekannt';
-
-    // Update page title
-    document.title = `${property.title} - ${locationName} | Immobilien Ghumman`;
-
-    // Update hero section
-    updateHeroSection(property);
-
-    // Update key facts
-    updateKeyFacts(property);
-
-    // Update gallery
-    updateGallery(property);
-
-    // Update description (includes ALL data)
-    updateDescription(property);
-
-    // Update features
-    updateFeatures(property);
-
-    // Update location info (includes ALL location data)
-    updateLocation(property);
-
-    // Add complete property info section
-    addCompletePropertyInfo(property);
-
-    // Initialize Leaflet map
-    initPropertyMap(property);
-
-    // Initialize favorites button
-    initFavButton(property);
-
-    // Update structured data
-    updateStructuredData(property);
-
-    // Sync detail contact form metadata
-    syncInquiryForm(property);
-
-    // Hide loading
-    hideLoading();
-
-    // Log property for debugging
-    console.log('Property loaded:', property);
-}
-
-/**
- * Update hero section
- */
-function updateHeroSection(property) {
-    const heroSection = document.querySelector('.property-hero');
-    const title = document.querySelector('.property-title h1');
-    const location = document.querySelector('.property-location');
-    const priceElement = document.querySelector('.property-price');
-
-
-
-    // Update title
-    if (title) {
-        const typeLabel = getTypeLabel(property.type);
-        title.textContent = `${typeLabel}: ${property.title}`;
-    }
-
-    // Update location
-    if (location) {
-        location.innerHTML = `
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style="vertical-align: middle; margin-right: 8px;">
-                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
-            </svg>
-            ${property.location || property.city || 'Unbekannt'}${property.address ? ', ' + property.address : ''}
-        `;
-    }
-
-    // Update price
-    if (priceElement) {
-        const formattedPrice = new Intl.NumberFormat('de-DE').format(property.price);
-        priceElement.textContent = property.offer_type === 'kauf'
-            ? `€ ${formattedPrice}`
-            : `€ ${formattedPrice} / Monat`;
-    }
-
-    const badges = document.querySelector('.pd-badges');
-    if (badges) {
         const parts = [
-            `<span class="pd-badge pd-badge-offer">${property.offer_type === 'kauf' ? 'Zu verkaufen' : 'Zu vermieten'}</span>`,
-            `<span class="pd-badge">${getTypeLabel(property.type)}</span>`
+            safe(() => galleryHtml(p)),
+            safe(() => headHtml(p, place)),
+            safe(thumbnailsHtml),
+            `<div class="pd-layout"><div class="pd-main">` +
+            [descriptionHtml, detailsHtml, costsHtml, energyHtml, featuresHtml, locationHtml, mediaHtml].map(fn => safe(() => fn(p))).join('') +
+            `</div><aside class="pd-aside">${safe(() => contactHtml(p))}</aside></div>`,
+            safe(() => mobileBarHtml(p))
         ];
-        if (property.featured) parts.push('<span class="pd-badge pd-badge-top">Top-Angebot</span>');
-        badges.innerHTML = parts.join('');
+        $('#pd-content').innerHTML = parts.join('');
+
+        bindGallery(p);
+        bindActions(p);
+        syncInquiryForm(p);
+        safe(() => initPropertyMap(p));
+        safe(() => updateStructuredData(p));
     }
-    const crumb = document.querySelector('.pd-crumb-current');
-    if (crumb) crumb.textContent = property.title;
-}
 
-function syncInquiryForm(property) {
-    const idInput = document.getElementById('inquiry_property_id');
-    const titleInput = document.getElementById('inquiry_property_title');
-    const linkInput = document.getElementById('inquiry_property_link');
-    if (!idInput || !titleInput || !linkInput) return;
+    function safe(fn) {
+        try { return fn() || ''; } catch (e) { console.error('Section render failed:', e); return ''; }
+    }
 
-    const slugPath = property.slug ? `/immobilie/${encodeURIComponent(property.slug)}` : `/property-detail?id=${encodeURIComponent(property.id)}`;
-    const origin = (typeof window !== 'undefined' && window.location && window.location.origin) ? window.location.origin : 'https://www.immobilienghumman.de';
+    function section(id, icon, title, body) {
+        return `<section class="pd-card" id="${id}"><h2 class="pd-h2"><i class="fas ${icon}" aria-hidden="true"></i> ${esc(title)}</h2>${body}</section>`;
+    }
 
-    idInput.value = property.id || '';
-    titleInput.value = property.title || '';
-    linkInput.value = origin + slugPath;
-}
+    function rows(list, totalLabel) {
+        const items = list.filter(r => r && r.value !== '' && r.value != null);
+        if (!items.length) return '';
+        return `<dl class="pd-dl">${items.map(r => `<div${r.label === totalLabel ? ' class="is-total"' : ''}><dt>${esc(r.label)}</dt><dd>${esc(r.value)}</dd></div>`).join('')}</dl>`;
+    }
 
-/**
- * Update key facts section - Shows ALL uploaded property data
- */
-function updateKeyFacts(property) {
-    const keyFactsContainer = document.querySelector('.key-facts');
-    if (!keyFactsContainer) return;
+    const extra = p => (p.extra_data && typeof p.extra_data === 'object' && !Array.isArray(p.extra_data)) ? p.extra_data : {};
 
-    const facts = [];
+    /* — Gallery — */
+    function initImages(p) {
+        images = [];
+        const raw = Array.isArray(p.images) ? p.images : [];
+        raw.forEach(img => {
+            const url = typeof img === 'string' ? img : (img && (img.url || img.image_url));
+            const u = assetUrl(url);
+            if (u) images.push({ url: u, label: (img && typeof img === 'object' && img.label) ? String(img.label) : '' });
+        });
+        if (!images.length && p.main_image) {
+            const u = assetUrl(p.main_image);
+            if (u) images.push({ url: u, label: '' });
+        }
+        const main = assetUrl(p.main_image);
+        const idx = main ? images.findIndex(i => i.url === main) : -1;
+        current = idx > 0 ? idx : 0;
+    }
 
-    // Size (Wohnfläche)
-    if (property.size) {
-        facts.push({
-            icon: `<path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-8 16H9v-6h2v6zm4 0h-2v-8h2v8zm4 0h-2V7h2v12z"/>`,
-            label: `${property.size} m²`,
-            sublabel: 'Wohnfläche'
+    function galleryHtml(p) {
+        const multi = images.length > 1;
+        const empty = images.length === 0;
+        return `
+        <section class="pd-gallery" aria-label="Bildergalerie">
+            <div class="pd-gallery-grid">
+                <div class="pd-stage${empty ? ' is-empty' : ''}" id="pd-stage">
+                    <div class="pd-stage-bg" id="pd-stage-bg"></div>
+                    <img id="main-image" class="pd-stage-img" ${empty ? '' : `src="${esc(images[current].url)}"`} alt="${esc(p.title)}" width="1600" height="1000" decoding="async" fetchpriority="high">
+                    <div class="pd-empty-msg"><i class="far fa-image" aria-hidden="true"></i>Für dieses Objekt sind noch keine Bilder hinterlegt.</div>
+                    ${empty ? '' : `
+                    ${multi ? `<button type="button" class="pd-nav pd-prev" aria-label="Vorheriges Bild"><i class="fas fa-chevron-left"></i></button>
+                    <button type="button" class="pd-nav pd-next" aria-label="Nächstes Bild"><i class="fas fa-chevron-right"></i></button>` : ''}
+                    <button type="button" class="pd-fs" aria-label="Galerie im Vollbild öffnen"><i class="fas fa-expand"></i><span>Vollbild</span></button>
+                    <div class="pd-label" id="pd-label"></div>
+                    ${multi ? '<div class="pd-counter" id="pd-counter"></div>' : ''}`}
+                </div>
+                ${multi ? `<button type="button" class="pd-gallery-preview" data-gallery-next aria-label="Nächstes Bild">
+                    <img data-preview-image src="${esc(images[(current + 1) % images.length].url)}" alt="" loading="lazy" decoding="async">
+                    <span><i class="fas fa-camera" aria-hidden="true"></i> ${images.length} Bilder</span>
+                </button>` : ''}
+            </div>
+        </section>`;
+    }
+
+    function thumbnailsHtml() {
+        if (images.length < 2) return '';
+        return `<div class="pd-thumbs" id="gallery-thumbnails" role="group" aria-label="Miniaturbilder">
+            ${images.map((img, i) => `<button type="button" class="pd-thumb${i === current ? ' active' : ''}" data-index="${i}" aria-label="Bild ${i + 1}${img.label ? ': ' + esc(img.label) : ''}"><img src="${esc(img.url)}" alt="" loading="${i < 6 ? 'eager' : 'lazy'}" decoding="async" width="96" height="68"></button>`).join('')}
+        </div>`;
+    }
+
+    function bindGallery(p) {
+        const stage = $('#pd-stage');
+        if (!stage || !images.length) return;
+        const img = $('#main-image');
+        img.addEventListener('error', () => { stage.classList.add('is-empty'); });
+        img.addEventListener('load', () => { stage.classList.remove('is-empty'); });
+        img.addEventListener('click', () => openLightbox(current, p.title));
+        $('.pd-prev', stage)?.addEventListener('click', () => showImage(current - 1));
+        $('.pd-next', stage)?.addEventListener('click', () => showImage(current + 1));
+        $('.pd-fs', stage)?.addEventListener('click', () => openLightbox(current, p.title));
+        $('[data-gallery-next]')?.addEventListener('click', () => showImage(current + 1));
+        const thumbs = $('#gallery-thumbnails');
+        if (thumbs) {
+            thumbs.addEventListener('click', e => {
+                const t = e.target.closest('.pd-thumb');
+                if (t) showImage(parseInt(t.dataset.index, 10));
+            });
+        }
+        let startX = 0;
+        stage.addEventListener('touchstart', e => { startX = e.changedTouches[0].clientX; }, { passive: true });
+        stage.addEventListener('touchend', e => {
+            const dx = e.changedTouches[0].clientX - startX;
+            if (Math.abs(dx) > 50) showImage(current + (dx < 0 ? 1 : -1));
+        }, { passive: true });
+        paintStage();
+    }
+
+    function paintStage() {
+        const item = images[current];
+        if (!item) return;
+        const img = $('#main-image');
+        if (img && img.getAttribute('src') !== item.url) img.src = item.url;
+        const preview = $('[data-preview-image]');
+        if (preview && images.length > 1) preview.src = images[(current + 1) % images.length].url;
+        const bg = $('#pd-stage-bg');
+        if (bg) bg.style.backgroundImage = `url("${item.url.replace(/"/g, '%22')}")`;
+        const label = $('#pd-label');
+        if (label) { label.textContent = item.label; label.style.display = item.label ? '' : 'none'; }
+        const counter = $('#pd-counter');
+        if (counter) counter.textContent = `${current + 1} / ${images.length}`;
+        $$('.pd-thumb').forEach((t, i) => {
+            const on = i === current;
+            t.classList.toggle('active', on);
+            if (on) t.setAttribute('aria-current', 'true'); else t.removeAttribute('aria-current');
+        });
+        const active = $('.pd-thumb.active');
+        const strip = $('#gallery-thumbnails');
+        if (active && strip) {
+            strip.scrollTo({ left: active.offsetLeft - (strip.clientWidth - active.offsetWidth) / 2, behavior: 'smooth' });
+        }
+        [current + 1, current - 1].forEach(i => {
+            const n = images[(i + images.length) % images.length];
+            if (n) { const pre = new Image(); pre.src = n.url; }
         });
     }
 
-    // Rooms (Zimmer)
-    if (property.rooms) {
-        facts.push({
-            icon: `<path d="M7 13c1.66 0 3-1.34 3-3S8.66 7 7 7s-3 1.34-3 3 1.34 3 3 3zm12-6h-8v7H9v5h4v-2h8V7z"/>`,
-            label: `${property.rooms} Zimmer`,
-            sublabel: property.rooms > 1 ? 'Mehrere Zimmer' : 'Ein Zimmer'
-        });
+    function showImage(index) {
+        if (!images.length) return;
+        current = (index + images.length) % images.length;
+        paintStage();
+        const lb = document.getElementById('gallery-lightbox');
+        if (lb && lb.style.display === 'flex') paintLightbox(lb);
+    }
+    const nextImage = () => showImage(current + 1);
+    const previousImage = () => showImage(current - 1);
+
+    /* — Lightbox — */
+    function paintLightbox(lb) {
+        const item = images[current];
+        if (!item) return;
+        const img = $('.lightbox-img', lb);
+        img.src = item.url;
+        img.alt = (property && property.title) || '';
+        const label = $('.lightbox-label', lb);
+        label.textContent = item.label || '';
+        label.style.display = item.label ? 'block' : 'none';
+        $('.lightbox-counter', lb).textContent = `${current + 1} / ${images.length}`;
     }
 
-    // Bathrooms (Badezimmer)
-    if (property.bathrooms) {
-        facts.push({
-            icon: `<path d="M20 2H4c-1 0-2 .9-2 2v16c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM7 18c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm0-3c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm0-3c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm10 6c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm0-3c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm0-3c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1z"/>`,
-            label: `${property.bathrooms} ${property.bathrooms === 1 ? 'Badezimmer' : 'Bäder'}`,
-            sublabel: 'Sanitärräume'
-        });
+    function openLightbox(startIndex) {
+        if (!images.length) return;
+        let lb = document.getElementById('gallery-lightbox');
+        if (!lb) {
+            lb = document.createElement('div');
+            lb.id = 'gallery-lightbox';
+            lb.setAttribute('role', 'dialog');
+            lb.setAttribute('aria-modal', 'true');
+            lb.setAttribute('aria-label', 'Bildergalerie');
+            lb.innerHTML = `
+                <div class="lightbox-backdrop"></div>
+                <button type="button" class="lightbox-close" aria-label="Schließen"><i class="fas fa-times"></i></button>
+                <button type="button" class="lightbox-nav lightbox-prev" aria-label="Vorheriges Bild"><i class="fas fa-chevron-left"></i></button>
+                <div class="lightbox-content">
+                    <img class="lightbox-img" src="" alt="">
+                    <div class="lightbox-label"></div>
+                    <div class="lightbox-counter"></div>
+                </div>
+                <button type="button" class="lightbox-nav lightbox-next" aria-label="Nächstes Bild"><i class="fas fa-chevron-right"></i></button>`;
+            document.body.appendChild(lb);
+            $('.lightbox-close', lb).addEventListener('click', closeLightbox);
+            $('.lightbox-backdrop', lb).addEventListener('click', closeLightbox);
+            $('.lightbox-prev', lb).addEventListener('click', () => showImage(current - 1));
+            $('.lightbox-next', lb).addEventListener('click', () => showImage(current + 1));
+            let x = 0;
+            lb.addEventListener('touchstart', e => { x = e.changedTouches[0].clientX; }, { passive: true });
+            lb.addEventListener('touchend', e => {
+                const dx = e.changedTouches[0].clientX - x;
+                if (Math.abs(dx) > 50) showImage(current + (dx < 0 ? 1 : -1));
+            }, { passive: true });
+        }
+        lastFocus = document.activeElement;
+        current = ((startIndex % images.length) + images.length) % images.length;
+        paintLightbox(lb);
+        lb.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+        $('.lightbox-close', lb).focus();
     }
 
-    // Year built (Baujahr)
-    if (property.year_built) {
-        const age = new Date().getFullYear() - property.year_built;
-        facts.push({
-            icon: `<path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>`,
-            label: `Baujahr ${property.year_built}`,
-            sublabel: age <= 5 ? 'Neubau' : age <= 15 ? 'Modernisiert' : 'Bestand'
-        });
+    function closeLightbox() {
+        const lb = document.getElementById('gallery-lightbox');
+        if (lb) lb.style.display = 'none';
+        document.body.style.overflow = '';
+        if (lastFocus && lastFocus.focus) lastFocus.focus();
     }
 
-    // Offer type (Miete/Kauf)
-    if (property.offer_type) {
-        const offerIcon = property.offer_type === 'kauf'
-            ? `<path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1.41 16.09V20h-2.67v-1.93c-1.71-.36-3.16-1.46-3.27-3.4h1.96c.1 1.05.82 1.87 2.65 1.87 1.96 0 2.4-.98 2.4-1.59 0-.83-.44-1.61-2.67-2.14-2.48-.6-4.18-1.62-4.18-3.67 0-1.72 1.39-2.84 3.11-3.21V4h2.67v1.95c1.86.45 2.79 1.86 2.85 3.39H14.3c-.05-1.11-.64-1.87-2.22-1.87-1.5 0-2.4.68-2.4 1.64 0 .84.65 1.39 2.67 1.91s4.18 1.39 4.18 3.91c-.01 1.83-1.38 2.83-3.12 3.16z"/>`
-            : `<path d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z"/>`;
-
-        facts.push({
-            icon: offerIcon,
-            label: property.offer_type === 'kauf' ? 'Kaufobjekt' : 'Mietobjekt',
-            sublabel: property.offer_type === 'kauf' ? 'Zum Verkauf' : 'Zur Miete'
-        });
-    }
-
-    // Type (Wohnung/Haus/etc.)
-    if (property.type) {
-        const typeLabels = {
-            'wohnung': { label: 'Wohnung', sublabel: 'Eigentumswohnung' },
-            'haus': { label: 'Haus', sublabel: 'Einfamilienhaus' },
-            'gewerbe': { label: 'Gewerbe', sublabel: 'Gewerbeobjekt' },
-            'grundstück': { label: 'Grundstück', sublabel: 'Bauland' }
+    /* — Head / facts — */
+    function priceInfo(p) {
+        const rent = isRent(p);
+        const extras = extra(p);
+        const sub = [];
+        if (rent && hasVal(p.warm_rent)) sub.push(`Warmmiete ${money(p.warm_rent)}`);
+        if (rent && hasVal(p.deposit)) sub.push(`Kaution ${money(p.deposit)}`);
+        if (!rent && hasVal(extras.house_fee)) sub.push(`Hausgeld ${money(extras.house_fee)}`);
+        const hasCosts = hasVal(p.extra_costs) || hasVal(p.warm_rent);
+        return {
+            label: rent ? (hasCosts ? 'Kaltmiete / Monat' : 'Miete / Monat') : 'Kaufpreis',
+            value: hasVal(p.price) ? money(p.price) : 'Preis auf Anfrage',
+            sub: sub.join(' · ')
         };
-        const typeInfo = typeLabels[property.type] || { label: property.type, sublabel: 'Immobilie' };
-
-        facts.push({
-            icon: `<path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/>`,
-            label: typeInfo.label,
-            sublabel: typeInfo.sublabel
-        });
     }
 
-    // Availability (Verfügbarkeit)
-    const availabilityText = property.available_from ? new Date(property.available_from).toLocaleDateString('de-DE') : 'ab sofort';
-    facts.push({
-        icon: `<path d="M9 11H7v2h2v-2zm4 0h-2v2h2v-2zm4 0h-2v2h2v-2zm2-7h-1V2h-2v2H8V2H6v2H5c-1.11 0-1.99.9-1.99 2L3 20c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V9h14v11z"/>`,
-        label: 'Verfügbar',
-        sublabel: availabilityText
-    });
-
-    // Generate HTML
-    keyFactsContainer.innerHTML = facts.map(fact => `
-        <div class="fact-item">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" class="animated-icon">
-                ${fact.icon}
-            </svg>
+    function headHtml(p, place) {
+        const pr = priceInfo(p);
+        const status = p.status && p.status !== 'available' ? (STATUS[p.status] || p.status) : '';
+        const loc = [p.address_public || p.address, place].filter((v, i, a) => v && a.indexOf(v) === i).join(', ');
+        return `
+        <header class="pd-head">
             <div>
-                <strong>${fact.label}</strong>
-                <span>${fact.sublabel}</span>
+                <div class="pd-badges">
+                    ${offerLabel(p) ? `<span class="pd-badge is-offer">${esc(offerLabel(p))}</span>` : ''}
+                    ${p.type ? `<span class="pd-badge">${esc(typeLabel(p.type))}</span>` : ''}
+                    ${status ? `<span class="pd-badge is-warn">${esc(status)}</span>` : '<span class="pd-badge is-ok">Verfügbar</span>'}
+                </div>
+                <h1 class="pd-title">${esc(p.title)}</h1>
+                ${loc ? `<p class="pd-loc"><i class="fas fa-location-dot" aria-hidden="true"></i><span>${esc(loc)}</span></p>` : ''}
             </div>
-        </div>
-    `).join('');
-}
-
-/**
- * Update gallery with property images
- */
-function updateGallery(property) {
-    // Normalize images → [{url, label}] objects
-    propertyImages = [];
-    if (property.images && property.images.length > 0) {
-        propertyImages = property.images.map(img => {
-            if (typeof img === 'string')    return { url: img,           label: '' };
-            if (img.url)                    return { url: img.url,        label: img.label || '' };
-            if (img.image_url)              return { url: img.image_url,  label: img.label || '' };
-            return null;
-        }).filter(Boolean);
-    }
-    if (propertyImages.length === 0 && property.primary_image) {
-        propertyImages = [{ url: property.primary_image, label: '' }];
-    }
-    if (propertyImages.length === 0) {
-        propertyImages = [{ url: 'https://via.placeholder.com/800x500?text=Kein+Bild', label: '' }];
+            <div class="pd-price-box">
+                <span class="pd-price-label">${esc(pr.label)}</span>
+                <span class="pd-price property-price">${esc(pr.value)}</span>
+                ${pr.sub ? `<span class="pd-price-sub">${esc(pr.sub)}</span>` : ''}
+            </div>
+            ${factsHtml(p)}
+            <div class="pd-actions">
+                <button type="button" class="pd-btn pd-btn-primary pd-btn-block pd-expose-btn" data-open-contact>Jetzt Exposé anfordern <i class="fas fa-arrow-right" aria-hidden="true"></i></button>
+                <button type="button" class="pd-icon-btn" id="detail-fav-btn" aria-pressed="false"><i class="far fa-heart"></i> <span>Merken</span></button>
+                <a class="pd-icon-btn" href="${esc(SITE_BASE)}/expose.php?${p.slug ? 'slug=' + encodeURIComponent(p.slug) : 'id=' + encodeURIComponent(p.id)}"><i class="fas fa-file-alt"></i> <span>Exposé ansehen</span></a>
+                <button type="button" class="pd-icon-btn" id="detail-print-btn"><i class="fas fa-print"></i> <span>Exposé drucken</span></button>
+                <button type="button" class="pd-icon-btn" id="detail-share-btn"><i class="fas fa-share-alt"></i> <span>Teilen</span></button>
+            </div>
+        </header>`;
     }
 
-    currentImageIndex = 0;
-
-    /* ── Main image wrapper ── */
-    const mainImage = document.getElementById('main-image');
-    const galleryMain = mainImage ? mainImage.parentElement : null;
-
-    if (mainImage) {
-        mainImage.src = propertyImages[0].url;
-        mainImage.alt = property.title;
-    }
-
-    /* ── Room label overlay ── */
-    if (galleryMain) {
-        let labelEl = galleryMain.querySelector('.gallery-room-label');
-        if (!labelEl) {
-            labelEl = document.createElement('div');
-            labelEl.className = 'gallery-room-label';
-            galleryMain.appendChild(labelEl);
+    function factsHtml(p) {
+        const f = [];
+        const area = parseNum(p.area != null ? p.area : (p.size != null ? p.size : p.living_area));
+        if (area) f.push(['fa-ruler-combined', `${fmtNum(area)} m²`, 'Wohnfläche']);
+        const rooms = parseNum(p.rooms);
+        if (rooms) f.push(['fa-door-open', fmtNum(rooms), 'Zimmer']);
+        const baths = parseNum(p.bathrooms);
+        if (baths) f.push(['fa-bath', fmtNum(baths), 'Badezimmer']);
+        if (!isRent(p) && area && hasVal(p.price)) {
+            f.push(['fa-euro-sign', money(Math.round(parseNum(p.price) / area)), 'Preis pro m²']);
+        } else if (isRent(p) && hasVal(p.warm_rent)) {
+            f.push(['fa-euro-sign', money(p.warm_rent), 'Warmmiete']);
         }
-        const updateLabel = () => {
-            const lbl = propertyImages[currentImageIndex]?.label || '';
-            labelEl.textContent = lbl;
-            labelEl.style.display = lbl ? 'block' : 'none';
-        };
-        updateLabel();
-        galleryMain._updateLabel = updateLabel;
-
-        /* ── Fullscreen button ── */
-        if (!galleryMain.querySelector('.gallery-fullscreen-btn')) {
-            const fsBtn = document.createElement('button');
-            fsBtn.className = 'gallery-fullscreen-btn';
-            fsBtn.innerHTML = '<i class="fas fa-expand"></i>';
-            fsBtn.title = 'Vollbild';
-            fsBtn.setAttribute('aria-label', 'Galerie im Vollbild öffnen');
-            fsBtn.addEventListener('click', () => openLightbox(currentImageIndex, property.title));
-            galleryMain.appendChild(fsBtn);
-        }
-
-        /* ── Image counter ── */
-        let counterEl = galleryMain.querySelector('.gallery-counter');
-        if (!counterEl) {
-            counterEl = document.createElement('div');
-            counterEl.className = 'gallery-counter';
-            galleryMain.appendChild(counterEl);
-        }
-        const updateCounter = () => {
-            counterEl.textContent = `${currentImageIndex + 1} / ${propertyImages.length}`;
-        };
-        updateCounter();
-        galleryMain._updateCounter = updateCounter;
-
-        /* ── Touch swipe ── */
-        let touchStartX = 0;
-        galleryMain.addEventListener('touchstart', e => { touchStartX = e.changedTouches[0].clientX; }, { passive: true });
-        galleryMain.addEventListener('touchend', e => {
-            const dx = e.changedTouches[0].clientX - touchStartX;
-            if (Math.abs(dx) > 50) dx < 0 ? showImage(currentImageIndex + 1) : showImage(currentImageIndex - 1);
-        }, { passive: true });
-
-        /* ── Click to open lightbox ── */
-        mainImage && mainImage.addEventListener('click', () => openLightbox(currentImageIndex, property.title));
-        if (mainImage) mainImage.style.cursor = 'zoom-in';
+        if (!f.length) return '';
+        return `<section class="pd-facts" aria-label="Eckdaten">${f.map(x => `
+            <div class="pd-fact"><span class="pd-fact-icon"><i class="fas ${x[0]}" aria-hidden="true"></i></span><div><strong>${esc(x[1])}</strong><span>${esc(x[2])}</span></div></div>`).join('')}</section>`;
     }
 
-    /* ── Thumbnails ── */
-    const thumbnailsContainer = document.getElementById('gallery-thumbnails');
-    if (thumbnailsContainer) {
-        thumbnailsContainer.innerHTML = propertyImages.map((img, index) => `
-            <div class="thumbnail ${index === 0 ? 'active' : ''}" data-index="${index}" title="${img.label || 'Bild ' + (index + 1)}">
-                <img src="${img.url}" alt="${property.title} - ${img.label || 'Bild ' + (index + 1)}" loading="lazy">
-                ${img.label ? `<span class="thumb-label">${img.label}</span>` : ''}
-            </div>
-        `).join('');
-        thumbnailsContainer.addEventListener('click', e => {
-            const thumb = e.target.closest('.thumbnail');
-            if (thumb) showImage(parseInt(thumb.dataset.index));
-        });
+    /* — Sections — */
+    function descriptionHtml(p) {
+        const text = String(p.description || '').trim();
+        const short = String(p.short_description || '').trim();
+        const body = text || short;
+        if (!body) return '';
+        const paras = body.split(/\n+/).map(s => s.trim()).filter(Boolean);
+        let html = '';
+        if (text && short && short !== text) html += `<p><strong>${esc(short)}</strong></p>`;
+        html += paras.map(s => `<p>${esc(s)}</p>`).join('');
+        return section('pd-description', 'fa-align-left', 'Beschreibung', `<div class="pd-text">${html}</div>`);
     }
 
-    /* ── Keyboard navigation ── */
-    document.addEventListener('keydown', e => {
-        if (document.getElementById('gallery-lightbox')?.style.display === 'flex') return;
-        if (e.key === 'ArrowRight') showImage(currentImageIndex + 1);
-        if (e.key === 'ArrowLeft')  showImage(currentImageIndex - 1);
-    });
-}
-
-/* ── showImage (global, used by prev/next buttons in HTML) ── */
-function showImage(index) {
-    if (propertyImages.length === 0) return;
-    currentImageIndex = (index + propertyImages.length) % propertyImages.length;
-    const mainImage = document.getElementById('main-image');
-    if (mainImage) {
-        mainImage.src = propertyImages[currentImageIndex].url;
-    }
-    const galleryMain = mainImage?.parentElement;
-    if (galleryMain) {
-        galleryMain._updateLabel?.();
-        galleryMain._updateCounter?.();
-    }
-    document.querySelectorAll('#gallery-thumbnails .thumbnail').forEach((el, i) => {
-        el.classList.toggle('active', i === currentImageIndex);
-    });
-    // Sync lightbox if open
-    const lb = document.getElementById('gallery-lightbox');
-    if (lb && lb.style.display === 'flex') {
-        const lbImg = lb.querySelector('.lightbox-img');
-        const lbLabel = lb.querySelector('.lightbox-label');
-        const lbCounter = lb.querySelector('.lightbox-counter');
-        if (lbImg) lbImg.src = propertyImages[currentImageIndex].url;
-        if (lbLabel) { lbLabel.textContent = propertyImages[currentImageIndex].label || ''; lbLabel.style.display = propertyImages[currentImageIndex].label ? 'block' : 'none'; }
-        if (lbCounter) lbCounter.textContent = `${currentImageIndex + 1} / ${propertyImages.length}`;
-    }
-}
-
-/* ── Lightbox ── */
-function openLightbox(startIndex, propertyTitle) {
-    let lb = document.getElementById('gallery-lightbox');
-    if (!lb) {
-        lb = document.createElement('div');
-        lb.id = 'gallery-lightbox';
-        lb.setAttribute('role', 'dialog');
-        lb.setAttribute('aria-modal', 'true');
-        lb.setAttribute('aria-label', 'Bildergalerie');
-        lb.innerHTML = `
-            <div class="lightbox-backdrop"></div>
-            <button class="lightbox-close" aria-label="Schließen"><i class="fas fa-times"></i></button>
-            <button class="lightbox-nav lightbox-prev" aria-label="Vorheriges Bild"><i class="fas fa-chevron-left"></i></button>
-            <div class="lightbox-content">
-                <img class="lightbox-img" src="" alt="">
-                <div class="lightbox-label"></div>
-                <div class="lightbox-counter"></div>
-            </div>
-            <button class="lightbox-nav lightbox-next" aria-label="Nächstes Bild"><i class="fas fa-chevron-right"></i></button>
-        `;
-        document.body.appendChild(lb);
-
-        lb.querySelector('.lightbox-close').addEventListener('click', closeLightbox);
-        lb.querySelector('.lightbox-backdrop').addEventListener('click', closeLightbox);
-        lb.querySelector('.lightbox-prev').addEventListener('click', () => showImage(currentImageIndex - 1));
-        lb.querySelector('.lightbox-next').addEventListener('click', () => showImage(currentImageIndex + 1));
-
-        let lbTouchX = 0;
-        lb.addEventListener('touchstart', e => { lbTouchX = e.changedTouches[0].clientX; }, { passive: true });
-        lb.addEventListener('touchend', e => {
-            const dx = e.changedTouches[0].clientX - lbTouchX;
-            if (Math.abs(dx) > 50) dx < 0 ? showImage(currentImageIndex + 1) : showImage(currentImageIndex - 1);
-        }, { passive: true });
-
-        document.addEventListener('keydown', e => {
-            if (lb.style.display !== 'flex') return;
-            if (e.key === 'Escape') closeLightbox();
-            if (e.key === 'ArrowRight') showImage(currentImageIndex + 1);
-            if (e.key === 'ArrowLeft')  showImage(currentImageIndex - 1);
-        });
-    }
-
-    currentImageIndex = startIndex;
-    const img   = lb.querySelector('.lightbox-img');
-    const label = lb.querySelector('.lightbox-label');
-    const ctr   = lb.querySelector('.lightbox-counter');
-    img.src   = propertyImages[currentImageIndex].url;
-    img.alt   = propertyTitle || '';
-    label.textContent = propertyImages[currentImageIndex].label || '';
-    label.style.display = propertyImages[currentImageIndex].label ? 'block' : 'none';
-    ctr.textContent = `${currentImageIndex + 1} / ${propertyImages.length}`;
-    lb.style.display = 'flex';
-    document.body.style.overflow = 'hidden';
-}
-
-function closeLightbox() {
-    const lb = document.getElementById('gallery-lightbox');
-    if (lb) lb.style.display = 'none';
-    document.body.style.overflow = '';
-}
-
-/**
- * Update description section - Shows ALL text data
- */
-function updateDescription(property) {
-    const descSection = document.querySelector('.property-details .content-section');
-    if (!descSection) return;
-
-    const description = property.description || 'Keine Beschreibung verfügbar.';
-
-    // Build comprehensive property information
-    let html = `
-        <h2>Objektbeschreibung</h2>
-        <div class="description-text">
-            ${description.split('\n').map(para => para.trim() ? `<p>${para}</p>` : '').join('')}
-        </div>
-        
-        <h3 class="pd-sub">Objektdaten</h3>
-        <div class="pd-data-grid">
-    `;
-
-    // Create data sections
-    const dataGroups = [];
-
-    // Basic Information
-    const basicInfo = [];
-    if (property.type) basicInfo.push({ label: 'Objektart', value: getTypeLabel(property.type) });
-    if (property.offer_type) basicInfo.push({ label: 'Angebotstyp', value: property.offer_type === 'kauf' ? 'Kaufobjekt' : 'Mietobjekt' });
-    if (property.price) basicInfo.push({ label: 'Preis', value: `€ ${new Intl.NumberFormat('de-DE').format(property.price)}` });
-    if (property.size) basicInfo.push({ label: 'Wohnfläche', value: `${property.size} m²` });
-    if (property.rooms) basicInfo.push({ label: 'Zimmer', value: property.rooms });
-    if (property.bathrooms) basicInfo.push({ label: 'Badezimmer', value: property.bathrooms });
-
-    if (basicInfo.length > 0) {
-        dataGroups.push({ title: 'Basisdaten', items: basicInfo });
-    }
-
-    // Building Information
-    const buildingInfo = [];
-    if (property.year_built) buildingInfo.push({ label: 'Baujahr', value: property.year_built });
-    if (property.status) {
-        const statusLabels = {
-            'available': 'Verfügbar',
-            'reserved': 'Reserviert',
-            'sold': 'Verkauft',
-            'rented': 'Vermietet'
-        };
-        buildingInfo.push({ label: 'Status', value: statusLabels[property.status] || property.status });
-    }
-
-    if (buildingInfo.length > 0) {
-        dataGroups.push({ title: 'Gebäudedaten', items: buildingInfo });
-    }
-
-    // Location Information
-    const locationInfo = [];
-    if (property.address) locationInfo.push({ label: 'Adresse', value: property.address });
-    if (property.zip_code) locationInfo.push({ label: 'PLZ', value: property.zip_code });
-    if (property.city) locationInfo.push({ label: 'Stadt', value: property.city });
-    if (property.state) locationInfo.push({ label: 'Bundesland', value: property.state });
-    if (property.location) locationInfo.push({ label: 'Lage', value: property.location });
-
-    if (locationInfo.length > 0) {
-        dataGroups.push({ title: 'Lage', items: locationInfo });
-    }
-
-    // Additional Information
-    const additionalInfo = [];
-    if (property.created_at) {
-        additionalInfo.push({
-            label: 'Veröffentlicht am',
-            value: new Date(property.created_at).toLocaleDateString('de-DE', {
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric'
-            })
-        });
-    }
-    if (property.featured) additionalInfo.push({ label: 'Highlight', value: 'Top-Angebot' });
-
-    if (additionalInfo.length > 0) {
-        dataGroups.push({ title: 'Weitere Informationen', items: additionalInfo });
-    }
-
-    // Generate HTML for data groups
-    dataGroups.forEach(group => {
-        html += `
-            <div class="pd-data-group">
-                <h4>${group.title}</h4>
-                <dl>
-                    ${group.items.map(item => `<div><dt>${item.label}</dt><dd>${item.value}</dd></div>`).join('')}
-                </dl>
-            </div>
-        `;
-    });
-
-    html += `</div>`;
-
-    descSection.innerHTML = html;
-}
-
-/**
- * Update features section
- */
-function updateFeatures(property) {
-    const featuresSection = document.querySelector('.property-features-section');
-    if (!featuresSection) {
-        // Create features section if it doesn't exist
-        const detailsSection = document.querySelector('.property-details');
-        if (detailsSection) {
-            const newSection = document.createElement('div');
-            newSection.className = 'property-features-section';
-            detailsSection.appendChild(newSection);
-        }
-        return updateFeatures(property); // Retry
-    }
-
-    const features = property.features || [];
-    const featuresList = Array.isArray(features) ? features : [];
-
-    if (featuresList.length === 0) {
-        featuresSection.style.display = 'none';
-        return;
-    }
-
-    featuresSection.style.display = 'block';
-    featuresSection.innerHTML = `
-        <div class="container">
-            <h2>Ausstattung & Merkmale</h2>
-            <div class="features-grid">
-                ${featuresList.map(feature => `
-                    <div class="feature-item">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/>
-                        </svg>
-                        <span>${feature}</span>
-                    </div>
-                `).join('')}
-            </div>
-        </div>
-    `;
-}
-
-/**
- * Update location information - Shows ALL location data
- */
-function updateLocation(property) {
-    const locationSection = document.querySelector('.location-info');
-    if (!locationSection) return;
-    // Lagedaten stehen bereits in den Objektdaten; die Karte zeigt den Standort.
-    locationSection.style.display = 'none';
-}
-
-/**
- * Add complete property information section - Shows EVERYTHING uploaded
- */
-function addCompletePropertyInfo(property) {
-    // Find or create a section for complete info
-    let completeInfoSection = document.querySelector('.complete-property-info');
-
-    if (!completeInfoSection) {
-        // Create section after location info
-        const locationSection = document.querySelector('.location-info');
-        if (locationSection) {
-            completeInfoSection = document.createElement('section');
-            completeInfoSection.className = 'complete-property-info';
-            completeInfoSection.style.cssText = 'margin: 3rem 0; padding: 3rem 0; background: #f8f9fa;';
-            locationSection.parentNode.insertBefore(completeInfoSection, locationSection.nextSibling);
+    function costsHtml(p) {
+        const e = extra(p);
+        let list;
+        if (isRent(p)) {
+            const hasCosts = hasVal(p.extra_costs) || hasVal(p.warm_rent);
+            list = [
+                { label: hasCosts ? 'Kaltmiete' : 'Miete', value: money(p.price) },
+                { label: 'Nebenkosten', value: hasVal(p.extra_costs) ? money(p.extra_costs) : '' },
+                { label: 'Heizkosten', value: hasVal(p.heating_costs) ? money(p.heating_costs) : '' },
+                { label: 'Warmmiete', value: hasVal(p.warm_rent) ? money(p.warm_rent) : '' },
+                { label: 'Kaution', value: hasVal(p.deposit) ? money(p.deposit) : '' }
+            ];
         } else {
-            return; // Can't add section
+            const comm = e.commission_required && hasVal(e.commission_amount)
+                ? (e.commission_unit === 'percent' ? `${fmtNum(e.commission_amount)} %` : money(e.commission_amount)) + (e.commission_payer ? ` (${e.commission_payer})` : '')
+                : '';
+            list = [
+                { label: 'Kaufpreis', value: money(p.price) },
+                { label: 'Hausgeld', value: hasVal(e.house_fee) ? money(e.house_fee) : '' },
+                { label: 'Käuferprovision', value: comm }
+            ];
         }
+        const filled = list.filter(r => r.value);
+        if (filled.length < 2) return '';
+        return section('pd-costs', 'fa-euro-sign', 'Preise & Kosten', rows(list, 'Warmmiete'));
     }
 
-    let html = `
-        <div class="container">
-            <h2 style="text-align: center; color: var(--secondary-color); margin-bottom: 2rem;">
-                📋 Vollständige Immobiliendaten
-            </h2>
-            <div style="background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
-                <table style="width: 100%; border-collapse: collapse;">
-                    <thead>
-                        <tr style="background: var(--primary-color); color: white;">
-                            <th style="padding: 1rem; text-align: left; border-radius: 8px 0 0 0;">Eigenschaft</th>
-                            <th style="padding: 1rem; text-align: right; border-radius: 0 8px 0 0;">Wert</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-    `;
+    function featuresHtml(p) {
+        const list = (Array.isArray(p.features) ? p.features : []).map(x => String(x).trim()).filter(Boolean);
+        if (!list.length) return '';
+        return section('pd-features', 'fa-couch', 'Ausstattung', `<ul class="pd-chips">${list.map(f => `<li><i class="fas fa-check" aria-hidden="true"></i>${esc(f)}</li>`).join('')}</ul>`);
+    }
 
-    // Add all property data
-    const allData = [
-        { label: 'Immobilien-ID', value: property.id, show: true },
-        { label: 'Titel', value: property.title, show: true },
-        { label: 'Objektart', value: getTypeLabel(property.type), show: property.type },
-        { label: 'Angebotstyp', value: property.offer_type === 'kauf' ? 'Kaufobjekt' : 'Mietobjekt', show: property.offer_type },
-        { label: 'Preis', value: `€ ${new Intl.NumberFormat('de-DE').format(property.price)}`, show: property.price },
-        { label: 'Wohnfläche', value: `${property.size} m²`, show: property.size },
-        { label: 'Anzahl Zimmer', value: property.rooms, show: property.rooms !== undefined },
-        { label: 'Anzahl Badezimmer', value: property.bathrooms, show: property.bathrooms },
-        { label: 'Baujahr', value: property.year_built, show: property.year_built },
-        { label: 'Lage/Beschreibung', value: property.location, show: property.location },
-        { label: 'Straße/Adresse', value: property.address, show: property.address },
-        { label: 'Postleitzahl', value: property.zip_code, show: property.zip_code },
-        { label: 'Stadt', value: property.city, show: property.city },
-        { label: 'Bundesland', value: property.state, show: property.state },
-        { label: 'Land', value: property.country, show: property.country },
-        { label: 'Breitengrad', value: property.latitude, show: property.latitude },
-        { label: 'Längengrad', value: property.longitude, show: property.longitude },
-        { label: 'Status', value: getStatusLabel(property.status), show: property.status },
-        { label: 'Top-Angebot', value: property.featured ? '⭐ Ja' : 'Nein', show: property.featured !== undefined },
-        { label: 'Anzahl Bilder', value: (property.images?.length || 0) + ' Bild(er)', show: true },
-        { label: 'Aufrufe', value: property.views || 0, show: property.views !== undefined },
-        { label: 'Veröffentlicht am', value: formatDate(property.created_at), show: property.created_at },
-        { label: 'Letzte Aktualisierung', value: formatDate(property.updated_at), show: property.updated_at }
-    ];
+    function locationHtml(p) {
+        const e = extra(p);
+        const hidden = !!e.hide_exact_address;
+        const place = [p.zip, p.location || p.city].filter(Boolean).join(' ');
+        const address = !hidden && p.address ? [p.address, place].join(', ') : '';
+        const note = hidden ? (e.address_public_note || '') : '';
+        const list = [
+            { label: 'Ort', value: p.location || p.city || '' },
+            { label: 'PLZ', value: p.zip || '' },
+            { label: 'Adresse', value: address }
+        ];
+        const body = rows(list) +
+            (hidden ? `<p class="pd-note"><i class="fas fa-circle-info"></i> ${note ? esc(note) + ' · ' : ''}Die genaue Adresse erhalten Sie auf Anfrage.</p>` : '') +
+            `<div id="property-map-section" hidden><div id="property-map" class="pd-map" role="img" aria-label="Kartenansicht der ungefähren Lage"></div><p class="pd-note">Kartenansicht ist ungefähr.</p></div>`;
+        if (!rows(list) && !hidden) return '';
+        return section('pd-location', 'fa-map-location-dot', 'Lage', body);
+    }
 
-    let rowIndex = 0;
-    allData.forEach(item => {
-        if (item.show && item.value) {
-            const bgColor = rowIndex % 2 === 0 ? '#f8f9fa' : 'white';
-            html += `
-                <tr style="background: ${bgColor}; border-bottom: 1px solid #e0e0e0;">
-                    <td style="padding: 1rem; font-weight: 600; color: var(--text-gray);">${item.label}</td>
-                    <td style="padding: 1rem; text-align: right; color: var(--secondary-color);">${item.value}</td>
-                </tr>
-            `;
-            rowIndex++;
+    const ENERGY_COLORS = { 'A+': '#00a651', A: '#4cb847', B: '#8dc63f', C: '#c8d300', D: '#ffd500', E: '#fbb034', F: '#f58220', G: '#ee3124', H: '#c1272d' };
+
+    function energyHtml(p) {
+        const e = extra(p);
+        const cert = { verbrauchsausweis: 'Verbrauchsausweis', bedarfsausweis: 'Bedarfsausweis' }[String(e.energy_certificate_type || '').toLowerCase()] || e.energy_certificate_type || '';
+        const kind = { bedarf: 'Endenergiebedarf', verbrauch: 'Endenergieverbrauch' }[String(e.energy_value_kind || '').toLowerCase()] || 'Energiekennwert';
+        const cls = String(e.energy_efficiency_class || '').trim().toUpperCase();
+        const list = [
+            { label: 'Energieausweis', value: cert },
+            { label: kind, value: hasVal(e.energy_value) ? `${fmtNum(e.energy_value)} kWh/(m²·a)` : '' },
+            { label: 'Energieträger', value: e.energy_source || '' },
+            { label: 'Effizienzklasse', value: cls },
+            { label: 'Heizungsart', value: e.heating_type || '' },
+            { label: 'Baujahr Heizung', value: e.heating_year || '' },
+            { label: 'Baujahr lt. Energieausweis', value: e.energy_building_year || e.building_year || p.year_built || '' },
+            { label: 'Gültig bis', value: fmtDate(e.energy_valid_until) }
+        ];
+        if (!list.some(r => r.value)) {
+            return section('pd-energy', 'fa-leaf', 'Energieinformationen', '<p class="pd-note" style="margin:0">Zu diesem Objekt liegen aktuell keine Energieangaben vor. Gern senden wir Ihnen diese auf Anfrage zu.</p>');
+        }
+        const scale = ENERGY_COLORS[cls] ? `<div class="pd-scale" aria-hidden="true">${Object.keys(ENERGY_COLORS).map(k => `<span class="${k === cls ? 'on' : ''}" style="background:${ENERGY_COLORS[k]}">${k}</span>`).join('')}</div>` : '';
+        return section('pd-energy', 'fa-leaf', 'Energieinformationen', `<div class="pd-energy">${scale}${rows(list)}</div>`);
+    }
+
+    function detailsHtml(p) {
+        const e = extra(p);
+        const list = [
+            { label: 'Baujahr', value: e.building_year || p.year_built || '' },
+            { label: 'Etagen', value: e.floors_total || '' },
+            { label: 'Etage', value: hasVal(e.floor) ? e.floor : '' },
+            { label: 'Schlafzimmer', value: hasVal(e.bedrooms) ? e.bedrooms : '' },
+            { label: 'Balkon/Terrasse', value: e.has_balcony_terrace ? 'Ja' : '' },
+            { label: 'Balkon-/Terrassenfläche', value: hasVal(e.balcony_area) ? `${fmtNum(e.balcony_area)} m²` : '' },
+            { label: 'Einbauküche', value: e.has_builtin_kitchen ? 'Ja' : '' },
+            { label: 'Aufzug', value: e.has_elevator === true ? 'Ja' : '' },
+            { label: 'Keller', value: e.has_basement ? 'Ja' : '' },
+            { label: 'Bad', value: e.bath_features || '' },
+            { label: 'Bodenbelag', value: e.flooring || '' },
+            { label: 'Zustand', value: e.condition || '' },
+            { label: 'Stellplätze', value: hasVal(e.parking_spaces) ? e.parking_spaces : '' },
+            { label: 'Stellplatztyp', value: e.parking_type || '' },
+            { label: 'Weitere Stellplatzangaben', value: e.parking_info || '' },
+            { label: 'Letzte Modernisierung', value: e.last_modernization_year || '' },
+            { label: 'Verfügbar ab', value: fmtDate(p.available_from) }
+        ];
+        const html = rows(list);
+        return html ? section('pd-details', 'fa-list-check', 'Fakten', html) : '';
+    }
+
+    function listAssets(arr) {
+        return (Array.isArray(arr) ? arr : []).map(x => {
+            if (typeof x === 'string') return { url: assetUrl(x), name: '' };
+            if (!x || typeof x !== 'object') return null;
+            return { url: assetUrl(x.url || x.file || x.path || x.image_url), name: x.name || x.title || x.label || x.filename || '' };
+        }).filter(x => x && x.url);
+    }
+
+    function mediaHtml(p) {
+        const e = extra(p);
+        const plans = listAssets(e.floorplans);
+        const docs = listAssets(e.documents);
+        const video = assetUrl(p.video_url);
+        let body = '';
+        if (plans.length) {
+            const isImg = u => /\.(jpe?g|png|webp|gif|avif)(\?|$)/i.test(u);
+            body += `<h3 style="margin:0 0 .75rem;font-size:1.05rem">Grundrisse</h3><div class="pd-plans">${plans.map((x, i) => isImg(x.url)
+                ? `<a href="${esc(x.url)}" target="_blank" rel="noopener"><img src="${esc(x.url)}" alt="${esc(x.name || 'Grundriss ' + (i + 1))}" loading="lazy" width="180" height="150"></a>`
+                : `<a class="pd-btn pd-btn-outline" href="${esc(x.url)}" target="_blank" rel="noopener"><i class="fas fa-file-lines"></i> ${esc(x.name || 'Grundriss ' + (i + 1))}</a>`).join('')}</div>`;
+        }
+        if (docs.length) {
+            body += `<h3 style="margin:1rem 0 .75rem;font-size:1.05rem">Dokumente</h3><ul class="pd-docs">${docs.map((x, i) => `<li><a href="${esc(x.url)}" target="_blank" rel="noopener"><i class="fas fa-file-pdf"></i> ${esc(x.name || 'Dokument ' + (i + 1))}</a></li>`).join('')}</ul>`;
+        }
+        if (video) {
+            body += /\.(mp4|webm|mov)(\?|$)/i.test(video)
+                ? `<video class="pd-video" controls preload="none" src="${esc(video)}"></video>`
+                : `<p><a class="pd-btn pd-btn-outline" href="${esc(video)}" target="_blank" rel="noopener"><i class="fas fa-play"></i> Video ansehen</a></p>`;
+        }
+        return body ? section('pd-media', 'fa-folder-open', 'Grundrisse, Dokumente & Video', body) : '';
+    }
+
+    /* — Contact — */
+    function waLink(p) {
+        const link = (window.location.origin || '') + (p.slug ? `${SITE_BASE}/immobilie/${encodeURIComponent(p.slug)}` : `${SITE_BASE}/property-detail?id=${encodeURIComponent(p.id)}`);
+        return `${WA_BASE}?text=${encodeURIComponent(`Guten Tag, ich interessiere mich für die Immobilie „${p.title}“: ${link}`)}`;
+    }
+
+    function contactHtml(p) {
+        const pr = priceInfo(p);
+        return `
+        <div class="pd-card pd-contact" id="contact-form">
+            <div class="pd-contact-price">
+                <span class="pd-price-label">${esc(pr.label)}</span>
+                <span class="pd-price">${esc(pr.value)}</span>
+            </div>
+            <div class="pd-contact-actions">
+                <button type="button" class="pd-btn pd-btn-primary pd-btn-block" data-open-contact><i class="far fa-envelope"></i> Anfrage senden</button>
+                <a class="pd-btn pd-btn-outline pd-btn-block" href="tel:${PHONE_TEL}"><i class="fas fa-phone"></i> ${PHONE_LABEL}</a>
+                <a class="pd-btn pd-btn-wa pd-btn-block" href="${esc(waLink(p))}" target="_blank" rel="noopener noreferrer"><i class="fab fa-whatsapp"></i> WhatsApp schreiben</a>
+            </div>
+            <div class="pd-agent">
+                <img src="${AGENT_IMG}" alt="Immobilien Ghumman" width="52" height="52" loading="lazy">
+                <div><strong>Immobilien Ghumman</strong><span>Mo–Fr 09:00–18:00</span></div>
+            </div>
+        </div>`;
+    }
+
+    function mobileBarHtml(p) {
+        return `
+        <div class="pd-mobile-bar" role="region" aria-label="Kontakt">
+            <button type="button" class="pd-btn pd-btn-primary" data-open-contact><i class="far fa-envelope"></i> Anfrage senden</button>
+            <a class="pd-btn pd-btn-outline pd-btn-sq" href="tel:${PHONE_TEL}" aria-label="Anrufen"><i class="fas fa-phone"></i></a>
+            <a class="pd-btn pd-btn-wa pd-btn-sq" href="${esc(waLink(p))}" target="_blank" rel="noopener noreferrer" aria-label="WhatsApp"><i class="fab fa-whatsapp"></i></a>
+        </div>`;
+    }
+
+    /* ───────────── Actions (favorite, print, modal) ───────────── */
+    function favHas(id) {
+        if (window.Favorites) return window.Favorites.has(id);
+        try { return (JSON.parse(localStorage.getItem('immobilien_favorites') || '[]')).includes(String(id)); } catch (e) { return false; }
+    }
+    function favToggle(id) {
+        if (window.Favorites) return window.Favorites.toggle(id);
+        let list = [];
+        try { list = JSON.parse(localStorage.getItem('immobilien_favorites') || '[]'); } catch (e) { list = []; }
+        const sid = String(id);
+        const on = !list.includes(sid);
+        list = on ? list.concat(sid) : list.filter(x => x !== sid);
+        localStorage.setItem('immobilien_favorites', JSON.stringify(list));
+        return on;
+    }
+
+    function bindActions(p) {
+        const fav = $('#detail-fav-btn');
+        if (fav && p.id) {
+            const paint = on => {
+                fav.classList.toggle('fav-active', on);
+                fav.setAttribute('aria-pressed', on ? 'true' : 'false');
+                fav.innerHTML = `<i class="${on ? 'fas' : 'far'} fa-heart"></i> <span>${on ? 'Gemerkt' : 'Merken'}</span>`;
+            };
+            paint(favHas(p.id));
+            fav.addEventListener('click', () => {
+                const on = favToggle(p.id);
+                paint(on);
+                toast(on ? 'Zu Favoriten hinzugefügt ♥' : 'Aus Favoriten entfernt');
+            });
+        }
+        const print = $('#detail-print-btn');
+        if (print) print.addEventListener('click', () => window.print());
+        const share = $('#detail-share-btn');
+        if (share) share.addEventListener('click', async () => {
+            try {
+                if (navigator.share) {
+                    await navigator.share({ title: document.title, url: location.href });
+                } else if (navigator.clipboard) {
+                    await navigator.clipboard.writeText(location.href);
+                    toast('Link kopiert');
+                } else {
+                    toast('Teilen ist in diesem Browser nicht verfügbar.');
+                }
+            } catch (error) {
+                if (error.name !== 'AbortError') {
+                    console.error('Immobilie konnte nicht geteilt werden:', error);
+                    toast('Teilen fehlgeschlagen. Bitte kopieren Sie den Link aus der Adressleiste.');
+                }
+            }
+        });
+    }
+
+    function syncInquiryForm(p) {
+        const idInput = $('#inquiry_property_id'), titleInput = $('#inquiry_property_title'), linkInput = $('#inquiry_property_link');
+        if (!idInput || !titleInput || !linkInput) return;
+        const slugPath = p.slug ? `${SITE_BASE}/immobilie/${encodeURIComponent(p.slug)}` : `${SITE_BASE}/property-detail?id=${encodeURIComponent(p.id)}`;
+        idInput.value = p.id || '';
+        titleInput.value = p.title || '';
+        linkInput.value = (window.location.origin || 'https://www.immobilienghumman.de') + slugPath;
+        const wa = $('#modal-wa');
+        if (wa) wa.href = waLink(p);
+    }
+
+    function openContactModal() {
+        const modal = $('#contact-modal');
+        if (!modal) return;
+        lastFocus = document.activeElement;
+        const ta = $('textarea[name="message"]', modal);
+        if (ta && !ta.value && property) ta.value = `Guten Tag, ich interessiere mich für „${property.title}“. Bitte melden Sie sich bei mir.`;
+        modal.hidden = false;
+        document.body.style.overflow = 'hidden';
+        const first = $('input[name="name"]', modal);
+        if (first) setTimeout(() => first.focus(), 30);
+    }
+
+    function closeContactModal() {
+        const modal = $('#contact-modal');
+        if (!modal || modal.hidden) return;
+        modal.hidden = true;
+        document.body.style.overflow = '';
+        if (lastFocus && lastFocus.focus) lastFocus.focus();
+    }
+
+    document.addEventListener('click', e => {
+        if (e.target.closest('[data-open-contact]')) { e.preventDefault(); openContactModal(); return; }
+        if (e.target.closest('[data-close-contact]')) { closeContactModal(); return; }
+        const modal = $('#contact-modal');
+        if (modal && e.target === modal) closeContactModal();
+    });
+
+    document.addEventListener('keydown', e => {
+        const lb = document.getElementById('gallery-lightbox');
+        const lbOpen = lb && lb.style.display === 'flex';
+        if (e.key === 'Escape') {
+            if (lbOpen) closeLightbox();
+            else closeContactModal();
+            return;
+        }
+        const tag = (e.target && e.target.tagName) || '';
+        if (/INPUT|TEXTAREA|SELECT/.test(tag)) return;
+        if (lbOpen || (e.target && e.target.closest && e.target.closest('.pd-gallery'))) {
+            if (e.key === 'ArrowRight') showImage(current + 1);
+            if (e.key === 'ArrowLeft') showImage(current - 1);
         }
     });
 
-    html += `
-                    </tbody>
-                </table>
-            </div>
-            
-            <div style="margin-top: 2rem; text-align: center; color: var(--text-gray); font-size: 0.9rem;">
-                <p>✅ Alle hochgeladenen Daten werden hier vollständig angezeigt</p>
-            </div>
-        </div>
-    `;
+    /* ───────────── Map (Leaflet + Nominatim) ───────────── */
+    function initPropertyMap(p) {
+        const wrap = $('#property-map-section'), mapEl = $('#property-map');
+        if (!wrap || !mapEl || typeof L === 'undefined') return;
+        const e = extra(p);
+        const exact = !e.hide_exact_address && p.address;
+        const query = [exact ? p.address : '', p.zip, p.location || p.city, 'Deutschland'].filter(Boolean).join(', ');
+        if (!p.zip && !p.location && !p.city) return;
 
-    completeInfoSection.innerHTML = html;
-}
-
-/**
- * Helper: Format date
- */
-function formatDate(dateString) {
-    if (!dateString) return '';
-    const date = new Date(dateString);
-    return date.toLocaleDateString('de-DE', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-    });
-}
-
-/**
- * Helper: Get status label
- */
-function getStatusLabel(status) {
-    const labels = {
-        'available': '✅ Verfügbar',
-        'reserved': '⏳ Reserviert',
-        'sold': '✔️ Verkauft',
-        'rented': '🏠 Vermietet'
-    };
-    return labels[status] || status;
-}
-
-/**
- * Update structured data for SEO
- */
-function updateStructuredData(property) {
-    // Remove existing structured data
-    const existingScript = document.querySelector('script[type="application/ld+json"]');
-    if (existingScript) {
-        existingScript.remove();
+        fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1`, { headers: { 'Accept-Language': 'de' } })
+            .then(r => r.json())
+            .then(data => {
+                if (!data || !data.length) return;
+                const lat = parseFloat(data[0].lat), lon = parseFloat(data[0].lon);
+                if (!isFinite(lat) || !isFinite(lon)) return;
+                wrap.hidden = false;
+                const map = L.map(mapEl, { scrollWheelZoom: false }).setView([lat, lon], exact ? 15 : 13);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+                    maxZoom: 19
+                }).addTo(map);
+                if (exact) {
+                    const icon = L.divIcon({
+                        className: '',
+                        html: '<div style="background:#1a56a4;color:#fff;border-radius:50% 50% 50% 0;width:36px;height:36px;display:flex;align-items:center;justify-content:center;transform:rotate(-45deg);box-shadow:0 2px 8px rgba(0,0,0,.3)"><i class="fas fa-home" style="transform:rotate(45deg);font-size:14px"></i></div>',
+                        iconSize: [36, 36], iconAnchor: [18, 36]
+                    });
+                    L.marker([lat, lon], { icon }).addTo(map);
+                } else {
+                    L.circle([lat, lon], { radius: 900, color: '#3070a0', fillColor: '#3070a0', fillOpacity: 0.18, weight: 2 }).addTo(map);
+                }
+                setTimeout(() => map.invalidateSize(), 50);
+            })
+            .catch(() => { /* Karte bleibt ausgeblendet */ });
     }
 
-    // Create new structured data
-    const structuredData = {
-        "@context": "https://schema.org",
-        "@type": property.type === 'haus' ? "SingleFamilyResidence" : "Apartment",
-        "name": property.title,
-        "description": property.description,
-        "address": {
-            "@type": "PostalAddress",
-            "addressLocality": property.city,
-            "addressRegion": "HE",
-            "postalCode": property.zip_code || "",
-            "addressCountry": "DE"
-        },
-        "numberOfRooms": property.rooms,
-        "floorSize": {
-            "@type": "QuantitativeValue",
-            "value": property.size,
-            "unitCode": "MTK"
+    /* ───────────── SEO ───────────── */
+    function updateStructuredData(p) {
+        let script = document.getElementById('pd-jsonld');
+        if (!script) {
+            script = document.createElement('script');
+            script.type = 'application/ld+json';
+            script.id = 'pd-jsonld';
+            document.head.appendChild(script);
         }
-    };
-
-    if (propertyImages.length > 0) {
-        structuredData.image = propertyImages;
-    }
-
-    if (property.price) {
-        structuredData.price = {
-            "@type": "MonetaryAmount",
-            "value": property.price,
-            "currency": "EUR"
+        const data = {
+            '@context': 'https://schema.org',
+            '@type': 'RealEstateListing',
+            name: p.title,
+            url: (window.location.origin || '') + window.location.pathname,
+            description: String(p.description || p.short_description || '').slice(0, 500),
+            datePosted: p.created_at || undefined,
+            image: images.map(i => i.url)
         };
+        if (hasVal(p.price)) data.offers = { '@type': 'Offer', price: parseNum(p.price), priceCurrency: 'EUR' };
+        script.textContent = JSON.stringify(data);
     }
 
-    // Add to page
-    const script = document.createElement('script');
-    script.type = 'application/ld+json';
-    script.textContent = JSON.stringify(structuredData);
-    document.head.appendChild(script);
-}
+    /* ───────────── Boot ───────────── */
+    window.showImage = showImage;
+    window.openLightbox = openLightbox;
+    window.closeLightbox = closeLightbox;
+    window.nextImage = nextImage;
+    window.previousImage = previousImage;
+    window.openContactModal = openContactModal;
+    window.closeContactModal = closeContactModal;
+    window.loadPropertyDetails = loadPropertyDetails;
 
-/**
- * Gallery prev/next wrappers (showImage is defined earlier with full swipe+lightbox support)
- */
-function nextImage() {
-    showImage(currentImageIndex + 1);
-}
-
-function previousImage() {
-    showImage(currentImageIndex - 1);
-}
-
-/**
- * Helper: Get type label
- */
-function getTypeLabel(type) {
-    const types = {
-        'haus': 'Haus',
-        'wohnung': 'Wohnung',
-        'gewerbe': 'Gewerbe',
-        'grundstück': 'Grundstück'
-    };
-    return types[type] || 'Immobilie';
-}
-
-/**
- * Show loading state
- */
-let heroOriginalHtml = null;
-
-function showLoading() {
-    const heroSection = document.querySelector('.property-hero .container');
-    if (heroSection) {
-        heroOriginalHtml = heroSection.innerHTML;
-        heroSection.innerHTML = '<div class="loading-message">Immobilie wird geladen...</div>';
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', loadPropertyDetails);
+    } else {
+        loadPropertyDetails();
     }
-}
-
-/**
- * Hide loading state – restores the hero markup that showLoading() replaced
- */
-function hideLoading() {
-    const heroSection = document.querySelector('.property-hero .container');
-    if (heroSection && heroOriginalHtml !== null) {
-        heroSection.innerHTML = heroOriginalHtml;
-        heroOriginalHtml = null;
-    }
-}
-
-/**
- * Show error message
- */
-function showError(message) {
-    const heroSection = document.querySelector('.property-hero .container');
-    if (heroSection) {
-        heroSection.innerHTML = `
-            <div class="error-message">
-                <h2>Fehler</h2>
-                <p>${message}</p>
-                <a href="${window.SITE_BASE||''}/immobilien-angebote.php" class="cta-button">Zurück zu den Angeboten</a>
-            </div>
-        `;
-    }
-}
-
-// Initialize when DOM is loaded
-document.addEventListener('DOMContentLoaded', loadPropertyDetails);
-
-// Make gallery functions globally available
-window.showImage     = showImage;
-window.openLightbox  = openLightbox;
-window.closeLightbox = closeLightbox;
-window.nextImage     = nextImage;
-window.previousImage = previousImage;
-
-/* ── Leaflet Map ─────────────────────────────────────────── */
-function initPropertyMap(property) {
-    const section = document.getElementById('property-map-section');
-    const mapEl   = document.getElementById('property-map');
-    if (!section || !mapEl || typeof L === 'undefined') return;
-
-    const address = [property.address, property.zip, property.city].filter(Boolean).join(', ');
-    if (!address) return;
-
-    // Geocode via Nominatim (open, no key required)
-    const query = encodeURIComponent(address);
-    fetch(`https://nominatim.openstreetmap.org/search?q=${query}&format=json&limit=1`, {
-        headers: { 'Accept-Language': 'de' }
-    })
-    .then(r => r.json())
-    .then(data => {
-        if (!data || data.length === 0) return;
-        const lat = parseFloat(data[0].lat);
-        const lon = parseFloat(data[0].lon);
-
-        section.style.display = 'block';
-        const map = L.map(mapEl, { scrollWheelZoom: false }).setView([lat, lon], 15);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-            maxZoom: 19
-        }).addTo(map);
-
-        // Custom icon
-        const icon = L.divIcon({
-            className: '',
-            html: '<div style="background:#1a56a4;color:#fff;border-radius:50% 50% 50% 0;width:36px;height:36px;display:flex;align-items:center;justify-content:center;transform:rotate(-45deg);box-shadow:0 2px 8px rgba(0,0,0,.3)"><i class="fas fa-home" style="transform:rotate(45deg);font-size:14px"></i></div>',
-            iconSize: [36, 36],
-            iconAnchor: [18, 36],
-            popupAnchor: [0, -36]
-        });
-
-        const popup = `<strong>${property.title}</strong><br>${property.zip} ${property.city}`;
-        L.marker([lat, lon], { icon }).addTo(map).bindPopup(popup).openPopup();
-    })
-    .catch(() => { /* Geocoding failed silently – map stays hidden */ });
-}
-
-/* ── Favorites Button ────────────────────────────────────── */
-function initFavButton(property) {
-    const btn = document.getElementById('detail-fav-btn');
-    if (!btn || !property.id) return;
-    btn.dataset.favId = String(property.id);
-    // favorites.js handles the rest via [data-fav-id] delegation
-    // But it may have already run before the ID was set, so manually init:
-    if (typeof Favorites !== 'undefined') {
-        const active = Favorites.has(property.id);
-        btn.classList.toggle('fav-active', active);
-        const icon = btn.querySelector('i');
-        if (icon) {
-            icon.className = active ? 'fas fa-heart' : 'far fa-heart';
-        }
-        btn.innerHTML = `<i class="${active ? 'fas' : 'far'} fa-heart"></i> ${active ? 'Gemerkt' : 'Merken'}`;
-
-        btn.addEventListener('click', function () {
-            const nowActive = Favorites.toggle(property.id);
-            this.innerHTML = `<i class="${nowActive ? 'fas' : 'far'} fa-heart"></i> ${nowActive ? 'Gemerkt' : 'Merken'}`;
-            this.classList.toggle('fav-active', nowActive);
-        });
-    }
-}
+})();

@@ -40,7 +40,7 @@ async function loadAllProperties() {
             const result = await api.getCategorizedProperties(14); // 14 Tage Schwelle
             recent = result.recent || [];
             archived = result.archived || [];
-            total = result.total || 0;
+            total = Number(result.total || (recent.length + archived.length));
         }
     } catch (error) {
         console.warn('API error, will try static fallback:', error.message);
@@ -51,49 +51,25 @@ async function loadAllProperties() {
     if (total === 0) {
         propertiesContainer.innerHTML = `
             <div class="empty-state">
-                <h3>🏠 Derzeit keine Immobilien verfügbar</h3>
+                <h3>Derzeit keine Immobilien verfügbar</h3>
                 <p>Schauen Sie bald wieder vorbei oder kontaktieren Sie uns für individuelle Anfragen.</p>
                 <a href="${window.SITE_BASE||''}/#kontaktFormNew" class="cta-button" style="margin-top: 20px;">Kontakt aufnehmen</a>
             </div>
         `;
+        document.dispatchEvent(new CustomEvent('propertiesRendered'));
         return;
     }
 
-    // === NEUE IMMOBILIEN SEKTION ===
-    if (recent.length > 0) {
-        const newSection = document.createElement('div');
-        newSection.className = 'property-section new-properties-section';
-        newSection.innerHTML = `
-            <h3 class="section-subtitle">🆕 Neue Angebote <span class="count-badge">${recent.length}</span></h3>
-            <div class="properties-grid-inner" id="new-properties-grid"></div>
-        `;
-        propertiesContainer.appendChild(newSection);
+    const grid = document.createElement('div');
+    grid.className = 'properties-grid-inner';
+    propertiesContainer.appendChild(grid);
 
-        const newGrid = document.getElementById('new-properties-grid');
-        recent.forEach(property => {
-            const propertyData = convertPropertyData(property, true);
-            const card = createAngebotePropertyCard(propertyData);
-            newGrid.appendChild(card);
-        });
-    }
-
-    // === WEITERE/ARCHIVIERTE IMMOBILIEN SEKTION ===
-    if (archived.length > 0) {
-        const archiveSection = document.createElement('div');
-        archiveSection.className = 'property-section archive-section';
-        archiveSection.innerHTML = `
-            <h3 class="section-subtitle">📁 Weitere Angebote <span class="count-badge">${archived.length}</span></h3>
-            <div class="properties-grid-inner" id="archive-properties-grid"></div>
-        `;
-        propertiesContainer.appendChild(archiveSection);
-
-        const archiveGrid = document.getElementById('archive-properties-grid');
-        archived.forEach(property => {
-            const propertyData = convertPropertyData(property, false);
-            const card = createAngebotePropertyCard(propertyData);
-            archiveGrid.appendChild(card);
-        });
-    }
+    recent.forEach(property => {
+        grid.appendChild(createAngebotePropertyCard(convertPropertyData(property, true)));
+    });
+    archived.forEach(property => {
+        grid.appendChild(createAngebotePropertyCard(convertPropertyData(property, false)));
+    });
 
     console.log(`✅ Loaded ${total} properties (${recent.length} new, ${archived.length} archived)`);
 
@@ -121,8 +97,11 @@ function convertPropertyData(property, isNew = false) {
         title: property.title,
         location: locationName.toLowerCase().replace(/\s+/g, '-'),
         locationName: locationName,
+        zip: property.zip || '',
         price: Number(property.price || 0),
+        warmRent: Number(property.warm_rent || 0),
         pricingType: normalizedOfferType === 'kauf' ? 'Kaufpreis' : 'Kaltmiete',
+        offerType: normalizedOfferType,
         rooms: Number(property.rooms || 0),
         area: Number(property.area || property.size || 0),
         type: normalizedType,
@@ -130,6 +109,7 @@ function convertPropertyData(property, isNew = false) {
                 'https://via.placeholder.com/400x300?text=Kein+Bild',
         images: property.images || [],
         description: property.description || '',
+        shortDescription: property.short_description || '',
         features: property.features || [],
         isNew: isNew,
         createdAt: property.created_at
@@ -145,12 +125,31 @@ function createAngebotePropertyCard(property) {
     const card = document.createElement('div');
     card.className = 'property-card';
     card.dataset.type = property.type;
+    card.dataset.pricingType = property.offerType;
     card.dataset.price = property.price;
+    card.dataset.area = property.area;
+    card.dataset.createdAt = property.createdAt || '';
     card.dataset.location = property.location;
+    card.dataset.search = [
+        property.title,
+        property.locationName,
+        property.zip,
+        property.shortDescription,
+        property.description,
+        ...(Array.isArray(property.features) ? property.features : [])
+    ].join(' ').toLocaleLowerCase('de-DE');
 
     const formatPrice = (price) => {
         return new Intl.NumberFormat('de-DE').format(price);
     };
+
+    const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
+    })[char]);
 
     const getTypeLabel = (type) => {
         const types = {
@@ -159,40 +158,45 @@ function createAngebotePropertyCard(property) {
             'gewerbe': 'Gewerbe',
             'grundstück': 'Grundstück'
         };
-        return types[type] || type;
+        return types[type] || escapeHtml(type);
     };
 
-    // Truncate description if too long
-    const shortDescription = property.description.length > 120
-        ? property.description.substring(0, 120) + '...'
-        : property.description;
-
-    // NEU-Badge HTML nur wenn property.isNew = true
+    const offerLabel = property.offerType === 'kauf' ? 'Kaufen' : 'Mieten';
+    const priceLabel = property.offerType === 'kauf' ? 'Kaufpreis' : 'Kaltmiete';
+    const description = String(property.shortDescription || property.description || '').trim();
+    const areaLabel = property.area > 0 ? `${formatPrice(property.area)} m²` : '—';
     const newBadgeHTML = property.isNew ? '<span class="new-badge">NEU</span>' : '';
-    const areaLabel = property.area ? `${property.area} m²` : 'Fläche k.A.';
+    const locationLabel = [property.locationName, property.zip].filter(Boolean).join(' · ');
+    const detailUrl = `${window.SITE_BASE || ''}/${property.slug
+        ? `immobilie/${encodeURIComponent(property.slug)}`
+        : `property-detail.php?id=${encodeURIComponent(property.id)}`}`;
 
     card.style.position = 'relative';
     card.innerHTML = `
         <div class="property-image">
-            <img src="${property.image}" alt="${property.title}" loading="lazy">
+            <img src="${escapeHtml(property.image)}" alt="${escapeHtml(property.title)}" loading="lazy" decoding="async">
+            <span class="property-offer-badge">${offerLabel}</span>
             ${newBadgeHTML}
-            <button class="property-card-fav fav-btn" data-fav-id="${property.id}" aria-label="Favorit" title="Zu Favoriten hinzufügen">
+            <button type="button" class="property-card-fav fav-btn" data-fav-id="${escapeHtml(property.id)}" aria-label="${escapeHtml(property.title)} merken" title="Zu Favoriten hinzufügen">
                 <i class="far fa-heart"></i>
             </button>
+            <div class="property-image-location"><i class="fas fa-location-dot" aria-hidden="true"></i> ${escapeHtml(locationLabel)}</div>
         </div>
         <div class="property-content">
-            <div class="property-price">€ ${formatPrice(property.price)}${property.pricingType ? ` / ${property.pricingType}` : ''}</div>
-            <h3 class="property-title">${property.title}</h3>
-            <div class="property-location">📍 ${property.locationName}</div>
-            <div class="property-features">
-                ${property.rooms > 0 ? `<span>🏠 ${property.rooms} Zimmer</span>` : ''}
-                <span>📐 ${areaLabel}</span>
-                <span>🏷️ ${getTypeLabel(property.type)}</span>
+            <h3 class="property-title">${escapeHtml(property.title)}</h3>
+            ${description ? `<p class="property-description">${escapeHtml(description)}</p>` : ''}
+            <div class="property-facts">
+                <div class="property-fact">
+                    <i class="fas fa-tag" aria-hidden="true"></i>
+                    <div><strong>${formatPrice(property.price)} €</strong><span>${priceLabel}</span></div>
+                </div>
+                <div class="property-fact">
+                    <i class="far fa-square" aria-hidden="true"></i>
+                    <div><strong>${areaLabel}</strong><span>Wohnfläche ca.</span></div>
+                </div>
             </div>
-            <p class="property-description">${shortDescription}</p>
-            <div class="property-actions">
-                <a href="${window.SITE_BASE||''}/${property.slug ? ('immobilie/' + encodeURIComponent(property.slug)) : ('property-detail.php?id=' + property.id)}" class="cta-button">Details ansehen</a>
-            </div>
+            <p class="property-extra">${property.rooms > 0 ? `${formatPrice(property.rooms)} Zimmer` : ''}${property.rooms > 0 && property.type ? ' · ' : ''}${getTypeLabel(property.type)}${property.offerType === 'miete' && property.warmRent > 0 ? ` · Warmmiete ${formatPrice(property.warmRent)} €` : ''}</p>
+            <a href="${escapeHtml(detailUrl)}" class="property-card-link">Exposé ansehen <i class="fas fa-arrow-right" aria-hidden="true"></i></a>
         </div>
     `;
 

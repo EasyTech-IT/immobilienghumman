@@ -392,6 +392,8 @@ $extraHead = <<<'ENDCSS'
 </style>
 ENDCSS;
 
+$extraHead .= '<link rel="stylesheet" href="' . BASE . '/immobilien-angebote.css?v=' . (@filemtime(__DIR__ . '/immobilien-angebote.css') ?: 1) . '">';
+
 $extraScripts =
     '<script src="' . BASE . '/js/api-client.js"></script>
 <script src="' . BASE . '/js/immobilien-angebote-loader.js"></script>';
@@ -399,50 +401,42 @@ $extraScripts =
 require_once __DIR__ . '/includes/header.php';
 ?>
 
-<!-- Hero Section -->
+<main class="angebote-page-v2">
 <section class="angebote-hero">
     <div class="container">
-        <h1>Unsere Immobilienangebote</h1>
-        <p>Entdecken Sie Ihr Traumobjekt – Häuser, Wohnungen und Grundstücke in Bad Vilbel und der Rhein-Main-Region</p>
-        <div class="hero-stats">
-            <div class="hero-stat">
-                <span class="stat-number" id="stat-total">–</span>
-                <span class="stat-label">Verfügbare Objekte</span>
-            </div>
-            <div class="hero-stat">
-                <span class="stat-number" id="stat-new">–</span>
-                <span class="stat-label">Neu eingestellt</span>
-            </div>
-            <div class="hero-stat">
-                <span class="stat-number">10+</span>
-                <span class="stat-label">Jahre Erfahrung</span>
-            </div>
-        </div>
+        <h1>Finden Sie Ihr neues Zuhause<br>in <span>Frankfurt &amp; Rhein-Main</span></h1>
+        <p>Entdecken Sie ausgewählte Wohnungen, Häuser und weitere Immobilien in der Region.</p>
+        <form class="angebote-search" id="propertySearchForm" role="search">
+            <label class="sr-only" for="propertySearch">Adresse, Ort oder Stichwort suchen</label>
+            <input id="propertySearch" type="search" placeholder="Adresse, Stadt oder Region suchen" autocomplete="off">
+            <button type="submit"><i class="fas fa-magnifying-glass" aria-hidden="true"></i> Suchen</button>
+        </form>
     </div>
 </section>
 
-<!-- Filter Bar -->
-<div class="filter-bar" id="filterBar">
-    <div class="container">
-        <span class="filter-label"><i class="fas fa-filter"></i> Filter:</span>
-        <div class="filter-buttons">
-            <button class="filter-btn active" data-filter="all">Alle Angebote</button>
-            <button class="filter-btn" data-filter="kauf">Kaufen</button>
-            <button class="filter-btn" data-filter="miete">Mieten</button>
-            <button class="filter-btn" data-filter="haus">Haus</button>
-            <button class="filter-btn" data-filter="wohnung">Wohnung</button>
-            <button class="filter-btn" data-filter="gewerbe">Gewerbe</button>
-        </div>
-    </div>
-</div>
-
-<!-- Properties Section -->
 <section class="angebote-section">
     <div class="container">
-        <div class="results-info" id="resultsInfo"></div>
-        <!-- Properties Grid – wird per immobilien-angebote-loader.js befüllt -->
+        <div class="angebote-controls">
+            <div class="results-info" id="resultsInfo" aria-live="polite">Immobilien werden geladen …</div>
+            <div class="angebote-controls-right">
+                <label class="sort-label" for="propertySort">Sortieren</label>
+                <select class="sort-select" id="propertySort">
+                    <option value="newest">Neueste zuerst</option>
+                    <option value="price_asc">Preis aufsteigend</option>
+                    <option value="price_desc">Preis absteigend</option>
+                    <option value="area_desc">Wohnfläche absteigend</option>
+                </select>
+            </div>
+        </div>
+        <div class="filter-buttons">
+            <button class="filter-btn active" type="button" data-filter="all" aria-pressed="true">Alle Angebote</button>
+            <button class="filter-btn" type="button" data-filter="kauf" aria-pressed="false">Kaufen</button>
+            <button class="filter-btn" type="button" data-filter="miete" aria-pressed="false">Mieten</button>
+            <button class="filter-btn" type="button" data-filter="haus" aria-pressed="false">Häuser</button>
+            <button class="filter-btn" type="button" data-filter="wohnung" aria-pressed="false">Wohnungen</button>
+            <button class="filter-btn" type="button" data-filter="gewerbe" aria-pressed="false">Gewerbe</button>
+        </div>
 <?php
-// Crawlbare Basisliste; der JS-Loader ersetzt den Inhalt des Grids nach dem Laden.
 $ssrProps = [];
 try {
     $port = defined('DB_PORT') ? DB_PORT : 3306;
@@ -459,7 +453,7 @@ try {
     error_log('Angebote SSR failed: ' . $e->getMessage());
 }
 ?>
-        <div id="properties-grid">
+        <div id="properties-grid" aria-live="polite">
             <?php if ($ssrProps): ?>
                 <ul class="ssr-property-list" style="list-style:none;padding:0;display:grid;gap:1rem">
                     <?php foreach ($ssrProps as $sp): ?>
@@ -476,10 +470,10 @@ try {
                 </ul>
             <?php endif; ?>
         </div>
+        <p class="no-results" id="noResults" hidden>Zu dieser Suche wurden keine passenden Immobilien gefunden.</p>
     </div>
 </section>
 
-<!-- CTA Section -->
 <section class="angebote-cta">
     <div class="container">
         <h2>Nicht das Richtige dabei?</h2>
@@ -495,111 +489,80 @@ try {
         </div>
     </div>
 </section>
+</main>
 
 <script>
     (function() {
         'use strict';
 
-        // ── Hilfs-Filter-Funktion ─────────────────────────────────────────
-        // Erweitert filterByType (aus dem Loader) um kauf/miete-Filterung.
-        function applyFilter(filter) {
-            const cards = document.querySelectorAll('.property-card');
-            const pricingFilters = ['kauf', 'miete'];
+        var cardsContainer = document.getElementById('properties-grid');
+        var searchInput = document.getElementById('propertySearch');
+        var searchForm = document.getElementById('propertySearchForm');
+        var sortSelect = document.getElementById('propertySort');
+        var resultsInfo = document.getElementById('resultsInfo');
+        var noResults = document.getElementById('noResults');
+        var activeFilter = 'all';
+        var params = new URLSearchParams(window.location.search);
+        var offerType = (params.get('offer_type') || '').toLowerCase();
+        var location = params.get('location') || '';
+
+        if (offerType === 'kauf' || offerType === 'miete') {
+            activeFilter = offerType;
+        }
+        searchInput.value = location;
+
+        function updateResults() {
+            var grid = cardsContainer.querySelector('.properties-grid-inner') || cardsContainer;
+            var cards = Array.prototype.slice.call(grid.querySelectorAll('.property-card'));
+            var query = searchInput.value.trim().toLocaleLowerCase('de-DE');
+            var sortBy = sortSelect.value;
+            var visibleCount = 0;
+
+            cards.sort(function(a, b) {
+                if (sortBy === 'price_asc') return Number(a.dataset.price) - Number(b.dataset.price);
+                if (sortBy === 'price_desc') return Number(b.dataset.price) - Number(a.dataset.price);
+                if (sortBy === 'area_desc') return Number(b.dataset.area) - Number(a.dataset.area);
+                return new Date(b.dataset.createdAt || 0) - new Date(a.dataset.createdAt || 0);
+            });
 
             cards.forEach(function(card) {
-                var visible = true;
-                if (filter === 'all') {
-                    visible = true;
-                } else if (pricingFilters.includes(filter)) {
-                    visible = (card.dataset.pricingType === filter);
-                } else {
-                    visible = (card.dataset.type === filter);
-                }
-                card.style.display = visible ? '' : 'none';
+                grid.appendChild(card);
+                var typeMatches = activeFilter === 'all'
+                    || (activeFilter === 'kauf' || activeFilter === 'miete'
+                        ? card.dataset.pricingType === activeFilter
+                        : card.dataset.type === activeFilter);
+                var searchMatches = !query || (card.dataset.search || '').indexOf(query) !== -1;
+                var visible = typeMatches && searchMatches;
+                card.hidden = !visible;
+                if (visible) visibleCount++;
             });
 
-            updateResultsInfo();
+            resultsInfo.textContent = visibleCount + ' ' + (visibleCount === 1 ? 'Objekt' : 'Objekte');
+            noResults.hidden = cards.length === 0 || visibleCount > 0;
         }
 
-        function updateResultsInfo() {
-            var visible = document.querySelectorAll('.property-card:not([style*="display: none"])').length;
-            var infoEl = document.getElementById('resultsInfo');
-            if (infoEl) {
-                infoEl.textContent = visible + ' Immobilie' + (visible !== 1 ? 'n' : '') + ' gefunden';
-            }
-        }
-
-        // ── Filter-Buttons verdrahten ─────────────────────────────────────
-        document.querySelectorAll('.filter-btn').forEach(function(btn) {
-            btn.addEventListener('click', function() {
-                document.querySelectorAll('.filter-btn').forEach(function(b) {
-                    b.classList.remove('active');
+        document.querySelectorAll('.filter-btn').forEach(function(button) {
+            var selected = button.dataset.filter === activeFilter;
+            button.classList.toggle('active', selected);
+            button.setAttribute('aria-pressed', selected ? 'true' : 'false');
+            button.addEventListener('click', function() {
+                activeFilter = this.dataset.filter;
+                document.querySelectorAll('.filter-btn').forEach(function(item) {
+                    var isActive = item === button;
+                    item.classList.toggle('active', isActive);
+                    item.setAttribute('aria-pressed', isActive ? 'true' : 'false');
                 });
-                this.classList.add('active');
-                applyFilter(this.dataset.filter);
+                updateResults();
             });
         });
 
-        // ── URL-Parameter lesen und initialen Filter setzen ───────────────
-        var params = new URLSearchParams(window.location.search);
-        var offerType = params.get('offer_type'); // Kauf | Miete
-        var location = params.get('location'); // Bad Vilbel | Frankfurt | …
-
-        if (offerType) {
-            var map = {
-                'Kauf': 'kauf',
-                'Miete': 'miete'
-            };
-            var initialFilter = map[offerType] || offerType.toLowerCase();
-            document.querySelectorAll('.filter-btn').forEach(function(btn) {
-                btn.classList.remove('active');
-                if (btn.dataset.filter === initialFilter) {
-                    btn.classList.add('active');
-                }
-            });
-        }
-
-        // ── Nach dem Laden: data-pricing-type ergänzen + Stats setzen ─────
-        document.addEventListener('propertiesRendered', function() {
-            // data-pricing-type für kauf/miete-Filter nachrüsten
-            document.querySelectorAll('.property-card').forEach(function(card) {
-                var priceEl = card.querySelector('.property-price');
-                if (!priceEl) return;
-                var txt = priceEl.textContent || '';
-                if (txt.indexOf('Kaufpreis') !== -1) {
-                    card.dataset.pricingType = 'kauf';
-                } else if (txt.indexOf('Kaltmiete') !== -1 || txt.indexOf('Miete') !== -1) {
-                    card.dataset.pricingType = 'miete';
-                }
-            });
-
-            // Initialen Filter (aus URL) anwenden
-            if (offerType) {
-                var map2 = {
-                    'Kauf': 'kauf',
-                    'Miete': 'miete'
-                };
-                var f = map2[offerType] || offerType.toLowerCase();
-                applyFilter(f);
-            } else if (location) {
-                // Ort-Filter: nur Karten mit passender location anzeigen
-                document.querySelectorAll('.property-card').forEach(function(card) {
-                    var loc = (card.dataset.location || '').toLowerCase();
-                    card.style.display = loc.indexOf(location.toLowerCase()) !== -1 ? '' : 'none';
-                });
-                updateResultsInfo();
-            } else {
-                updateResultsInfo();
-            }
-
-            // Hero-Statistik befüllen
-            var allCards = document.querySelectorAll('.property-card');
-            var newCards = document.querySelectorAll('.new-badge');
-            var statTotal = document.getElementById('stat-total');
-            var statNew = document.getElementById('stat-new');
-            if (statTotal) statTotal.textContent = allCards.length;
-            if (statNew) statNew.textContent = newCards.length;
+        searchInput.addEventListener('input', updateResults);
+        searchForm.addEventListener('submit', function(event) {
+            event.preventDefault();
+            updateResults();
         });
+        sortSelect.addEventListener('change', updateResults);
+        document.addEventListener('propertiesRendered', updateResults);
     })();
 </script>
 
