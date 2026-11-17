@@ -1,5 +1,14 @@
 <?php
 
+function property_legacy_number_id(string $number): ?int
+{
+    if ($number === '' || !ctype_digit($number)) return null;
+    $number = ltrim($number, '0');
+    $value = filter_var($number, FILTER_VALIDATE_INT);
+    if ($value === false || $value < 1) return null;
+    return $value >= 1111 ? $value - 1110 : $value;
+}
+
 function property_slugify(string $text): string
 {
     $text = mb_strtolower($text, 'UTF-8');

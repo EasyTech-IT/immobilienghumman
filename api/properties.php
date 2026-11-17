@@ -123,11 +123,10 @@ if ($method === 'GET') {
         if (!is_string($_GET['number'])) {
             json_error('Ungültige Objektnummer');
         }
-        $publicNumber = filter_var($_GET['number'], FILTER_VALIDATE_INT);
-        if ($publicNumber === false || $publicNumber < 1111) {
+        $id = property_legacy_number_id($_GET['number']);
+        if ($id === null) {
             json_error('Ungültige Objektnummer');
         }
-        $id = $publicNumber - 1110;
     }
 
     $pdo = db();

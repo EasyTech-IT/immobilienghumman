@@ -1,6 +1,12 @@
 <?php
 require_once __DIR__ . '/../includes/property-url.php';
 
+if (property_legacy_number_id('0013') !== 13 || property_legacy_number_id('1123') !== 13
+    || property_legacy_number_id('0000') !== null || property_legacy_number_id('13x') !== null
+    || property_legacy_number_id('99999999999999999999999999') !== null) {
+    throw new RuntimeException('Alte Objektnummern werden nicht korrekt aufgelöst.');
+}
+
 $pdo = new PDO('sqlite::memory:');
 $pdo->exec('CREATE TABLE properties (id INTEGER PRIMARY KEY, slug TEXT UNIQUE, title TEXT, extra_data TEXT)');
 $insert = $pdo->prepare('INSERT INTO properties (id, slug, title, extra_data) VALUES (?, ?, ?, ?)');
