@@ -192,6 +192,7 @@
     /* ───────────── Rendering ───────────── */
     function displayProperty(p) {
         const place = [p.zip, p.location || p.city].filter(Boolean).join(' ');
+        const inquiryForm = $('#propertyInquiryForm');
         document.title = `${p.title} – ${p.location || p.city || ''} | Immobilien Ghumman`.replace(' –  |', ' |');
         const meta = $('meta[name="description"]');
         const desc = (p.short_description || p.description || '').toString().replace(/\s+/g, ' ').trim().slice(0, 155);
@@ -211,6 +212,12 @@
             safe(() => mobileBarHtml(p))
         ];
         $('#pd-content').innerHTML = parts.join('');
+
+        const inquirySlot = $('#propertyInquirySlot');
+        if (inquiryForm && inquirySlot) {
+            inquirySlot.appendChild(inquiryForm);
+            $('#propertyInquiryFormSource')?.remove();
+        }
 
         bindGallery(p);
         bindActions(p);
@@ -430,9 +437,12 @@
         const pr = priceInfo(p);
         const status = p.status && p.status !== 'available' ? (STATUS[p.status] || p.status) : '';
         const loc = [p.address_public || p.address, place].filter((v, i, a) => v && a.indexOf(v) === i).join(', ');
+        const objectNumber = `Objekt ${String(p.id || '').padStart(4, '0')}`;
+        const exposeUrl = `${SITE_BASE}/expose.php?${p.slug ? 'slug=' + encodeURIComponent(p.slug) : 'id=' + encodeURIComponent(p.id)}`;
         return `
         <header class="pd-head">
             <div>
+                <p class="pd-reference">${esc(objectNumber)}</p>
                 <div class="pd-badges">
                     ${offerLabel(p) ? `<span class="pd-badge is-offer">${esc(offerLabel(p))}</span>` : ''}
                     ${p.type ? `<span class="pd-badge">${esc(typeLabel(p.type))}</span>` : ''}
@@ -448,10 +458,9 @@
             </div>
             ${factsHtml(p)}
             <div class="pd-actions">
-                <button type="button" class="pd-btn pd-btn-primary pd-btn-block pd-expose-btn" data-open-contact>Jetzt Exposé anfordern <i class="fas fa-arrow-right" aria-hidden="true"></i></button>
                 <button type="button" class="pd-icon-btn" id="detail-fav-btn" aria-pressed="false"><i class="far fa-heart"></i> <span>Merken</span></button>
-                <a class="pd-icon-btn" href="${esc(SITE_BASE)}/expose.php?${p.slug ? 'slug=' + encodeURIComponent(p.slug) : 'id=' + encodeURIComponent(p.id)}"><i class="fas fa-file-alt"></i> <span>Exposé ansehen</span></a>
-                <button type="button" class="pd-icon-btn" id="detail-print-btn"><i class="fas fa-print"></i> <span>Exposé drucken</span></button>
+                <a class="pd-icon-btn" href="${esc(exposeUrl)}"><i class="fas fa-file-alt"></i> <span>Exposé ansehen</span></a>
+                <a class="pd-icon-btn" href="${esc(exposeUrl + '&print=1')}"><i class="fas fa-print"></i> <span>Exposé drucken</span></a>
                 <button type="button" class="pd-icon-btn" id="detail-share-btn"><i class="fas fa-share-alt"></i> <span>Teilen</span></button>
             </div>
         </header>`;
@@ -626,15 +635,12 @@
     }
 
     function contactHtml(p) {
-        const pr = priceInfo(p);
         return `
         <div class="pd-card pd-contact" id="contact-form">
-            <div class="pd-contact-price">
-                <span class="pd-price-label">${esc(pr.label)}</span>
-                <span class="pd-price">${esc(pr.value)}</span>
-            </div>
+            <h2 class="pd-h2">Kontaktformular</h2>
+            <p class="pd-contact-intro">Senden Sie uns Ihre Frage zu Objekt ${esc(String(p.id || '').padStart(4, '0'))}.</p>
+            <div id="propertyInquirySlot"></div>
             <div class="pd-contact-actions">
-                <button type="button" class="pd-btn pd-btn-primary pd-btn-block" data-open-contact><i class="far fa-envelope"></i> Anfrage senden</button>
                 <a class="pd-btn pd-btn-outline pd-btn-block" href="tel:${PHONE_TEL}"><i class="fas fa-phone"></i> ${PHONE_LABEL}</a>
                 <a class="pd-btn pd-btn-wa pd-btn-block" href="${esc(waLink(p))}" target="_blank" rel="noopener noreferrer"><i class="fab fa-whatsapp"></i> WhatsApp schreiben</a>
             </div>
@@ -648,7 +654,7 @@
     function mobileBarHtml(p) {
         return `
         <div class="pd-mobile-bar" role="region" aria-label="Kontakt">
-            <button type="button" class="pd-btn pd-btn-primary" data-open-contact><i class="far fa-envelope"></i> Anfrage senden</button>
+            <a class="pd-btn pd-btn-primary" href="#contact-form"><i class="far fa-envelope"></i> Kontaktformular</a>
             <a class="pd-btn pd-btn-outline pd-btn-sq" href="tel:${PHONE_TEL}" aria-label="Anrufen"><i class="fas fa-phone"></i></a>
             <a class="pd-btn pd-btn-wa pd-btn-sq" href="${esc(waLink(p))}" target="_blank" rel="noopener noreferrer" aria-label="WhatsApp"><i class="fab fa-whatsapp"></i></a>
         </div>`;
@@ -685,8 +691,6 @@
                 toast(on ? 'Zu Favoriten hinzugefügt ♥' : 'Aus Favoriten entfernt');
             });
         }
-        const print = $('#detail-print-btn');
-        if (print) print.addEventListener('click', () => window.print());
         const share = $('#detail-share-btn');
         if (share) share.addEventListener('click', async () => {
             try {
@@ -714,43 +718,13 @@
         idInput.value = p.id || '';
         titleInput.value = p.title || '';
         linkInput.value = (window.location.origin || 'https://www.immobilienghumman.de') + slugPath;
-        const wa = $('#modal-wa');
-        if (wa) wa.href = waLink(p);
     }
-
-    function openContactModal() {
-        const modal = $('#contact-modal');
-        if (!modal) return;
-        lastFocus = document.activeElement;
-        const ta = $('textarea[name="message"]', modal);
-        if (ta && !ta.value && property) ta.value = `Guten Tag, ich interessiere mich für „${property.title}“. Bitte melden Sie sich bei mir.`;
-        modal.hidden = false;
-        document.body.style.overflow = 'hidden';
-        const first = $('input[name="name"]', modal);
-        if (first) setTimeout(() => first.focus(), 30);
-    }
-
-    function closeContactModal() {
-        const modal = $('#contact-modal');
-        if (!modal || modal.hidden) return;
-        modal.hidden = true;
-        document.body.style.overflow = '';
-        if (lastFocus && lastFocus.focus) lastFocus.focus();
-    }
-
-    document.addEventListener('click', e => {
-        if (e.target.closest('[data-open-contact]')) { e.preventDefault(); openContactModal(); return; }
-        if (e.target.closest('[data-close-contact]')) { closeContactModal(); return; }
-        const modal = $('#contact-modal');
-        if (modal && e.target === modal) closeContactModal();
-    });
 
     document.addEventListener('keydown', e => {
         const lb = document.getElementById('gallery-lightbox');
         const lbOpen = lb && lb.style.display === 'flex';
         if (e.key === 'Escape') {
             if (lbOpen) closeLightbox();
-            else closeContactModal();
             return;
         }
         const tag = (e.target && e.target.tagName) || '';

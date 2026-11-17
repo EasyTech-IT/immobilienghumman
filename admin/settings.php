@@ -69,8 +69,7 @@ $configOk = [
         && defined('SMTP_PORT')
         && (int)SMTP_PORT > 0,
     'cloudinary' => defined('CLOUDINARY_CLOUD_NAME') && !empty(CLOUDINARY_CLOUD_NAME),
-    'auth'       => defined('AUTH_SECRET')
-        && AUTH_SECRET !== 'change-me-to-a-random-64-char-string-in-production',
+    'auth'       => defined('AUTH_SECRET_CONFIGURED') && AUTH_SECRET_CONFIGURED,
 ];
 
 $adminUsers   = $pdo->query('SELECT id, username, role, is_active, last_login, created_at FROM admin_users ORDER BY id')->fetchAll();
@@ -312,7 +311,7 @@ $propCount    = (int)$pdo->query('SELECT COUNT(*) FROM properties')->fetchColumn
                         <?php if ($configOk['auth']): ?>
                             <p>AUTH_SECRET wurde ge&auml;ndert.</p>
                         <?php else: ?>
-                            <p>In <code>includes/config.php</code> den Wert <code>AUTH_SECRET</code> auf einen langen, zuf&auml;lligen String setzen (mind. 32 Zeichen).</p>
+                            <p>In <code>includes/config.local.php</code> einen langen, zuf&auml;lligen <code>AUTH_SECRET</code> setzen (mindestens 32 Zeichen).</p>
                         <?php endif; ?>
                     </div>
                 </div>

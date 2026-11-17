@@ -64,6 +64,17 @@ if (!defined('CLOUDINARY_API_SECRET')) define('CLOUDINARY_API_SECRET', 'HIER_CLO
 // ── Sicherheit – in config.local.php setzen! ───────────────
 // Auth-Token Secret (HMAC-Signierung der API-Bearer-Tokens)
 if (!defined('AUTH_SECRET')) define('AUTH_SECRET',  'HIER_AUTH_SECRET_64_ZEICHEN_IN_LOCAL_CONFIG');
+function auth_secret_is_configured(string $secret): bool
+{
+    return strlen($secret) >= 32 && !in_array($secret, [
+        'HIER_AUTH_SECRET_64_ZEICHEN_IN_LOCAL_CONFIG',
+        'change-me-to-a-random-64-char-string-in-production',
+        'HIER_ZUFAELLIGEN_STRING_64_ZEICHEN_EINTRAGEN',
+    ], true);
+}
+if (!defined('AUTH_SECRET_CONFIGURED')) {
+    define('AUTH_SECRET_CONFIGURED', auth_secret_is_configured((string)AUTH_SECRET));
+}
 // Init-Token für database/init.php (einmaliges Setup)
 if (!defined('INIT_TOKEN'))  define('INIT_TOKEN',   'immobilien-init-2026');
 

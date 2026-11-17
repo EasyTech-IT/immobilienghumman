@@ -48,6 +48,12 @@ if ($action === 'login' && $method === 'POST') {
         exit;
     }
 
+    if (!AUTH_SECRET_CONFIGURED) {
+        http_response_code(503);
+        echo json_encode(['error' => 'Die sichere Authentifizierung ist nicht konfiguriert.']);
+        exit;
+    }
+
     // Rate limiting: max 5 Versuche in 15 Minuten (session-basiert)
     if (!isset($_SESSION['login_attempts'])) {
         $_SESSION['login_attempts'] = 0;
@@ -88,6 +94,11 @@ if ($action === 'login' && $method === 'POST') {
         ->execute([$user['id']]);
 
     $token = create_token(['id' => $user['id'], 'role' => $user['role']]);
+    if ($token === false) {
+        http_response_code(503);
+        echo json_encode(['error' => 'Die sichere Authentifizierung ist nicht verfügbar.']);
+        exit;
+    }
 
     echo json_encode([
         'token'   => $token,

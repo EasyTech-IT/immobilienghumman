@@ -12,7 +12,7 @@ Setze auf dem Server diese Environment-Variablen:
 - IMMOBILIEN_SMTP_AUTH
 - IMMOBILIEN_TURNSTILE_SITE_KEY
 - IMMOBILIEN_TURNSTILE_SECRET_KEY
-- IMMOBILIEN_AUTH_SECRET
+- AUTH_SECRET in `includes/config.local.php` (not an environment variable)
 - IMMOBILIEN_DB_HOST
 - IMMOBILIEN_DB_PORT
 - IMMOBILIEN_DB_USER

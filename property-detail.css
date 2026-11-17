@@ -230,6 +230,7 @@
 .pd-badge.is-offer { background: var(--pd-primary); color: #fff; }
 .pd-badge.is-ok { background: #dcfce7; color: #166534; }
 .pd-badge.is-warn { background: #fef3c7; color: #92400e; }
+.pd-reference { margin: 0 0 .45rem; color: var(--pd-muted); font-size: .88rem; font-weight: 650; }
 .pd-title { margin: 0 0 .5rem; font-size: clamp(1.5rem, 3.4vw, 2.3rem); line-height: 1.2; color: var(--pd-text); overflow-wrap: anywhere; }
 .pd-loc { margin: 0; color: var(--pd-muted); font-size: 1.05rem; display: flex; gap: .5rem; align-items: center; }
 .pd-loc i { color: var(--pd-primary); }
@@ -238,7 +239,6 @@
 .pd-price { display: block; font-size: clamp(1.7rem, 3.6vw, 2.4rem); font-weight: 800; color: var(--pd-primary-dark); line-height: 1.15; }
 .pd-price-sub { display: block; font-size: .88rem; color: var(--pd-muted); margin-top: .15rem; }
 .pd-actions { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: .6rem; }
-.pd-actions .pd-expose-btn { flex: 1 0 100%; border-radius: 6px; }
 
 /* ── Facts ───────────────────────────────────────────── */
 .pd-facts {
@@ -306,9 +306,8 @@
 .pd-video { width: 100%; border-radius: 12px; background: #000; max-height: 480px; }
 
 /* ── Contact card ────────────────────────────────────── */
-.pd-contact { max-width: 860px; margin: 0 auto; border-top: 4px solid var(--pd-primary); }
-.pd-contact-price { text-align: center; margin-bottom: 1rem; }
-.pd-contact-price .pd-price { font-size: 1.9rem; }
+.pd-contact { max-width: 860px; margin: 0 auto; border-top: 4px solid var(--pd-primary); scroll-margin-top: 120px; }
+.pd-contact-intro { margin: -.25rem 0 1rem; color: var(--pd-muted); line-height: 1.55; }
 .pd-contact-actions { display: grid; gap: .65rem; }
 .pd-agent { display: flex; align-items: center; gap: .8rem; margin-top: 1.1rem; padding-top: 1.1rem; border-top: 1px solid var(--pd-line); }
 .pd-agent img { width: 52px; height: 52px; border-radius: 50%; background: #f0f4f8; padding: 5px; object-fit: contain; }
@@ -318,32 +317,15 @@
 /* ── Mobile contact bar ──────────────────────────────── */
 .pd-mobile-bar { display: none; }
 
-/* ── Contact modal ───────────────────────────────────── */
-.pd-modal {
-  position: fixed; inset: 0; z-index: 2000; display: flex;
-  align-items: center; justify-content: center; padding: 1rem;
-  background: rgba(15,27,42,.6);
-}
-.pd-modal[hidden] { display: none; }
-.pd-modal-box {
-  position: relative; width: 100%; max-width: 520px; max-height: calc(100vh - 2rem); max-height: calc(100dvh - 2rem);
-  overflow-y: auto; background: #fff; border-radius: 18px; padding: 1.75rem; box-shadow: 0 20px 60px rgba(0,0,0,.35);
-}
-.pd-modal-close {
-  position: absolute; top: .6rem; right: .6rem; width: 42px; height: 42px; border: none; border-radius: 50%;
-  background: #f1f5f9; color: var(--pd-text); font-size: 1.4rem; line-height: 1; cursor: pointer;
-}
-.pd-modal-close:hover { background: #e2e8f0; }
-.pd-modal h2 { margin: 0 2.5rem .4rem 0; font-size: 1.35rem; }
-.pd-modal p { margin: 0; color: var(--pd-muted); font-size: .92rem; line-height: 1.5; }
-.pd-form { display: grid; gap: .7rem; margin-top: 1.1rem; }
+.pd-form { display: grid; gap: .85rem; margin-top: 1rem; }
+.pd-form-field label { display: block; margin-bottom: .35rem; color: var(--pd-text); font-size: .9rem; font-weight: 650; }
 .pd-form input[type="text"], .pd-form input[type="email"], .pd-form input[type="tel"], .pd-form textarea {
-  width: 100%; padding: .8rem .9rem; border: 1.5px solid #cbd5e1; border-radius: 10px;
+  width: 100%; min-height: 48px; padding: .75rem .85rem; border: 1.5px solid #cbd5e1; border-radius: 10px;
   font: inherit; font-size: 16px; color: var(--pd-text); background: #fff;
 }
+.pd-form textarea { min-height: 110px; resize: vertical; }
 .pd-form input:focus, .pd-form textarea:focus { outline: none; border-color: var(--pd-primary); box-shadow: 0 0 0 3px rgba(48,112,160,.2); }
 .pd-form-msg { display: none; border-radius: 8px; padding: .65rem .8rem; font-size: .9rem; }
-.pd-modal-alt { display: grid; grid-template-columns: 1fr 1fr; gap: .6rem; margin-top: 1rem; }
 
 /* ── Responsive ──────────────────────────────────────── */
 @media (max-width: 1000px) {
@@ -399,7 +381,6 @@
   .pd-h2 { font-size: 1.1rem; margin-bottom: .75rem; padding-bottom: .6rem; }
   .pd-text p { font-size: .95rem; line-height: 1.65; margin-bottom: .75rem; }
   .pd-map { height: 240px; }
-  .pd-contact-price { display: none; }
   .pd-mobile-bar {
     display: flex; gap: .5rem; position: fixed; left: 0; right: 0; bottom: 0; z-index: 1500;
     padding: .6rem .75rem calc(.6rem + env(safe-area-inset-bottom));
@@ -419,7 +400,6 @@
   .pd-fs span { display: none; }
   .pd-fs { width: 42px; padding: 0; justify-content: center; }
   .pd-label { max-width: 55%; font-size: .75rem; }
-  .pd-modal-alt { grid-template-columns: 1fr; }
   .pd-actions .pd-icon-btn { flex: 1 1 calc(50% - .3rem); justify-content: center; }
 }
 @media (max-width: 380px) {
@@ -431,7 +411,7 @@
 @media print {
   .pd { background: #fff; padding: 0; }
   .pd-band { background: none; color: #000; padding: 0; }
-  .pd-crumbs, .pd-nav, .pd-fs, .pd-thumbs, .pd-actions, .pd-mobile-bar, .pd-modal, .pd-map, .pd-contact-actions .pd-btn-wa { display: none !important; }
+  .pd-crumbs, .pd-nav, .pd-fs, .pd-thumbs, .pd-actions, .pd-mobile-bar, .pd-map, .pd-contact-actions .pd-btn-wa { display: none !important; }
   .pd-wrap { margin-top: 0; }
   .pd-gallery, .pd-card, .pd-fact { box-shadow: none; border: 1px solid #ddd; }
   .pd-stage { max-height: 360px; }

@@ -9,8 +9,8 @@ $property = null;
 if ($slug !== '' || $id > 0) {
     try {
         $stmt = db()->prepare($slug !== ''
-            ? 'SELECT * FROM properties WHERE slug = ? LIMIT 1'
-            : 'SELECT * FROM properties WHERE id = ? LIMIT 1');
+            ? "SELECT * FROM properties WHERE slug = ? AND status = 'available' LIMIT 1"
+            : "SELECT * FROM properties WHERE id = ? AND status = 'available' LIMIT 1");
         $stmt->execute([$slug !== '' ? $slug : $id]);
         $property = $stmt->fetch() ?: null;
     } catch (Throwable $e) {

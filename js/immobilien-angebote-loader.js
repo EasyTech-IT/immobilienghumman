@@ -64,12 +64,10 @@ async function loadAllProperties() {
     grid.className = 'properties-grid-inner';
     propertiesContainer.appendChild(grid);
 
-    recent.forEach(property => {
-        grid.appendChild(createAngebotePropertyCard(convertPropertyData(property, true)));
-    });
-    archived.forEach(property => {
-        grid.appendChild(createAngebotePropertyCard(convertPropertyData(property, false)));
-    });
+    [...recent.map(property => ({ property, isNew: true })), ...archived.map(property => ({ property, isNew: false }))]
+        .forEach(({ property, isNew }) => {
+            grid.appendChild(createAngebotePropertyCard(convertPropertyData(property, isNew)));
+        });
 
     console.log(`✅ Loaded ${total} properties (${recent.length} new, ${archived.length} archived)`);
 
@@ -105,8 +103,7 @@ function convertPropertyData(property, isNew = false) {
         rooms: Number(property.rooms || 0),
         area: Number(property.area || property.size || 0),
         type: normalizedType,
-        image: property.main_image || property.primary_image || imageFromArray ||
-                'https://via.placeholder.com/400x300?text=Kein+Bild',
+        image: property.main_image || property.primary_image || imageFromArray || '',
         images: property.images || [],
         description: property.description || '',
         shortDescription: property.short_description || '',
@@ -151,52 +148,49 @@ function createAngebotePropertyCard(property) {
         "'": '&#39;'
     })[char]);
 
-    const getTypeLabel = (type) => {
-        const types = {
-            'haus': 'Haus',
-            'wohnung': 'Wohnung',
-            'gewerbe': 'Gewerbe',
-            'grundstück': 'Grundstück'
-        };
-        return types[type] || escapeHtml(type);
-    };
-
     const offerLabel = property.offerType === 'kauf' ? 'Kaufen' : 'Mieten';
     const priceLabel = property.offerType === 'kauf' ? 'Kaufpreis' : 'Kaltmiete';
-    const description = String(property.shortDescription || property.description || '').trim();
-    const areaLabel = property.area > 0 ? `${formatPrice(property.area)} m²` : '—';
+    const formatMeasure = (value) => new Intl.NumberFormat('de-DE', { maximumFractionDigits: 1 }).format(value);
+    const areaLabel = property.area > 0 ? `${formatMeasure(property.area)} m²` : '—';
+    const roomsLabel = property.rooms > 0 ? formatMeasure(property.rooms) : '—';
+    const priceValue = property.price > 0 ? `${formatPrice(property.price)} €` : 'Auf Anfrage';
     const newBadgeHTML = property.isNew ? '<span class="new-badge">NEU</span>' : '';
     const locationLabel = [property.locationName, property.zip].filter(Boolean).join(' · ');
+    const objectNumber = `Objekt ${String(property.id || '').padStart(4, '0')}`;
     const detailUrl = `${window.SITE_BASE || ''}/${property.slug
         ? `immobilie/${encodeURIComponent(property.slug)}`
         : `property-detail.php?id=${encodeURIComponent(property.id)}`}`;
 
     card.style.position = 'relative';
     card.innerHTML = `
+        <a href="${escapeHtml(detailUrl)}" class="property-card-link-overlay" aria-label="${escapeHtml(`${objectNumber} in ${locationLabel} ansehen`)}"></a>
         <div class="property-image">
-            <img src="${escapeHtml(property.image)}" alt="${escapeHtml(property.title)}" loading="lazy" decoding="async">
+            ${property.image
+                ? `<img src="${escapeHtml(property.image)}" alt="Immobilienangebot in ${escapeHtml(locationLabel)}" loading="lazy" decoding="async">`
+                : '<div class="property-image-placeholder" aria-hidden="true"><i class="fas fa-house"></i></div>'}
             <span class="property-offer-badge">${offerLabel}</span>
             ${newBadgeHTML}
-            <button type="button" class="property-card-fav fav-btn" data-fav-id="${escapeHtml(property.id)}" aria-label="${escapeHtml(property.title)} merken" title="Zu Favoriten hinzufügen">
+            <button type="button" class="property-card-fav fav-btn" data-fav-id="${escapeHtml(property.id)}" aria-label="${escapeHtml(objectNumber)} merken" title="Zu Favoriten hinzufügen">
                 <i class="far fa-heart"></i>
             </button>
             <div class="property-image-location"><i class="fas fa-location-dot" aria-hidden="true"></i> ${escapeHtml(locationLabel)}</div>
         </div>
         <div class="property-content">
-            <h3 class="property-title">${escapeHtml(property.title)}</h3>
-            ${description ? `<p class="property-description">${escapeHtml(description)}</p>` : ''}
+            <p class="property-reference">${escapeHtml(objectNumber)}</p>
             <div class="property-facts">
                 <div class="property-fact">
                     <i class="fas fa-tag" aria-hidden="true"></i>
-                    <div><strong>${formatPrice(property.price)} €</strong><span>${priceLabel}</span></div>
+                    <div><strong>${priceValue}</strong><span>${priceLabel}</span></div>
                 </div>
                 <div class="property-fact">
                     <i class="far fa-square" aria-hidden="true"></i>
-                    <div><strong>${areaLabel}</strong><span>Wohnfläche ca.</span></div>
+                    <div><strong>${areaLabel}</strong><span>Wohnfläche</span></div>
+                </div>
+                <div class="property-fact">
+                    <i class="fas fa-door-open" aria-hidden="true"></i>
+                    <div><strong>${roomsLabel}</strong><span>Zimmer</span></div>
                 </div>
             </div>
-            <p class="property-extra">${property.rooms > 0 ? `${formatPrice(property.rooms)} Zimmer` : ''}${property.rooms > 0 && property.type ? ' · ' : ''}${getTypeLabel(property.type)}${property.offerType === 'miete' && property.warmRent > 0 ? ` · Warmmiete ${formatPrice(property.warmRent)} €` : ''}</p>
-            <a href="${escapeHtml(detailUrl)}" class="property-card-link">Exposé ansehen <i class="fas fa-arrow-right" aria-hidden="true"></i></a>
         </div>
     `;
 

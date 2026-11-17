@@ -29,6 +29,7 @@ $property = [
     ]),
 ];
 
+$_GET['print'] = '1';
 ob_start();
 require __DIR__ . '/../includes/expose-template.php';
 $html = ob_get_clean();
@@ -37,7 +38,9 @@ $checks = [
     'Verborgene Adresse bleibt verborgen' => strpos($html, 'Geheime Straße') === false,
     'Mietpreis wird formatiert' => strpos($html, '1.250,00 €') !== false && strpos($html, 'Kaltmiete') !== false,
     'Provision und Ausstattung erscheinen' => strpos($html, '2,975 %') !== false && strpos($html, 'Balkon') !== false,
+    'Objektnummer wird kompakt formatiert' => strpos($html, 'Exposé · Objekt 0042') !== false,
     'Bilder und Dokumente sind verknüpft' => strpos($html, 'Wohnzimmer') !== false && strpos($html, '/grundriss.pdf') !== false,
+    'Druckansicht verwendet dieselbe Exposé-Vorlage' => strpos($html, 'window.print()') !== false,
     'Unsichere URL wird verworfen' => strpos($html, 'javascript:') === false,
 ];
 foreach ($checks as $name => $passed) {

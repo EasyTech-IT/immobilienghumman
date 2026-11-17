@@ -23,11 +23,26 @@ function expose_money($value): string
     return number_format((float)$value, 2, ',', '.') . ' €';
 }
 
+function expose_object_number($id): string
+{
+    $id = (string)$id;
+    return ctype_digit($id) ? str_pad($id, 4, '0', STR_PAD_LEFT) : $id;
+}
+
 $extra = expose_list($property['extra_data'] ?? []);
 $images = expose_list($property['images'] ?? []);
 if (!$images && !empty($property['main_image'])) $images = [$property['main_image']];
+$imageItems = [];
+foreach ($images as $image) {
+    $url = expose_url(is_string($image) ? $image : ($image['url'] ?? $image['image_url'] ?? ''));
+    if ($url === '') continue;
+    $label = is_array($image) && is_string($image['label'] ?? null) ? trim($image['label']) : '';
+    $imageItems[] = ['url' => $url, 'label' => $label];
+}
+$coverImage = array_shift($imageItems);
 $features = expose_list($property['features'] ?? []);
 $facts = [];
+$objectNumber = $property ? expose_object_number($property['id'] ?? '') : '';
 if ($property) {
     $offerType = strtolower((string)($property['offer_type'] ?? ''));
     $priceLabel = $offerType === 'kauf' ? 'Kaufpreis' : ($offerType === 'miete' ? 'Kaltmiete' : 'Preis');
@@ -35,7 +50,6 @@ if ($property) {
         ? (($extra['address_public_note'] ?? '') ?: ($property['location'] ?? ''))
         : trim(implode(', ', array_filter([$property['address'] ?? '', trim(($property['zip'] ?? '') . ' ' . ($property['location'] ?? ''))])));
     $facts = [
-        'Objektnummer' => $property['id'] ?? '',
         'Objektadresse' => $address,
         'Objektart' => $property['type'] ?? '',
         'Bezug' => $property['available_from'] ?? '',
@@ -81,13 +95,14 @@ foreach (['floorplans' => 'Grundriss', 'documents' => 'Dokument'] as $key => $la
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex">
     <title><?= expose_escape($property ? 'Exposé – ' . $property['title'] : 'Exposé nicht verfügbar') ?> | Immobilien Ghumman</title>
+    <link rel="stylesheet" href="<?= BASE ?>/Montserrat.css?v=<?= (int)@filemtime(__DIR__ . '/../Montserrat.css') ?>">
     <link rel="stylesheet" href="<?= BASE ?>/expose.css?v=<?= (int)filemtime(__DIR__ . '/../expose.css') ?>">
 </head>
 <body>
 <nav class="expose-toolbar" aria-label="Exposé Aktionen">
     <a href="<?= BASE ?>/immobilien-angebote">Alle Immobilien</a>
     <?php if ($property): ?>
-    <a href="<?= BASE ?>/property-detail.php?<?= !empty($property['slug']) ? 'slug=' . rawurlencode($property['slug']) : 'id=' . (int)$property['id'] ?>">Zur Immobilie</a>
+    <a href="<?= !empty($property['slug']) ? BASE . '/immobilie/' . rawurlencode($property['slug']) : BASE . '/property-detail?id=' . (int)$property['id'] ?>">Zur Immobilie</a>
     <button type="button" onclick="window.print()">Drucken / als PDF speichern</button>
     <?php endif; ?>
 </nav>
@@ -107,9 +122,15 @@ foreach (['floorplans' => 'Grundriss', 'documents' => 'Dokument'] as $key => $la
         </div>
     </header>
     <div class="expose-date">Bad Vilbel, <?= date('d.m.Y') ?></div>
-    <div class="expose-reference">Exposé · Objekt <?= expose_escape($property['id']) ?></div>
+    <div class="expose-reference">Exposé · Objekt <?= expose_escape($objectNumber) ?></div>
     <h1><?= expose_escape($property['title']) ?></h1>
     <p>Vielen Dank für Ihr Interesse an unserem Immobilienangebot.</p>
+    <?php if ($coverImage): ?>
+    <figure class="expose-cover">
+        <img src="<?= expose_escape($coverImage['url']) ?>" alt="<?= expose_escape($coverImage['label'] ?: $property['title']) ?>">
+        <?php if ($coverImage['label'] !== ''): ?><figcaption><?= expose_escape($coverImage['label']) ?></figcaption><?php endif; ?>
+    </figure>
+    <?php endif; ?>
     <dl class="expose-facts">
         <?php foreach ($facts as $label => $value): if ($value === '' || $value === null) continue; ?>
         <div><dt><?= expose_escape($label) ?></dt><dd><?= expose_escape($value) ?></dd></div>
@@ -147,22 +168,21 @@ foreach (['floorplans' => 'Grundriss', 'documents' => 'Dokument'] as $key => $la
         <p>Mit freundlichen Grüßen<br><strong>Immobilien Ghumman</strong></p>
         <a href="tel:+4916098787878">0160 9878 7878</a> · <a href="mailto:<?= expose_escape(SITE_EMAIL) ?>"><?= expose_escape(SITE_EMAIL) ?></a>
     </section>
-    <?php if ($images): ?>
+    <?php if ($imageItems): ?>
     <section class="expose-gallery" aria-label="Bilder der Immobilie">
         <h2>Impressionen</h2>
-        <?php foreach ($images as $image):
-            $url = expose_url(is_string($image) ? $image : ($image['url'] ?? $image['image_url'] ?? ''));
-            if ($url === '') continue;
-            $label = is_array($image) ? ($image['label'] ?? '') : '';
-        ?>
+        <?php foreach ($imageItems as $image): ?>
         <figure>
-            <a href="<?= expose_escape($url) ?>" target="_blank" rel="noopener noreferrer"><img src="<?= expose_escape($url) ?>" alt="<?= expose_escape($label ?: $property['title']) ?>"></a>
-            <?php if ($label !== ''): ?><figcaption><?= expose_escape($label) ?></figcaption><?php endif; ?>
+            <a href="<?= expose_escape($image['url']) ?>" target="_blank" rel="noopener noreferrer"><img src="<?= expose_escape($image['url']) ?>" alt="<?= expose_escape($image['label'] ?: $property['title']) ?>"></a>
+            <?php if ($image['label'] !== ''): ?><figcaption><?= expose_escape($image['label']) ?></figcaption><?php endif; ?>
         </figure>
         <?php endforeach; ?>
     </section>
     <?php endif; ?>
 </main>
+<?php if (isset($_GET['print']) && $_GET['print'] === '1'): ?>
+<script>window.addEventListener('load', function () { window.print(); });</script>
+<?php endif; ?>
 <?php endif; ?>
 </body>
 </html>

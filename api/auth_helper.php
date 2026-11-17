@@ -36,8 +36,10 @@ function require_auth(): void
 /**
  * Einfaches HMAC-basiertes Token erzeugen
  */
-function create_token(array $payload): string
+function create_token(array $payload): string|false
 {
+    if (!AUTH_SECRET_CONFIGURED) return false;
+
     $secret  = AUTH_SECRET;
     $header  = base64_encode(json_encode(['alg' => 'HS256', 'typ' => 'JWT']));
     $payload['exp'] = time() + 86400; // 24 h
@@ -51,6 +53,8 @@ function create_token(array $payload): string
  */
 function verify_token(string $token): array|false
 {
+    if (!AUTH_SECRET_CONFIGURED) return false;
+
     $parts = explode('.', $token);
     if (count($parts) !== 3) return false;
 

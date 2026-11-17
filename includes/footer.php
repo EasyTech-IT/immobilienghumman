@@ -38,6 +38,7 @@
                     <li><a href="<?= BASE ?>/immobilien-angebote"><i class="fas fa-chevron-right"></i> Alle Angebote</a></li>
                     <li><a href="<?= BASE ?>/immobilien-angebote?offer_type=Kauf"><i class="fas fa-chevron-right"></i> Immobilien kaufen</a></li>
                     <li><a href="<?= BASE ?>/immobilien-angebote?offer_type=Miete"><i class="fas fa-chevron-right"></i> Immobilien mieten</a></li>
+                    <li><a href="<?= BASE ?>/immobilie-verkaufen"><i class="fas fa-chevron-right"></i> Immobilie verkaufen</a></li>
                     <li><a href="<?= BASE ?>/kapitalanlage"><i class="fas fa-chevron-right"></i> Kapitalanlagen</a></li>
                     <li><a href="<?= BASE ?>/analyse-beratung?bereich=immobilie#analyser"><i class="fas fa-chevron-right"></i> Immobilienbewertung</a></li>
                     <li><a href="<?= BASE ?>/analyse-beratung"><i class="fas fa-chevron-right"></i> Analyse &amp; Beratung</a></li>

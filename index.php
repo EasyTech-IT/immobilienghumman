@@ -217,6 +217,9 @@ require_once __DIR__ . '/includes/header.php';
                 <a href="<?= BASE ?>/analyse-beratung?bereich=immobilie#analyser" class="btn-premium">
                     <i class="fas fa-calculator"></i> Jetzt kostenlos bewerten
                 </a>
+                <a href="<?= BASE ?>/immobilie-verkaufen" class="btn-outline-premium" style="margin-left:.75rem">
+                    <i class="fas fa-house-circle-check"></i> Immobilie verkaufen
+                </a>
             </div>
             <div class="reveal anim-delay-2">
                 <div style="background:var(--premium-offwhite);border-radius:var(--radius-xl);padding:2.5rem;border:1px solid var(--premium-border)">
@@ -242,6 +245,7 @@ require_once __DIR__ . '/includes/header.php';
                     <a href="<?= BASE ?>/analyse-beratung?bereich=immobilie#analyser" class="btn-premium" style="width:100%;justify-content:center;margin-top:1.75rem">
                         <i class="fas fa-arrow-right"></i> Bewertung starten
                     </a>
+                    <a href="<?= BASE ?>/immobilie-verkaufen" class="seller-teaser-link" style="display:block;width:max-content;max-width:100%;margin:1rem auto 0;color:#1e5a88;font-weight:600;text-align:center">Zum Verkaufsservice</a>
                 </div>
             </div>
         </div>

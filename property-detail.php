@@ -66,37 +66,37 @@ require_once __DIR__ . '/includes/header.php';
     </div>
 </div>
 
-<!-- Contact modal -->
-<div id="contact-modal" class="pd-modal" role="dialog" aria-modal="true" aria-labelledby="contact-modal-title" hidden>
-    <div class="pd-modal-box">
-        <button type="button" class="pd-modal-close" data-close-contact aria-label="Schließen">&times;</button>
-        <h2 id="contact-modal-title">Interesse an dieser Immobilie?</h2>
-        <p>Schreiben Sie uns – wir melden uns zeitnah bei Ihnen.</p>
+<div id="propertyInquiryFormSource" hidden>
+    <form id="propertyInquiryForm" class="pd-form" method="post" action="<?= BASE ?>/api/contact.php?action=inquiry">
+        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(generate_csrf_token(), ENT_QUOTES) ?>">
+        <input type="hidden" name="form_type" value="immobilien_anfrage_detailseite">
+        <input type="hidden" name="property_id" id="inquiry_property_id" value="">
+        <input type="hidden" name="property_title" id="inquiry_property_title" value="">
+        <input type="hidden" name="property_link" id="inquiry_property_link" value="">
 
-        <form id="propertyInquiryForm" class="pd-form" method="post" action="<?= BASE ?>/api/contact.php?action=inquiry">
-            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(generate_csrf_token(), ENT_QUOTES) ?>">
-            <input type="hidden" name="form_type" value="immobilien_anfrage_detailseite">
-            <input type="hidden" name="property_id" id="inquiry_property_id" value="">
-            <input type="hidden" name="property_title" id="inquiry_property_title" value="">
-            <input type="hidden" name="property_link" id="inquiry_property_link" value="">
-
-            <input type="text" name="name" placeholder="Ihr Name *" autocomplete="name" required>
-            <input type="email" name="email" placeholder="Ihre E-Mail *" autocomplete="email" required>
-            <input type="tel" name="phone" placeholder="Telefon" autocomplete="tel">
-            <textarea name="message" rows="4" placeholder="Ihre Nachricht"></textarea>
-
-            <?php $consentPrefix = 'pd'; include __DIR__ . '/includes/consent-fields.php'; ?>
-            <button type="submit" class="pd-btn pd-btn-primary pd-btn-block">
-                <i class="fas fa-paper-plane"></i> Anfrage senden
-            </button>
-            <div id="propertyInquiryMsg" class="pd-form-msg" role="status"></div>
-        </form>
-
-        <div class="pd-modal-alt">
-            <a href="tel:+4916098787878" class="pd-btn pd-btn-outline"><i class="fas fa-phone"></i> Anrufen</a>
-            <a href="https://wa.me/4916098787878" id="modal-wa" class="pd-btn pd-btn-wa" target="_blank" rel="noopener noreferrer"><i class="fab fa-whatsapp"></i> WhatsApp</a>
+        <div class="pd-form-field">
+            <label for="pd-inquiry-name">Name *</label>
+            <input id="pd-inquiry-name" type="text" name="name" autocomplete="name" required>
         </div>
-    </div>
+        <div class="pd-form-field">
+            <label for="pd-inquiry-email">E-Mail *</label>
+            <input id="pd-inquiry-email" type="email" name="email" autocomplete="email" required>
+        </div>
+        <div class="pd-form-field">
+            <label for="pd-inquiry-phone">Telefon (optional)</label>
+            <input id="pd-inquiry-phone" type="tel" name="phone" autocomplete="tel">
+        </div>
+        <div class="pd-form-field">
+            <label for="pd-inquiry-message">Ihre Nachricht</label>
+            <textarea id="pd-inquiry-message" name="message" rows="4"></textarea>
+        </div>
+
+        <?php $consentPrefix = 'pd'; include __DIR__ . '/includes/consent-fields.php'; ?>
+        <button type="submit" class="pd-btn pd-btn-primary pd-btn-block">
+            <i class="fas fa-paper-plane"></i> Anfrage senden
+        </button>
+        <div id="propertyInquiryMsg" class="pd-form-msg" role="status"></div>
+    </form>
 </div>
 
 <script>

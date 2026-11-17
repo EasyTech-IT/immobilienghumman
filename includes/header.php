@@ -145,6 +145,7 @@ function nav_class(string $id, string $active): string
                         <div class="nav-dropdown-divider"></div>
                         <a href="<?= BASE ?>/kapitalanlage"><i class="fas fa-chart-line"></i> Kapitalanlagen</a>
                         <a href="<?= BASE ?>/analyse-beratung?bereich=immobilie#analyser"><i class="fas fa-magnifying-glass-dollar"></i> Immobilie bewerten</a>
+                        <a href="<?= BASE ?>/immobilie-verkaufen"><i class="fas fa-handshake"></i> Immobilie verkaufen</a>
                     </div>
                 </li>
 
@@ -266,6 +267,7 @@ function nav_class(string $id, string $active): string
                 <li><a href="<?= BASE ?>/immobilien-angebote?offer_type=Kauf">Kaufen</a></li>
                 <li><a href="<?= BASE ?>/immobilien-angebote?offer_type=Miete">Mieten</a></li>
                 <li><a href="<?= BASE ?>/kapitalanlage">Kapitalanlagen</a></li>
+                <li><a href="<?= BASE ?>/immobilie-verkaufen">Immobilie verkaufen</a></li>
             </ul>
         </li>
 

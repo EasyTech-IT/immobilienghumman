@@ -446,7 +446,8 @@ try {
         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
     ]);
     $ssrProps = $ssrPdo->query(
-        "SELECT title, slug, location, offer_type, type, price, area, rooms, short_description
+        "SELECT id, title, slug, location, zip, offer_type, type, price, area, rooms,
+                warm_rent, main_image, images, created_at
            FROM properties WHERE status = 'available' AND slug <> '' ORDER BY created_at DESC LIMIT 100"
     )->fetchAll();
 } catch (Throwable $e) {
@@ -455,19 +456,65 @@ try {
 ?>
         <div id="properties-grid" aria-live="polite">
             <?php if ($ssrProps): ?>
-                <ul class="ssr-property-list" style="list-style:none;padding:0;display:grid;gap:1rem">
+                <div class="properties-grid-inner">
                     <?php foreach ($ssrProps as $sp): ?>
-                        <li>
-                            <h2 style="font-size:1.1rem"><a href="<?= BASE ?>/immobilie/<?= rawurlencode($sp['slug']) ?>"><?= htmlspecialchars($sp['title'], ENT_QUOTES) ?></a></h2>
-                            <p>
-                                <?= htmlspecialchars(trim(($sp['type'] ?? '') . ' · ' . ($sp['offer_type'] ?? '') . ' · ' . ($sp['location'] ?? ''), ' ·'), ENT_QUOTES) ?>
-                                <?php if (!empty($sp['rooms'])): ?> · <?= htmlspecialchars((string)$sp['rooms'], ENT_QUOTES) ?> Zimmer<?php endif; ?>
-                                <?php if (!empty($sp['area'])): ?> · <?= htmlspecialchars((string)$sp['area'], ENT_QUOTES) ?> m²<?php endif; ?>
-                                <?php if (!empty($sp['price'])): ?> · <?= htmlspecialchars((string)$sp['price'], ENT_QUOTES) ?><?php endif; ?>
-                            </p>
-                        </li>
+                        <?php
+                        $ssrImages = json_decode((string)($sp['images'] ?? ''), true);
+                        $ssrImage = trim((string)($sp['main_image'] ?? ''));
+                        if ($ssrImage === '' && is_array($ssrImages) && $ssrImages) {
+                            $firstImage = reset($ssrImages);
+                            $ssrImage = is_array($firstImage) ? (string)($firstImage['url'] ?? '') : (string)$firstImage;
+                        }
+                        $ssrLocation = trim((string)($sp['location'] ?? ''));
+                        $ssrZip = trim((string)($sp['zip'] ?? ''));
+                        $ssrAddress = trim($ssrLocation . ($ssrZip !== '' ? ' · ' . $ssrZip : ''));
+                        $ssrObjectNumber = 'Objekt ' . str_pad((string)$sp['id'], 4, '0', STR_PAD_LEFT);
+                        $ssrIsNew = !empty($sp['created_at']) && strtotime((string)$sp['created_at']) >= strtotime('-14 days');
+                        $ssrOfferType = strtolower((string)($sp['offer_type'] ?? ''));
+                        $ssrPriceLabel = $ssrOfferType === 'kauf' ? 'Kaufpreis' : 'Kaltmiete';
+                        $ssrPrice = (float)($sp['price'] ?? 0) > 0 ? number_format((float)$sp['price'], 0, ',', '.') . ' €' : 'Auf Anfrage';
+                        $ssrArea = !empty($sp['area']) ? number_format((float)$sp['area'], 1, ',', '.') . ' m²' : '—';
+                        $ssrRooms = !empty($sp['rooms']) ? number_format((float)$sp['rooms'], 1, ',', '.') : '—';
+                        $ssrSearch = implode(' ', [$sp['title'] ?? '', $ssrLocation, $ssrZip]);
+                        ?>
+                        <article class="property-card"
+                            data-type="<?= htmlspecialchars(strtolower((string)$sp['type']), ENT_QUOTES) ?>"
+                            data-pricing-type="<?= htmlspecialchars($ssrOfferType, ENT_QUOTES) ?>"
+                            data-price="<?= (float)($sp['price'] ?? 0) ?>"
+                            data-area="<?= (float)($sp['area'] ?? 0) ?>"
+                            data-created-at="<?= htmlspecialchars((string)($sp['created_at'] ?? ''), ENT_QUOTES) ?>"
+                            data-location="<?= htmlspecialchars(strtolower($ssrLocation), ENT_QUOTES) ?>"
+                            data-search="<?= htmlspecialchars(mb_strtolower($ssrSearch, 'UTF-8'), ENT_QUOTES) ?>">
+                            <a class="property-card-link-overlay"
+                                href="<?= BASE ?>/immobilie/<?= rawurlencode($sp['slug']) ?>"
+                                aria-label="<?= htmlspecialchars($ssrObjectNumber . ' in ' . $ssrAddress . ' ansehen', ENT_QUOTES) ?>"></a>
+                            <div class="property-image">
+                                <?php if ($ssrImage !== ''): ?>
+                                    <img src="<?= htmlspecialchars($ssrImage, ENT_QUOTES) ?>"
+                                        alt="<?= htmlspecialchars('Immobilienangebot in ' . $ssrAddress, ENT_QUOTES) ?>"
+                                        loading="lazy" decoding="async">
+                                <?php else: ?>
+                                    <div class="property-image-placeholder" aria-hidden="true"><i class="fas fa-house"></i></div>
+                                <?php endif; ?>
+                                <span class="property-offer-badge"><?= $ssrOfferType === 'kauf' ? 'Kaufen' : 'Mieten' ?></span>
+                                <?php if ($ssrIsNew): ?><span class="new-badge">NEU</span><?php endif; ?>
+                                <button type="button" class="property-card-fav fav-btn"
+                                    data-fav-id="<?= (int)$sp['id'] ?>"
+                                    aria-label="<?= htmlspecialchars($ssrObjectNumber . ' merken', ENT_QUOTES) ?>"
+                                    title="Zu Favoriten hinzufügen"><i class="far fa-heart" aria-hidden="true"></i></button>
+                                <div class="property-image-location"><i class="fas fa-location-dot" aria-hidden="true"></i> <?= htmlspecialchars($ssrAddress, ENT_QUOTES) ?></div>
+                            </div>
+                            <div class="property-content">
+                                <p class="property-reference"><?= htmlspecialchars($ssrObjectNumber, ENT_QUOTES) ?></p>
+                                <div class="property-facts">
+                                    <div class="property-fact"><i class="fas fa-tag" aria-hidden="true"></i><div><strong><?= $ssrPrice ?></strong><span><?= htmlspecialchars($ssrPriceLabel, ENT_QUOTES) ?></span></div></div>
+                                    <div class="property-fact"><i class="far fa-square" aria-hidden="true"></i><div><strong><?= htmlspecialchars($ssrArea, ENT_QUOTES) ?></strong><span>Wohnfläche</span></div></div>
+                                    <div class="property-fact"><i class="fas fa-door-open" aria-hidden="true"></i><div><strong><?= htmlspecialchars($ssrRooms, ENT_QUOTES) ?></strong><span>Zimmer</span></div></div>
+                                </div>
+                            </div>
+                        </article>
                     <?php endforeach; ?>
-                </ul>
+                </div>
             <?php endif; ?>
         </div>
         <p class="no-results" id="noResults" hidden>Zu dieser Suche wurden keine passenden Immobilien gefunden.</p>
