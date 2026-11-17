@@ -213,7 +213,7 @@ function build_property_notification_html(array $p, string $name, string $unsubU
         ? '€ ' . number_format((float)$p['price'], 0, ',', '.') . ($isRent ? ' / Monat' : '')
         : 'Preis auf Anfrage';
     $place = trim(((string)($p['zip'] ?? '')) . ' ' . ((string)($p['location'] ?? '')));
-    $link = rtrim(SITE_URL, '/') . '/immobilie/' . ((int)$p['id'] + 1110);
+    $link = rtrim(SITE_URL, '/') . '/immobilie/' . rawurlencode((string)($p['slug'] ?? ''));
     $linkSafe = htmlspecialchars($link, ENT_QUOTES);
 
     $facts = [];

@@ -23,12 +23,6 @@ function expose_money($value): string
     return number_format((float)$value, 2, ',', '.') . ' €';
 }
 
-function expose_object_number($id): string
-{
-    $id = (string)$id;
-    return ctype_digit($id) ? str_pad($id, 4, '0', STR_PAD_LEFT) : $id;
-}
-
 $extra = expose_list($property['extra_data'] ?? []);
 $images = expose_list($property['images'] ?? []);
 if (!$images && !empty($property['main_image'])) $images = [$property['main_image']];
@@ -42,13 +36,10 @@ foreach ($images as $image) {
 $coverImage = array_shift($imageItems);
 $features = expose_list($property['features'] ?? []);
 $facts = [];
-$objectNumber = $property ? expose_object_number($property['id'] ?? '') : '';
 if ($property) {
     $offerType = strtolower((string)($property['offer_type'] ?? ''));
     $priceLabel = $offerType === 'kauf' ? 'Kaufpreis' : ($offerType === 'miete' ? 'Kaltmiete' : 'Preis');
-    $address = !empty($extra['hide_exact_address'])
-        ? (($extra['address_public_note'] ?? '') ?: ($property['location'] ?? ''))
-        : trim(implode(', ', array_filter([$property['address'] ?? '', trim(($property['zip'] ?? '') . ' ' . ($property['location'] ?? ''))])));
+    $address = trim(implode(' ', array_filter([$property['zip'] ?? '', $property['location'] ?? ''])));
     $facts = [
         'Objektadresse' => $address,
         'Objektart' => $property['type'] ?? '',
@@ -102,7 +93,7 @@ foreach (['floorplans' => 'Grundriss', 'documents' => 'Dokument'] as $key => $la
 <nav class="expose-toolbar" aria-label="Exposé Aktionen">
     <a href="<?= BASE ?>/immobilien-angebote">Alle Immobilien</a>
     <?php if ($property): ?>
-    <a href="<?= BASE ?>/immobilie/<?= (int)$property['id'] + 1110 ?>">Zur Immobilie</a>
+    <a href="<?= BASE ?>/immobilie/<?= rawurlencode((string)($property['slug'] ?? '')) ?>">Zur Immobilie</a>
     <button type="button" onclick="window.print()">Drucken / als PDF speichern</button>
     <?php endif; ?>
 </nav>
@@ -122,7 +113,7 @@ foreach (['floorplans' => 'Grundriss', 'documents' => 'Dokument'] as $key => $la
         </div>
     </header>
     <div class="expose-date">Bad Vilbel, <?= date('d.m.Y') ?></div>
-    <div class="expose-reference">Exposé · Objekt <?= expose_escape($objectNumber) ?></div>
+    <div class="expose-reference">Immobilien-Exposé</div>
     <h1><?= expose_escape($property['title']) ?></h1>
     <p>Vielen Dank für Ihr Interesse an unserem Immobilienangebot.</p>
     <?php if ($coverImage): ?>

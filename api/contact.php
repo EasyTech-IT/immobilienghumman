@@ -68,6 +68,7 @@ if (in_array($action, ['inquiry', 'general']) && $method === 'POST') {
     $phone    = trim($data['phone']   ?? '');
     $message  = trim($data['message'] ?? '');
     $formType = trim($data['form_type'] ?? '');
+    $isExpose = $action === 'inquiry' && $formType === 'expose_anfrage';
     $analysisFlows = analyse_flows();
     $isAnalysis = isset($analysisFlows[$formType]);
     $propId   = isset($data['property_id']) ? (int)$data['property_id'] : null;
@@ -105,10 +106,12 @@ if (in_array($action, ['inquiry', 'general']) && $method === 'POST') {
         if ($phone === '') $errors[] = 'Telefonnummer ist erforderlich';
     }
     $privacyOk = !empty($data['privacy_accept']) && $data['privacy_accept'] !== 'false' && $data['privacy_accept'] !== '0';
-    if ((!empty($data['privacy_required']) || $isAnalysis) && !$privacyOk) {
-        $errors[] = $isAnalysis ? 'Bitte akzeptieren Sie die Datenschutzerklärung' : 'Bitte akzeptieren Sie die AGB und die Datenschutzerklärung';
+    if ((!empty($data['privacy_required']) || $isAnalysis || $isExpose) && !$privacyOk) {
+        $errors[] = ($isAnalysis || $isExpose) ? 'Bitte bestätigen Sie den Datenschutzhinweis' : 'Bitte akzeptieren Sie die AGB und die Datenschutzerklärung';
     }
     if ($isAnalysis && analyse_validate_answers($formType, $data))         $errors[] = 'Bitte beantworten Sie alle Fragen vollständig und gültig.';
+    if ($isExpose && (!$propId || !csrf_verify($data['csrf_token'] ?? ''))) $errors[] = 'Ungültige Immobilienanfrage. Bitte laden Sie die Seite neu.';
+    if ($isExpose && (mb_strlen($name) > 100 || mb_strlen($email) > 255 || mb_strlen($phone) > 50)) $errors[] = 'Bitte prüfen Sie die Länge Ihrer Kontaktdaten.';
     $newsletterOptin = !empty($data['newsletter_optin']) && $data['newsletter_optin'] !== 'false' && $data['newsletter_optin'] !== '0';
 
     if (!empty($errors)) {
@@ -217,18 +220,23 @@ if (in_array($action, ['inquiry', 'general']) && $method === 'POST') {
         $propertyTitle = '';
         $propertyUrl = trim((string)($data['property_link'] ?? ''));
         if ($propId) {
-            $propStmt = $pdo->prepare('SELECT title FROM properties WHERE id = ? LIMIT 1');
+            $propStmt = $pdo->prepare($isExpose
+                ? "SELECT * FROM properties WHERE id = ? AND status = 'available' LIMIT 1"
+                : 'SELECT title, slug FROM properties WHERE id = ? LIMIT 1');
             $propStmt->execute([$propId]);
             $prop = $propStmt->fetch();
             if ($prop) {
                 $propertyTitle = trim((string)($prop['title'] ?? ''));
-                if ($propertyUrl === '') {
-                    $propertyUrl = rtrim(SITE_URL, '/') . '/immobilie/' . ((int)$propId + 1110);
-                }
+                $propertyUrl = rtrim(SITE_URL, '/') . '/immobilie/' . rawurlencode((string)($prop['slug'] ?? ''));
+            }
+            if ($isExpose && empty($prop)) {
+                http_response_code(404);
+                echo json_encode(['success' => false, 'message' => 'Diese Immobilie ist nicht mehr verfügbar.'], JSON_UNESCAPED_UNICODE);
+                exit;
             }
         }
 
-        $subject = $subjectInput;
+        $subject = $isExpose ? 'Exposé-Anfrage: ' . $propertyTitle : $subjectInput;
         if ($subject === '') {
             if ($propId && $propertyTitle !== '') {
                 $subject = 'Immobilienanfrage: ' . $propertyTitle;
@@ -247,12 +255,20 @@ if (in_array($action, ['inquiry', 'general']) && $method === 'POST') {
         }
         $extraInfo .= "Betreff: " . $subject . "\n";
 
-        $stmt = $pdo->prepare('
-            INSERT INTO contact_inquiries (name, email, phone, message, property_id, ip_address, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, NOW())
-        ');
-        $stmt->execute([$name, $email, $phone, $message . ($extraInfo ? "\n\nWeitere Angaben:\n" . $extraInfo : ''), $propId, $ip]);
-    } catch (Exception $e) {
+        if ($isExpose) {
+            require_once __DIR__ . '/../includes/expose-pdf.php';
+            expose_requests_ensure_table($pdo);
+            $pdf = expose_pdf_render($prop, ['name' => $name, 'email' => $email, 'phone' => $phone]);
+            $inquiryId = expose_request_store($pdo, [$name, $email, $phone, $message . ($extraInfo ? "\n\nWeitere Angaben:\n" . $extraInfo : ''), $propId, $ip], $pdf);
+        } else {
+            $stmt = $pdo->prepare('
+                INSERT INTO contact_inquiries (name, email, phone, message, property_id, ip_address, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, NOW())
+            ');
+            $stmt->execute([$name, $email, $phone, $message . ($extraInfo ? "\n\nWeitere Angaben:\n" . $extraInfo : ''), $propId, $ip]);
+        }
+    } catch (Throwable $e) {
+        if (isset($pdo) && $pdo->inTransaction()) $pdo->rollBack();
         error_log('DB Error contact: ' . $e->getMessage());
         http_response_code(500);
         echo json_encode([
@@ -265,13 +281,13 @@ if (in_array($action, ['inquiry', 'general']) && $method === 'POST') {
     // E-Mail senden
     $subject = MAIL_SUBJECT_PREFIX . ' Neue Anfrage von ' . $name;
     if ($formType) $subject .= ' (' . $formType . ')';
-    if ($propId)   $subject .= " (Immobilie #$propId)";
+    if ($propertyTitle !== '') $subject .= ' (' . $propertyTitle . ')';
 
     $mailBody  = "Neue Kontaktanfrage von: $name\n";
     $mailBody .= "Zeitpunkt: $createdAt\n";
     $mailBody .= "E-Mail: $email\n";
     $mailBody .= "Telefon: " . ($phone ?: 'nicht angegeben') . "\n";
-    if ($propId) $mailBody .= "Immobilie-ID: $propId\n";
+    if ($propertyTitle !== '') $mailBody .= "Immobilie: $propertyTitle\n";
     $mailBody .= "\nNachricht:\n$message\n";
     if ($extraInfo) $mailBody .= "\nWeitere Angaben:\n$extraInfo";
     $mailBody .= "\n---\nGesendet ueber www.immobilienghumman.de\n";
@@ -284,6 +300,49 @@ if (in_array($action, ['inquiry', 'general']) && $method === 'POST') {
         'property_id' => $propId, 'property_title' => $propertyTitle, 'property_url' => $propertyUrl,
         'rows' => $extraRows,
     ]);
+
+    if ($isExpose) {
+        ignore_user_abort(true);
+        if (session_status() === PHP_SESSION_ACTIVE) session_write_close();
+        try {
+            $sent = expose_request_deliver($pdo, $inquiryId, $pdf, static fn($contents) => mailer_send(
+                $email,
+                'Ihr Exposé – ' . $propertyTitle,
+                "Guten Tag $name,\n\nvielen Dank für Ihr Interesse. Ihr persönliches Exposé finden Sie im Anhang.\n\nFreundliche Grüße\n" . SITE_NAME,
+                '',
+                '',
+                '',
+                '',
+                ['content' => $contents]
+            ));
+        } catch (Throwable $e) {
+            error_log('Exposé-Status konnte nicht gespeichert werden: ' . $e->getMessage());
+            http_response_code(503);
+            echo json_encode(['success' => false, 'stored' => true, 'message' => 'Ihre Anfrage wurde gespeichert, der Versandstatus konnte aber nicht bestätigt werden. Bitte nicht erneut senden und uns telefonisch kontaktieren.'], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
+        if (!mailer_send(MAIL_TO, $subject, $mailBody, $adminHtml, $email)) {
+            error_log('Exposé-Anfrage: interne Benachrichtigung konnte nicht gesendet werden.');
+        }
+        if ($newsletterOptin) {
+            try {
+                require_once __DIR__ . '/../includes/subscribers.php';
+                if (subscribers_request_optin($pdo, $email, $name, $ip, 'Exposé-Anfrage') === 'error') {
+                    error_log('Newsletter opt-in mail konnte nicht gesendet werden.');
+                }
+            } catch (Throwable $e) {
+                error_log('Newsletter opt-in: ' . $e->getMessage());
+            }
+        }
+        if (!$sent) {
+            error_log('Exposé-Versand konnte nicht bestätigt werden; Anfrage ' . $inquiryId);
+            http_response_code(503);
+            echo json_encode(['success' => false, 'stored' => true, 'message' => 'Ihre Anfrage wurde gespeichert, der E-Mail-Versand konnte aber nicht bestätigt werden. Bitte nicht erneut senden und uns telefonisch kontaktieren.'], JSON_UNESCAPED_UNICODE);
+        } else {
+            echo json_encode(['success' => true, 'message' => 'Ihr persönliches Exposé wurde an den E-Mail-Server übergeben.'], JSON_UNESCAPED_UNICODE);
+        }
+        exit;
+    }
 
     if ($isAnalysis) {
         ignore_user_abort(true);

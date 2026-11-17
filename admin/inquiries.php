@@ -124,10 +124,16 @@ $stmt = $pdo->prepare($sql);
 $stmt->execute($params);
 $inquiries = $stmt->fetchAll();
 $detail    = null;
+$exposeStatus = null;
 if ($id) {
     $stmt = $pdo->prepare('SELECT * FROM contact_inquiries WHERE id = ?');
     $stmt->execute([$id]);
     $detail = $stmt->fetch() ?: null;
+    if ($detail && strpos((string)$detail['message'], 'Betreff: Exposé-Anfrage: ') !== false) {
+        $stmt = $pdo->prepare('SELECT delivery_status FROM expose_requests WHERE inquiry_id = ?');
+        $stmt->execute([$id]);
+        $exposeStatus = $stmt->fetchColumn();
+    }
 }
 ?>
 <!DOCTYPE html>
@@ -337,7 +343,7 @@ if ($id) {
                         <dt>Telefon</dt>
                         <dd><?= htmlspecialchars($detail['phone'] ?: '—') ?></dd>
                         <dt>Immobilie</dt>
-                        <dd><?= $detail['property_id'] ? '#' . $detail['property_id'] : '—' ?></dd>
+                        <dd><?= htmlspecialchars(extract_property_ref_from_message((string)$detail['message']) ?: (!empty($detail['property_id']) ? 'Immobilie' : '—')) ?></dd>
                         <dt>Datum</dt>
                         <dd><?= date('d.m.Y H:i', strtotime($detail['created_at'])) ?></dd>
                         <dt>Status</dt>
@@ -351,6 +357,13 @@ if ($id) {
                     </dl>
                     <h3 style="margin:1.2rem 0 .5rem;font-size:.95rem;">Nachricht:</h3>
                     <div class="msg-box"><?= htmlspecialchars($detail['message']) ?></div>
+                    <?php if ($exposeStatus !== false && $exposeStatus !== null): ?>
+                        <div style="margin-top:1rem;">
+                            <strong>Exposé-Anfrage:</strong>
+                            <?= $exposeStatus === 'sent' ? 'An den E-Mail-Server übergeben.' : 'Versand nicht bestätigt; bitte manuell prüfen.' ?>
+                            <a class="btn btn-sm btn-outline" href="<?= BASE ?>/admin/expose-download.php?inquiry_id=<?= (int)$detail['id'] ?>">Gespeichertes PDF herunterladen</a>
+                        </div>
+                    <?php endif; ?>
 
                     <!-- ── Reply-Formular ── -->
                     <div class="reply-form-wrap">
@@ -427,7 +440,7 @@ if ($id) {
                                     if ($propertyText !== '') {
                                         echo htmlspecialchars($propertyText);
                                     } elseif (!empty($inq['property_id'])) {
-                                        echo '# ' . (int)$inq['property_id'];
+                                        echo 'Immobilie';
                                     } else {
                                         echo '—';
                                     }

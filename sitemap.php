@@ -99,7 +99,7 @@ echo '<?xml version="1.0" encoding="UTF-8"?>' . "\n";
     <?php endforeach; ?>
     <?php foreach ($properties as $prop): ?>
         <url>
-            <loc><?= htmlspecialchars($base . '/immobilie/' . ((int)$prop['id'] + 1110), ENT_XML1) ?></loc>
+            <loc><?= htmlspecialchars($base . '/immobilie/' . rawurlencode((string)$prop['slug']), ENT_XML1) ?></loc>
             <lastmod><?= date('Y-m-d', strtotime($prop['updated_at'])) ?></lastmod>
             <changefreq>weekly</changefreq>
             <priority>0.80</priority>

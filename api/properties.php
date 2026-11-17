@@ -7,13 +7,14 @@
  *
  * GET    /api/properties.php           – Liste (mit Filtern)
  * GET    /api/properties.php?id=123    – Einzelne Immobilie per Datenbank-ID
- * GET    /api/properties.php?number=1123 – Einzelne Immobilie per öffentlicher Objektnummer
+ * GET    /api/properties.php?number=1123 – Legacy-URL auflösen
  * POST   /api/properties.php           – Neue Immobilie anlegen  (Auth erforderlich)
  * PUT    /api/properties.php?id=123    – Immobilie aktualisieren (Auth erforderlich)
  * DELETE /api/properties.php?id=123   – Immobilie löschen       (Auth erforderlich)
  */
 require_once __DIR__ . '/../includes/config.php';
 require_once __DIR__ . '/../includes/db.php';
+require_once __DIR__ . '/../includes/property-url.php';
 require_once __DIR__ . '/auth_helper.php';
 
 header('Content-Type: application/json; charset=utf-8');
@@ -99,7 +100,6 @@ function properties_has_extra_data(PDO $pdo): bool
 // Immobilien-Row → API-Objekt
 function row_to_property(array $row): array
 {
-    $row['public_number'] = (int)($row['id'] ?? 0) + 1110;
     $row['images']    = decode_images($row['images'] ?? '');
     $row['features']  = decode_features($row['features'] ?? '');
     $row['extra_data'] = decode_extra_data($row['extra_data'] ?? '');
@@ -109,13 +109,10 @@ function row_to_property(array $row): array
     $row['rooms']     = (float)$row['rooms'];
     $row['area']      = (float)$row['area'];
 
-    if (!empty($row['extra_data']['hide_exact_address'])) {
-        $publicAddress = trim((string)($row['extra_data']['address_public_note'] ?? ''));
-        $row['address_public'] = $publicAddress !== '' ? $publicAddress : (string)($row['location'] ?? '');
-        $row['address'] = '';
-    } else {
-        $row['address_public'] = (string)($row['address'] ?? '');
-    }
+    $row['address_public'] = (string)($row['location'] ?? '');
+    $row['address'] = '';
+    $row['extra_data']['hide_exact_address'] = true;
+    unset($row['extra_data']['address_public_note'], $row['extra_data']['legacy_slugs']);
 
     return $row;
 }
@@ -141,8 +138,15 @@ if ($method === 'GET') {
             $stmt = $pdo->prepare("SELECT * FROM properties WHERE id = ? AND status = 'available' LIMIT 1");
             $stmt->execute([$id]);
         } else {
-            $stmt = $pdo->prepare("SELECT * FROM properties WHERE slug = ? AND status = 'available' LIMIT 1");
-            $stmt->execute([$slug]);
+            $hasExtraData = properties_has_extra_data($pdo);
+            $slugCondition = 'slug = ?';
+            $params = [$slug];
+            if ($hasExtraData) {
+                $slugCondition = "(slug = ? OR JSON_CONTAINS(JSON_EXTRACT(extra_data, '$.legacy_slugs'), JSON_QUOTE(?)))";
+                $params = [$slug, $slug];
+            }
+            $stmt = $pdo->prepare("SELECT * FROM properties WHERE $slugCondition AND status = 'available' LIMIT 1");
+            $stmt->execute($params);
         }
         $row = $stmt->fetch();
         if (!$row) {
@@ -151,8 +155,15 @@ if ($method === 'GET') {
                 $stmt = $pdo->prepare('SELECT * FROM properties WHERE id = ? LIMIT 1');
                 $stmt->execute([$id]);
             } else {
-                $stmt = $pdo->prepare('SELECT * FROM properties WHERE slug = ? LIMIT 1');
-                $stmt->execute([$slug]);
+                $hasExtraData = properties_has_extra_data($pdo);
+                $slugCondition = 'slug = ?';
+                $params = [$slug];
+                if ($hasExtraData) {
+                    $slugCondition = "(slug = ? OR JSON_CONTAINS(JSON_EXTRACT(extra_data, '$.legacy_slugs'), JSON_QUOTE(?)))";
+                    $params = [$slug, $slug];
+                }
+                $stmt = $pdo->prepare("SELECT * FROM properties WHERE $slugCondition LIMIT 1");
+                $stmt->execute($params);
             }
             $row = $stmt->fetch();
         }
@@ -257,7 +268,7 @@ if ($method === 'POST') {
         ');
         $stmt->execute([
             $data['title'],
-            $data['slug']              ?? slugify($data['title']),
+            property_unique_slug($pdo, (string)$data['title'], null, $hasExtraData),
             $data['short_description'] ?? '',
             $data['description']       ?? '',
             $data['type'],
@@ -289,7 +300,7 @@ if ($method === 'POST') {
         ');
         $stmt->execute([
             $data['title'],
-            $data['slug']              ?? slugify($data['title']),
+            property_unique_slug($pdo, (string)$data['title'], null, $hasExtraData),
             $data['short_description'] ?? '',
             $data['description']       ?? '',
             $data['type'],
@@ -326,6 +337,41 @@ if ($method === 'PUT') {
 
     $pdo = db();
     $hasExtraData = properties_has_extra_data($pdo);
+    $currentStmt = $pdo->prepare($hasExtraData
+        ? 'SELECT slug, title, extra_data FROM properties WHERE id = ? LIMIT 1'
+        : 'SELECT slug, title FROM properties WHERE id = ? LIMIT 1');
+    $currentStmt->execute([$id]);
+    $current = $currentStmt->fetch();
+    if (!$current) {
+        json_error('Immobilie nicht gefunden', 404);
+    }
+
+    $slug = $hasExtraData
+        ? property_unique_slug($pdo, (string)($data['title'] ?? $current['title']), $id)
+        : (string)$current['slug'];
+    $data['slug'] = $slug;
+    if ($hasExtraData && ($slug !== (string)$current['slug'] || array_key_exists('extra_data', $data))) {
+        $currentExtraData = decode_extra_data($current['extra_data'] ?? '');
+        $incomingExtraData = $data['extra_data'] ?? $currentExtraData;
+        if (is_string($incomingExtraData)) {
+            $incomingExtraData = decode_extra_data($incomingExtraData);
+        }
+        if (!is_array($incomingExtraData)) {
+            $incomingExtraData = $currentExtraData;
+        }
+        $legacySlugs = array_merge(
+            is_array($currentExtraData['legacy_slugs'] ?? null) ? $currentExtraData['legacy_slugs'] : [],
+            is_array($incomingExtraData['legacy_slugs'] ?? null) ? $incomingExtraData['legacy_slugs'] : []
+        );
+        if ($slug !== (string)$current['slug'] && (string)$current['slug'] !== '') {
+            $legacySlugs[] = (string)$current['slug'];
+        }
+        $incomingExtraData['legacy_slugs'] = array_values(array_unique(array_filter(
+            $legacySlugs,
+            static fn($value): bool => is_string($value) && $value !== '' && $value !== $slug
+        )));
+        $data['extra_data'] = $incomingExtraData;
+    }
 
     $allowed = [
         'title',
@@ -393,12 +439,3 @@ if ($method === 'DELETE') {
 }
 
 json_error('Methode nicht erlaubt', 405);
-
-// ── Hilfsfunktionen ────────────────────────────────────────
-function slugify(string $text): string
-{
-    $text = mb_strtolower($text, 'UTF-8');
-    $text = str_replace(['ä', 'ö', 'ü', 'ß'], ['ae', 'oe', 'ue', 'ss'], $text);
-    $text = preg_replace('/[^a-z0-9]+/', '-', $text);
-    return trim($text, '-');
-}

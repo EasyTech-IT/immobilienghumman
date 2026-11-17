@@ -100,8 +100,12 @@ require_once __DIR__ . '/includes/header.php';
         </div>
 
         <?php $consentPrefix = 'pd'; include __DIR__ . '/includes/consent-fields.php'; ?>
+        <p class="pd-form-note">Bei einer Exposé-Anfrage werden Name, E-Mail und Telefonnummer im persönlichen PDF und zur Bearbeitung Ihrer Anfrage gespeichert. Der Versand erfolgt per E-Mail.</p>
         <button type="submit" class="pd-btn pd-btn-primary pd-btn-block">
             <i class="fas fa-paper-plane"></i> Anfrage senden
+        </button>
+        <button type="submit" name="request_expose" value="1" class="pd-btn pd-btn-outline pd-btn-block">
+            <i class="far fa-file-pdf"></i> Exposé anfordern
         </button>
         <div id="propertyInquiryMsg" class="pd-form-msg" role="status"></div>
     </form>
@@ -139,31 +143,52 @@ require_once __DIR__ . '/includes/header.php';
 
         form.addEventListener('submit', function(e) {
             e.preventDefault();
-            var btn = form.querySelector('button[type="submit"]');
+            var btn = e.submitter || form.querySelector('button[type="submit"]');
+            var buttons = form.querySelectorAll('button[type="submit"]');
             var old = btn.innerHTML;
-            btn.disabled = true;
+            buttons.forEach(function(button) { button.disabled = true; });
             btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Wird gesendet ...';
+            var data = new FormData(form);
+            if (btn.name === 'request_expose') data.set('form_type', 'expose_anfrage');
 
             fetch(form.action, {
                     method: 'POST',
-                    body: new FormData(form),
+                    body: data,
                     credentials: 'same-origin'
                 })
                 .then(parseApiResponse)
                 .then(function(json) {
                     if (json.success && json._httpOk) {
-                        show(true, 'Vielen Dank. Ihre Anfrage wurde gesendet.');
+                        show(true, json.message || 'Vielen Dank. Ihre Anfrage wurde gesendet.');
+                        var propertyFields = ['inquiry_property_id', 'inquiry_property_title', 'inquiry_property_link'].map(function(id) {
+                            var input = document.getElementById(id);
+                            return input ? input.value : '';
+                        });
                         form.reset();
+                        ['inquiry_property_id', 'inquiry_property_title', 'inquiry_property_link'].forEach(function(id, index) {
+                            var input = document.getElementById(id);
+                            if (input) input.value = propertyFields[index];
+                        });
                     } else {
                         show(false, json.message || 'Anfrage konnte nicht gesendet werden. Bitte rufen Sie uns an: +49 160 98787878');
                     }
                 })
                 .catch(function() {
-                    show(false, 'Verbindungsfehler. Bitte versuchen Sie es erneut oder rufen Sie uns an: +49 160 98787878');
+                    show(false, 'Die Übertragung wurde unterbrochen. Bitte kontaktieren Sie uns telefonisch, bevor Sie die Anfrage erneut senden: +49 160 98787878');
                 })
                 .finally(function() {
-                    btn.disabled = false;
+                    var widget = form.querySelector('.cf-turnstile');
+                    buttons.forEach(function(button) { button.disabled = !!widget; });
                     btn.innerHTML = old;
+                    if (widget) {
+                        try {
+                            if (!window.turnstile) throw new Error('Turnstile nicht verfügbar');
+                            window.turnstile.reset(widget);
+                        } catch (error) {
+                            console.error('Sicherheitsprüfung konnte nicht zurückgesetzt werden:', error);
+                            msg.textContent += ' Für eine weitere Anfrage laden Sie bitte die Seite neu.';
+                        }
+                    }
                 });
         });
     })();

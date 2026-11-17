@@ -202,7 +202,7 @@ function clean(string $value): string
 /**
  * Einheitlicher Versand ueber zentrale Socket-SMTP-Mailer-Klasse.
  */
-function mailer_send(string $to, string $subject, string $textBody = '', string $htmlBody = '', string $replyTo = '', string $fromEmail = '', string $fromName = ''): bool
+function mailer_send(string $to, string $subject, string $textBody = '', string $htmlBody = '', string $replyTo = '', string $fromEmail = '', string $fromName = '', ?array $attachment = null): bool
 {
     $from = $fromEmail ?: MAIL_FROM;
     $name = $fromName ?: MAIL_FROM_NAME;
@@ -222,7 +222,7 @@ function mailer_send(string $to, string $subject, string $textBody = '', string 
         (int)SMTP_TIMEOUT
     );
 
-    return $mailer->send($from, $name, $to, $subject, $textBody, $htmlBody, $replyTo);
+    return $mailer->send($from, $name, $to, $subject, $textBody, $htmlBody, $replyTo, $attachment);
 }
 
 function app_mail_text(string $to, string $subject, string $textBody, string $replyTo = ''): bool

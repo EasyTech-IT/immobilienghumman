@@ -1,6 +1,6 @@
 /**
  * Property Detail Page Loader
- * Lädt eine Immobilie per Objektnummer, Slug oder ID aus der API.
+ * Lädt eine Immobilie per Slug, Legacy-Objektnummer oder ID aus der API.
  * Datenquelle: ausschließlich API/DB – es werden keine Objektdaten erfunden.
  */
 (function () {
@@ -8,7 +8,6 @@
 
     const SITE_BASE = window.SITE_BASE || '';
     const API_BASE = window.API_BASE_URL || (SITE_BASE + '/api');
-    const PUBLIC_OBJECT_NUMBER_OFFSET = 1110;
     const FETCH_TIMEOUT_MS = 15000;
     const PHONE_TEL = '+4916098787878';
     const PHONE_LABEL = '+49 160 98787878';
@@ -18,8 +17,11 @@
 
     let images = [];
     let current = 0;
+    let lightboxImages = [];
+    let lightboxCurrent = 0;
     let property = null;
     let lastFocus = null;
+    let printExpanded = [];
 
     /* ───────────── Helpers ───────────── */
     const $ = (sel, root) => (root || document).querySelector(sel);
@@ -44,8 +46,7 @@
     const money = v => { const n = parseNum(v); return n == null ? '' : moneyFmt.format(n); };
     const fmtNum = v => { const n = parseNum(v); return n == null ? '' : numFmt.format(n); };
     const hasVal = v => v !== null && v !== undefined && String(v).trim() !== '' && v !== 0 && v !== '0' && v !== '0.00';
-    const publicObjectNumber = p => Number(p.public_number) || (Number(p.id) + PUBLIC_OBJECT_NUMBER_OFFSET);
-    const publicPropertyPath = p => `${SITE_BASE}/immobilie/${encodeURIComponent(publicObjectNumber(p))}`;
+    const publicPropertyPath = p => `${SITE_BASE}/immobilie/${encodeURIComponent(p.slug || '')}`;
 
     function parseDate(v) {
         if (!v) return null;
@@ -189,6 +190,12 @@
 
         try {
             property = data;
+            const canonicalPath = data.slug
+                ? `${SITE_BASE}/immobilie/${encodeURIComponent(data.slug)}${window.location.search || ''}${window.location.hash || ''}`
+                : '';
+            if (canonicalPath && window.location.pathname !== canonicalPath && window.history && window.history.replaceState) {
+                window.history.replaceState(null, '', canonicalPath);
+            }
             displayProperty(data);
             setState('ready');
         } catch (e) {
@@ -227,6 +234,7 @@
         }
 
         bindGallery(p);
+        bindMediaGallery(p);
         bindActions(p);
         syncInquiryForm(p);
         safe(() => initPropertyMap(p));
@@ -305,10 +313,10 @@
         const img = $('#main-image');
         img.addEventListener('error', () => { stage.classList.add('is-empty'); });
         img.addEventListener('load', () => { stage.classList.remove('is-empty'); });
-        img.addEventListener('click', () => openLightbox(current, p.title));
+        img.addEventListener('click', () => openLightbox(current));
         $('.pd-prev', stage)?.addEventListener('click', () => showImage(current - 1));
         $('.pd-next', stage)?.addEventListener('click', () => showImage(current + 1));
-        $('.pd-fs', stage)?.addEventListener('click', () => openLightbox(current, p.title));
+        $('.pd-fs', stage)?.addEventListener('click', () => openLightbox(current));
         $('[data-gallery-next]')?.addEventListener('click', () => showImage(current + 1));
         const thumbs = $('#gallery-thumbnails');
         if (thumbs) {
@@ -345,10 +353,6 @@
             if (on) t.setAttribute('aria-current', 'true'); else t.removeAttribute('aria-current');
         });
         const active = $('.pd-thumb.active');
-        const strip = $('#gallery-thumbnails');
-        if (active && strip) {
-            strip.scrollTo({ left: active.offsetLeft - (strip.clientWidth - active.offsetWidth) / 2, behavior: 'smooth' });
-        }
         [current + 1, current - 1].forEach(i => {
             const n = images[(i + images.length) % images.length];
             if (n) { const pre = new Image(); pre.src = n.url; }
@@ -359,27 +363,31 @@
         if (!images.length) return;
         current = (index + images.length) % images.length;
         paintStage();
-        const lb = document.getElementById('gallery-lightbox');
-        if (lb && lb.style.display === 'flex') paintLightbox(lb);
     }
     const nextImage = () => showImage(current + 1);
     const previousImage = () => showImage(current - 1);
 
     /* — Lightbox — */
     function paintLightbox(lb) {
-        const item = images[current];
+        const item = lightboxImages[lightboxCurrent];
         if (!item) return;
         const img = $('.lightbox-img', lb);
         img.src = item.url;
-        img.alt = (property && property.title) || '';
+        img.alt = item.label || (property && property.title) || '';
         const label = $('.lightbox-label', lb);
         label.textContent = item.label || '';
         label.style.display = item.label ? 'block' : 'none';
-        $('.lightbox-counter', lb).textContent = `${current + 1} / ${images.length}`;
+        $('.lightbox-counter', lb).textContent = `${lightboxCurrent + 1} / ${lightboxImages.length}`;
     }
 
-    function openLightbox(startIndex) {
-        if (!images.length) return;
+    function showLightboxImage(index) {
+        lightboxCurrent = (index + lightboxImages.length) % lightboxImages.length;
+        paintLightbox(document.getElementById('gallery-lightbox'));
+        if (lightboxImages === images) showImage(lightboxCurrent);
+    }
+
+    function openLightbox(startIndex, items = images) {
+        if (!items.length) return;
         let lb = document.getElementById('gallery-lightbox');
         if (!lb) {
             lb = document.createElement('div');
@@ -400,17 +408,18 @@
             document.body.appendChild(lb);
             $('.lightbox-close', lb).addEventListener('click', closeLightbox);
             $('.lightbox-backdrop', lb).addEventListener('click', closeLightbox);
-            $('.lightbox-prev', lb).addEventListener('click', () => showImage(current - 1));
-            $('.lightbox-next', lb).addEventListener('click', () => showImage(current + 1));
+            $('.lightbox-prev', lb).addEventListener('click', () => showLightboxImage(lightboxCurrent - 1));
+            $('.lightbox-next', lb).addEventListener('click', () => showLightboxImage(lightboxCurrent + 1));
             let x = 0;
             lb.addEventListener('touchstart', e => { x = e.changedTouches[0].clientX; }, { passive: true });
             lb.addEventListener('touchend', e => {
                 const dx = e.changedTouches[0].clientX - x;
-                if (Math.abs(dx) > 50) showImage(current + (dx < 0 ? 1 : -1));
+                if (Math.abs(dx) > 50) showLightboxImage(lightboxCurrent + (dx < 0 ? 1 : -1));
             }, { passive: true });
         }
         lastFocus = document.activeElement;
-        current = ((startIndex % images.length) + images.length) % images.length;
+        lightboxImages = items;
+        lightboxCurrent = ((startIndex % items.length) + items.length) % items.length;
         paintLightbox(lb);
         lb.style.display = 'flex';
         document.body.style.overflow = 'hidden';
@@ -443,13 +452,10 @@
     function headHtml(p, place) {
         const pr = priceInfo(p);
         const status = p.status && p.status !== 'available' ? (STATUS[p.status] || p.status) : '';
-        const loc = [p.address_public || p.address, place].filter((v, i, a) => v && a.indexOf(v) === i).join(', ');
-        const objectNumber = `Objekt ${publicObjectNumber(p)}`;
-        const exposeUrl = `${SITE_BASE}/expose.php?${p.slug ? 'slug=' + encodeURIComponent(p.slug) : 'id=' + encodeURIComponent(p.id)}`;
+        const loc = place;
         return `
         <header class="pd-head">
             <div>
-                <p class="pd-reference">${esc(objectNumber)}</p>
                 <div class="pd-badges">
                     ${offerLabel(p) ? `<span class="pd-badge is-offer">${esc(offerLabel(p))}</span>` : ''}
                     ${p.type ? `<span class="pd-badge">${esc(typeLabel(p.type))}</span>` : ''}
@@ -466,8 +472,8 @@
             ${factsHtml(p)}
             <div class="pd-actions">
                 <button type="button" class="pd-icon-btn" id="detail-fav-btn" aria-pressed="false"><i class="far fa-heart"></i> <span>Merken</span></button>
-                <a class="pd-icon-btn" href="${esc(exposeUrl)}"><i class="fas fa-file-alt"></i> <span>Exposé ansehen</span></a>
-                <a class="pd-icon-btn" href="${esc(exposeUrl + '&print=1')}"><i class="fas fa-print"></i> <span>Exposé drucken</span></a>
+                <a class="pd-icon-btn" href="#contact-form"><i class="far fa-envelope"></i> <span>Exposé anfordern</span></a>
+                <button type="button" class="pd-icon-btn" id="detail-print-btn"><i class="fas fa-print"></i> <span>Seite drucken</span></button>
                 <button type="button" class="pd-icon-btn" id="detail-share-btn"><i class="fas fa-share-alt"></i> <span>Teilen</span></button>
             </div>
         </header>`;
@@ -490,27 +496,32 @@
     }
 
     /* — Sections — */
+    function textParagraphs(value) {
+        return value.split(/\n+/).map(s => s.trim()).filter(Boolean).map(s => `<p>${esc(s)}</p>`).join('');
+    }
+
+    function expandableText(body, previewSource = body) {
+        if (body.length <= 520) return `<div class="pd-text">${textParagraphs(body)}</div>`;
+        const cutoff = body.lastIndexOf(' ', 520);
+        const previewText = previewSource === body
+            ? body.slice(0, cutoff > 200 ? cutoff : 520).trim()
+            : previewSource;
+        const remainder = previewSource === body ? body.slice(previewText.length).trim() : body;
+        const preview = previewText + (previewSource === body ? '…' : '');
+        return `<div class="pd-text"><p>${esc(preview)}</p><details class="pd-description-more"><summary>Mehr anzeigen</summary><div class="pd-text pd-description-full">${textParagraphs(remainder)}</div></details></div>`;
+    }
+
     function descriptionHtml(p) {
         const text = String(p.description || '').trim();
         const short = String(p.short_description || '').trim();
         const body = text || short;
         if (!body) return '';
-        const paras = value => value.split(/\n+/).map(s => s.trim()).filter(Boolean).map(s => `<p>${esc(s)}</p>`).join('');
         if (body.length <= 520) {
             const intro = text && short && short !== text ? `<p><strong>${esc(short)}</strong></p>` : '';
-            return section('pd-description', 'fa-align-left', 'Beschreibung', `<div class="pd-text">${intro}${paras(body)}</div>`);
+            return section('pd-description', 'fa-align-left', 'Beschreibung', `<div class="pd-text">${intro}${textParagraphs(body)}</div>`);
         }
-
         const previewSource = short && short !== body ? short : body;
-        const cutoff = body.lastIndexOf(' ', 520);
-        const previewText = previewSource === body
-            ? body.slice(0, cutoff > 200 ? cutoff : 520).trim()
-            : short;
-        const remainder = previewSource === body ? body.slice(previewText.length).trim() : body;
-        const preview = previewText + (previewSource === body ? '…' : '');
-        const more = `<details class="pd-description-more"><summary>Mehr anzeigen</summary><div class="pd-text pd-description-full">${paras(remainder)}</div></details>`;
-        const html = `<div class="pd-text"><p>${esc(preview)}</p>${more}</div>`;
-        return section('pd-description', 'fa-align-left', 'Beschreibung', html);
+        return section('pd-description', 'fa-align-left', 'Beschreibung', expandableText(body, previewSource));
     }
 
     function costsHtml(p) {
@@ -562,20 +573,17 @@
     }
 
     function locationHtml(p) {
-        const e = extra(p);
-        const hidden = !!e.hide_exact_address;
         const place = [p.zip, p.location || p.city].filter(Boolean).join(' ');
-        const address = !hidden && p.address ? [p.address, place].join(', ') : '';
-        const note = hidden ? (e.address_public_note || '') : '';
         const list = [
             { label: 'Ort', value: p.location || p.city || '' },
             { label: 'PLZ', value: p.zip || '' },
-            { label: 'Adresse', value: address }
         ];
+        const locationText = String(extra(p).location_description || '').trim();
         const body = rows(list) +
-            (hidden ? `<p class="pd-note"><i class="fas fa-circle-info"></i> ${note ? esc(note) + ' · ' : ''}Die genaue Adresse erhalten Sie auf Anfrage.</p>` : '') +
+            (locationText ? expandableText(locationText) : '') +
+            '<p class="pd-note"><i class="fas fa-circle-info"></i> Die genaue Adresse erhalten Sie auf Anfrage.</p>' +
             `<div id="property-map-section" hidden><div id="property-map" class="pd-map" role="img" aria-label="Kartenansicht der ungefähren Lage"></div><a id="property-map-fallback" class="pd-map-fallback" hidden target="_blank" rel="noopener noreferrer">Karte auf OpenStreetMap öffnen</a><p class="pd-note">Kartenansicht ist ungefähr.</p></div>`;
-        if (!rows(list) && !hidden) return '';
+        if (!place) return '';
         return section('pd-location', 'fa-map-location-dot', 'Lage', body);
     }
 
@@ -588,16 +596,16 @@
         const cls = String(e.energy_efficiency_class || '').trim().toUpperCase();
         const list = [
             { label: 'Energieausweis', value: cert },
-            { label: kind, value: hasVal(e.energy_value) ? `${fmtNum(e.energy_value)} kWh/(m²·a)` : '' },
+            { label: kind, value: e.energy_value !== null && e.energy_value !== undefined && String(e.energy_value).trim() !== '' ? `${fmtNum(e.energy_value)} kWh/(m²·a)` : '' },
             { label: 'Energieträger', value: e.energy_source || '' },
             { label: 'Effizienzklasse', value: cls },
             { label: 'Heizungsart', value: e.heating_type || '' },
             { label: 'Baujahr Heizung', value: e.heating_year || '' },
-            { label: 'Baujahr lt. Energieausweis', value: e.energy_building_year || e.building_year || p.year_built || '' },
+            { label: 'Baujahr lt. Energieausweis', value: e.energy_building_year || '' },
             { label: 'Gültig bis', value: fmtDate(e.energy_valid_until) }
         ];
         const hasEnergyData = [
-            cert, e.energy_value_kind, e.energy_value, e.energy_source, cls,
+            cert, e.energy_value, e.energy_source, cls,
             e.heating_type, e.heating_year, e.energy_building_year, e.energy_valid_until
         ].some(value => value != null && String(value).trim() !== '');
         if (!hasEnergyData) return '';
@@ -629,7 +637,7 @@
         const html = list.filter(item => item.value != null && String(item.value).trim() !== '').map(item =>
             `<div class="pd-detail-fact"><span>${esc(item.label)}</span><strong>${esc(item.value)}</strong></div>`
         ).join('');
-        return html ? section('pd-details', 'fa-list-check', 'Fakten', html) : '';
+        return html ? section('pd-details', 'fa-list-check', 'Fakten', `<div class="pd-detail-facts">${html}</div>`) : '';
     }
 
     function listAssets(arr) {
@@ -640,20 +648,25 @@
         }).filter(x => x && x.url);
     }
 
+    const isImageAsset = url => /\.(jpe?g|png|webp|gif|avif)([?#]|$)/i.test(url);
+
     function mediaHtml(p) {
         const e = extra(p);
         const plans = listAssets(e.floorplans);
         const docs = listAssets(e.documents);
         const video = assetUrl(p.video_url);
+        const imageItems = [...plans, ...docs].filter(x => isImageAsset(x.url));
+        const imageLink = (x, label) => `<a href="${esc(x.url)}" data-media-index="${imageItems.indexOf(x)}"><img src="${esc(x.url)}" alt="${esc(label)}" loading="lazy" width="180" height="150"></a>`;
         let body = '';
         if (plans.length) {
-            const isImg = u => /\.(jpe?g|png|webp|gif|avif)(\?|$)/i.test(u);
-            body += `<h3 style="margin:0 0 .75rem;font-size:1.05rem">Grundrisse</h3><div class="pd-plans">${plans.map((x, i) => isImg(x.url)
-                ? `<a href="${esc(x.url)}" target="_blank" rel="noopener"><img src="${esc(x.url)}" alt="${esc(x.name || 'Grundriss ' + (i + 1))}" loading="lazy" width="180" height="150"></a>`
-                : `<a class="pd-btn pd-btn-outline" href="${esc(x.url)}" target="_blank" rel="noopener"><i class="fas fa-file-lines"></i> ${esc(x.name || 'Grundriss ' + (i + 1))}</a>`).join('')}</div>`;
+            body += `<h3 style="margin:0 0 .75rem;font-size:1.05rem">Grundrisse</h3><div class="pd-plans">${plans.map((x, i) => isImageAsset(x.url)
+                ? imageLink(x, x.name || 'Grundriss ' + (i + 1))
+                : `<a class="pd-btn pd-btn-outline" href="${esc(x.url)}"><i class="fas fa-file-lines"></i> ${esc(x.name || 'Grundriss ' + (i + 1))}</a>`).join('')}</div>`;
         }
         if (docs.length) {
-            body += `<h3 style="margin:1rem 0 .75rem;font-size:1.05rem">Dokumente</h3><ul class="pd-docs">${docs.map((x, i) => `<li><a href="${esc(x.url)}" target="_blank" rel="noopener"><i class="fas fa-file-pdf"></i> ${esc(x.name || 'Dokument ' + (i + 1))}</a></li>`).join('')}</ul>`;
+            body += `<h3 style="margin:1rem 0 .75rem;font-size:1.05rem">Dokumente</h3><ul class="pd-docs">${docs.map((x, i) => `<li>${isImageAsset(x.url)
+                ? imageLink(x, x.name || 'Dokument ' + (i + 1))
+                : `<a href="${esc(x.url)}"><i class="fas fa-file-pdf"></i> ${esc(x.name || 'Dokument ' + (i + 1))}</a>`}</li>`).join('')}</ul>`;
         }
         if (video) {
             body += /\.(mp4|webm|mov)(\?|$)/i.test(video)
@@ -661,6 +674,21 @@
                 : `<p><a class="pd-btn pd-btn-outline" href="${esc(video)}" target="_blank" rel="noopener"><i class="fas fa-play"></i> Video ansehen</a></p>`;
         }
         return body ? section('pd-media', 'fa-folder-open', 'Grundrisse, Dokumente & Video', body) : '';
+    }
+
+    function bindMediaGallery(p) {
+        const container = $('#pd-media');
+        if (!container) return;
+        const e = extra(p);
+        const items = [...listAssets(e.floorplans), ...listAssets(e.documents)]
+            .filter(x => isImageAsset(x.url))
+            .map(x => ({ url: x.url, label: x.name }));
+        container.addEventListener('click', event => {
+            const link = event.target.closest('[data-media-index]');
+            if (!link) return;
+            event.preventDefault();
+            openLightbox(Number(link.dataset.mediaIndex), items);
+        });
     }
 
     /* — Contact — */
@@ -673,7 +701,7 @@
         return `
         <div class="pd-card pd-contact" id="contact-form">
             <h2 class="pd-h2">Kontaktformular</h2>
-            <p class="pd-contact-intro">Senden Sie uns Ihre Frage zu Objekt ${esc(publicObjectNumber(p))}.</p>
+            <p class="pd-contact-intro">Senden Sie uns Ihre Frage oder fordern Sie das persönliche Exposé per E-Mail an.</p>
             <div id="propertyInquirySlot"></div>
             <div class="pd-contact-actions">
                 <a class="pd-btn pd-btn-outline pd-btn-block" href="tel:${PHONE_TEL}"><i class="fas fa-phone"></i> ${PHONE_LABEL}</a>
@@ -712,6 +740,7 @@
     }
 
     function bindActions(p) {
+        $('#detail-print-btn')?.addEventListener('click', () => window.print());
         const fav = $('#detail-fav-btn');
         if (fav && p.id) {
             const paint = on => {
@@ -763,19 +792,29 @@
         }
         const tag = (e.target && e.target.tagName) || '';
         if (/INPUT|TEXTAREA|SELECT/.test(tag)) return;
-        if (lbOpen || (e.target && e.target.closest && e.target.closest('.pd-gallery'))) {
+        if (lbOpen) {
+            if (e.key === 'ArrowRight') showLightboxImage(lightboxCurrent + 1);
+            if (e.key === 'ArrowLeft') showLightboxImage(lightboxCurrent - 1);
+        } else if (e.target && e.target.closest && e.target.closest('.pd-gallery')) {
             if (e.key === 'ArrowRight') showImage(current + 1);
             if (e.key === 'ArrowLeft') showImage(current - 1);
         }
+    });
+
+    window.addEventListener('beforeprint', () => {
+        printExpanded = $$('#pd-content details:not([open])');
+        printExpanded.forEach(detail => { detail.open = true; });
+    });
+    window.addEventListener('afterprint', () => {
+        printExpanded.forEach(detail => { detail.open = false; });
+        printExpanded = [];
     });
 
     /* ───────────── Map (Leaflet + Nominatim) ───────────── */
     function initPropertyMap(p) {
         const wrap = $('#property-map-section'), mapEl = $('#property-map');
         if (!wrap || !mapEl) return;
-        const e = extra(p);
-        const exact = !e.hide_exact_address && p.address;
-        const query = [exact ? p.address : '', p.zip, p.location || p.city, 'Deutschland'].filter(Boolean).join(', ');
+        const query = [p.zip, p.location || p.city, 'Deutschland'].filter(Boolean).join(', ');
         if (!p.zip && !p.location && !p.city) return;
 
         const fallback = $('#property-map-fallback');
@@ -805,21 +844,12 @@
                 wrap.hidden = false;
                 mapEl.hidden = false;
                 if (fallback) fallback.hidden = true;
-                const map = L.map(mapEl, { scrollWheelZoom: false }).setView([lat, lon], exact ? 15 : 13);
+                const map = L.map(mapEl, { scrollWheelZoom: false }).setView([lat, lon], 13);
                 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
                     maxZoom: 19
                 }).addTo(map);
-                if (exact) {
-                    const icon = L.divIcon({
-                        className: '',
-                        html: '<div style="background:#1a56a4;color:#fff;border-radius:50% 50% 50% 0;width:36px;height:36px;display:flex;align-items:center;justify-content:center;transform:rotate(-45deg);box-shadow:0 2px 8px rgba(0,0,0,.3)"><i class="fas fa-home" style="transform:rotate(45deg);font-size:14px"></i></div>',
-                        iconSize: [36, 36], iconAnchor: [18, 36]
-                    });
-                    L.marker([lat, lon], { icon }).addTo(map);
-                } else {
-                    L.circle([lat, lon], { radius: 900, color: '#3070a0', fillColor: '#3070a0', fillOpacity: 0.18, weight: 2 }).addTo(map);
-                }
+                L.circle([lat, lon], { radius: 900, color: '#3070a0', fillColor: '#3070a0', fillOpacity: 0.18, weight: 2 }).addTo(map);
                 setTimeout(() => map.invalidateSize(), 50);
             })
             .catch(showFallback);

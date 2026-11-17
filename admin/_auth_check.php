@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 
 /**
  * admin/_auth_check.php

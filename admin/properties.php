@@ -4,6 +4,7 @@
  * admin/properties.php – Immobilien verwalten
  */
 require_once __DIR__ . '/_auth_check.php';
+require_once __DIR__ . '/../includes/property-url.php';
 
 $pdo    = db();
 require_once __DIR__ . '/../includes/subscribers.php';
@@ -100,6 +101,23 @@ function normalize_upload_list($raw): array
 }
 
 $hasExtraDataColumn = ensure_extra_data_column($pdo);
+if ($hasExtraDataColumn) {
+    property_migrate_slugs($pdo);
+}
+$existingSlug = '';
+$existingExtraData = [];
+if ($action === 'edit' && $id) {
+    $existingStmt = $pdo->prepare($hasExtraDataColumn
+        ? 'SELECT slug, extra_data FROM properties WHERE id = ?'
+        : 'SELECT slug FROM properties WHERE id = ?');
+    $existingStmt->execute([$id]);
+    $existingProperty = $existingStmt->fetch();
+    if ($existingProperty) {
+        $existingSlug = (string)$existingProperty['slug'];
+        $decodedExtraData = json_decode((string)($existingProperty['extra_data'] ?? '{}'), true);
+        $existingExtraData = is_array($decodedExtraData) ? $decodedExtraData : [];
+    }
+}
 
 // ── Löschen ──────────────────────────────────────────────────
 if ($action === 'delete' && $id) {
@@ -192,15 +210,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && in_array($action, ['new', 'edit']))
             'parking_spaces' => (($d['parking_spaces'] ?? '') !== '' ? (int)$d['parking_spaces'] : null),
             'parking_type' => trim((string)($d['parking_type'] ?? '')),
             'parking_info' => trim((string)($d['parking_info'] ?? '')),
+            'location_description' => trim((string)($d['location_description'] ?? '')),
             'commission_required' => !empty($d['commission_required']),
             'commission_amount' => (($d['commission_amount'] ?? '') !== '' ? (float)$d['commission_amount'] : null),
             'commission_unit' => trim((string)($d['commission_unit'] ?? 'percent')),
             'commission_payer' => trim((string)($d['commission_payer'] ?? '')),
-            'hide_exact_address' => !empty($d['hide_exact_address']),
-            'address_public_note' => trim((string)($d['address_public_note'] ?? '')),
+            'hide_exact_address' => true,
             'floorplans' => $floorplans,
             'documents' => $documents,
         ];
+
+        $slug = ($action === 'edit' && !$hasExtraDataColumn)
+            ? $existingSlug
+            : property_unique_slug($pdo, (string)($d['title'] ?? ''), $id, $hasExtraDataColumn);
+        $legacySlugs = array_values(array_unique(array_filter(
+            array_merge(
+                is_array($existingExtraData['legacy_slugs'] ?? null) ? $existingExtraData['legacy_slugs'] : [],
+                $existingSlug !== '' && $existingSlug !== $slug ? [$existingSlug] : []
+            ),
+            static fn($value): bool => is_string($value) && $value !== '' && $value !== $slug
+        )));
+        if ($hasExtraDataColumn) {
+            $extraData['legacy_slugs'] = $legacySlugs;
+        }
 
         if (!empty($validationErrors)) {
             $msg = 'error:' . implode(' ', $validationErrors);
@@ -208,7 +240,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && in_array($action, ['new', 'edit']))
 
         $fields = [
             $d['title'] ?? '',
-            slugify($d['title'] ?? ''),
+            $slug,
             $d['short_description'] ?? '',
             $d['description'] ?? '',
             $d['type'] ?? 'Wohnung',
@@ -263,14 +295,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && in_array($action, ['new', 'edit']))
     }
 }
 
-function slugify(string $text): string
-{
-    $text = mb_strtolower($text, 'UTF-8');
-    $text = str_replace(['ä', 'ö', 'ü', 'ß'], ['ae', 'oe', 'ue', 'ss'], $text);
-    $text = preg_replace('/[^a-z0-9]+/', '-', $text);
-    return trim($text, '-');
-}
-
 // ── Daten laden ──────────────────────────────────────────────
 $property = null;
 if ($action === 'edit' && $id) {
@@ -299,8 +323,7 @@ if ($action === 'list') {
     $params = [];
 
     if ($listSearch !== '') {
-        $where[] = '(title LIKE ? OR location LIKE ? OR CAST(id + 1110 AS CHAR) LIKE ?)';
-        $params[] = '%' . $listSearch . '%';
+        $where[] = '(title LIKE ? OR location LIKE ?)';
         $params[] = '%' . $listSearch . '%';
         $params[] = '%' . $listSearch . '%';
     }
@@ -355,14 +378,10 @@ $pageTitle = $action === 'list' ? 'Immobilien' : ($action === 'new' ? 'Neue Immo
 
         .content > .card { overflow: hidden; }
         .properties-table-wrap { overflow-x: auto; overscroll-behavior-x: contain; }
-        .properties-table-wrap table { min-width: 1040px; }
+        .properties-table-wrap table { min-width: 980px; }
         .properties-table-wrap th, .properties-table-wrap td { padding: .55rem .7rem; }
         #adminPropertyForm > .card { padding: 1.1rem; margin-bottom: .9rem; }
         #adminPropertyForm .form-group { min-width: 0; margin-bottom: .55rem; }
-        .public-number-note { display: flex; flex-wrap: wrap; align-items: center; gap: .55rem .8rem; margin: 0 0 1rem; padding: .8rem 1rem; border-radius: 10px; background: #f1f6fa; color: #334155; }
-        .public-number-note strong { color: #1a3a5c; font-variant-numeric: tabular-nums; }
-        .public-number-note code { color: #1a56a4; }
-        .public-number-note p { flex-basis: 100%; margin: 0; color: #64748b; font-size: .82rem; }
         .table-actions { display: flex; flex-wrap: wrap; gap: .35rem; min-width: 190px; }
         .form-help { margin: .2rem 0 0; color: #64748b; font-size: .82rem; }
         @media (max-width: 900px) {
@@ -372,7 +391,6 @@ $pageTitle = $action === 'list' ? 'Immobilien' : ($action === 'new' ? 'Neue Immo
             .form-row, .form-row.three { grid-template-columns: minmax(0, 1fr); gap: .35rem; }
             .table-tools > * { width: 100%; min-width: 0; }
             #adminPropertyForm > .card { padding: .85rem; }
-            .public-number-note { align-items: flex-start; flex-direction: column; }
         }
 
         .check-wrap {
@@ -513,7 +531,7 @@ $pageTitle = $action === 'list' ? 'Immobilien' : ($action === 'new' ? 'Neue Immo
                 <div class="card">
                     <form method="get" class="table-tools">
                         <input type="hidden" name="action" value="list">
-                        <input type="text" name="q" value="<?= htmlspecialchars($listSearch) ?>" placeholder="Suche: Titel, Ort, Objektnummer">
+                        <input type="text" name="q" value="<?= htmlspecialchars($listSearch) ?>" placeholder="Suche: Titel oder Ort">
                         <select name="status">
                             <option value="">Alle Status</option>
                             <option value="available" <?= $listStatus === 'available' ? 'selected' : '' ?>>Verfügbar</option>
@@ -535,7 +553,6 @@ $pageTitle = $action === 'list' ? 'Immobilien' : ($action === 'new' ? 'Neue Immo
                     <table>
                         <thead>
                             <tr>
-                                <th>Objektnr.</th>
                                 <th>Hauptbild</th>
                                 <th>Titel</th>
                                 <th>Bilder</th>
@@ -556,7 +573,6 @@ $pageTitle = $action === 'list' ? 'Immobilien' : ($action === 'new' ? 'Neue Immo
                                 $isVisible = ($p['status'] === 'available');
                                 ?>
                                 <tr>
-                                    <td><?= (int)$p['id'] + 1110 ?></td>
                                     <td>
                                         <?php if (!empty($p['main_image'])): ?>
                                             <img class="thumb-sm" src="<?= htmlspecialchars($p['main_image']) ?>" alt="">
@@ -585,7 +601,8 @@ $pageTitle = $action === 'list' ? 'Immobilien' : ($action === 'new' ? 'Neue Immo
                                     <td>
                                         <div class="table-actions">
                                             <a href="?action=edit&id=<?= $p['id'] ?>" class="btn btn-sm btn-secondary">Bearbeiten</a>
-                                            <a href="<?= BASE ?>/immobilie/<?= (int)$p['id'] + 1110 ?>" class="btn btn-sm btn-outline" target="_blank" rel="noopener">Ansehen</a>
+                                            <a href="<?= BASE ?>/immobilie/<?= rawurlencode((string)$p['slug']) ?>" class="btn btn-sm btn-outline" target="_blank" rel="noopener">Ansehen</a>
+                                            <a href="<?= BASE ?>/admin/expose-download.php?property_id=<?= (int)$p['id'] ?>" class="btn btn-sm btn-outline">PDF herunterladen</a>
                                             <a href="?action=toggle_visibility&id=<?= $p['id'] ?>&token=<?= urlencode(CSRF_TOKEN) ?>" class="btn btn-sm btn-outline"><?= $isVisible ? 'Unsichtbar' : 'Sichtbar' ?></a>
                                             <a href="?action=delete&id=<?= $p['id'] ?>&token=<?= urlencode(CSRF_TOKEN) ?>" class="btn btn-sm btn-danger" onclick="return confirm('Wirklich löschen?')">Löschen</a>
                                         </div>
@@ -594,7 +611,7 @@ $pageTitle = $action === 'list' ? 'Immobilien' : ($action === 'new' ? 'Neue Immo
                             <?php endforeach; ?>
                             <?php if (empty($properties)): ?>
                                 <tr>
-                                    <td colspan="11" style="text-align:center;color:#999;padding:2rem;">Keine Immobilien vorhanden.</td>
+                                    <td colspan="10" style="text-align:center;color:#999;padding:2rem;">Keine Immobilien vorhanden.</td>
                                 </tr>
                             <?php endif; ?>
                         </tbody>
@@ -611,21 +628,12 @@ $pageTitle = $action === 'list' ? 'Immobilien' : ($action === 'new' ? 'Neue Immo
                 <?php if (isset($_GET['saved'])): ?><div class="alert alert-success">Gespeichert!</div><?php endif; ?>
                 <?php if ($msg && strpos($msg, 'error:') === 0): ?><div class="alert alert-error"><?= htmlspecialchars(substr($msg, 6)) ?></div><?php endif; ?>
 
-                <div class="public-number-note">
-                    <strong>Öffentliche Objektnummer</strong>
-                    <?php if ($action === 'edit' && !empty($property['id'])): ?>
-                        <code><?= (int)$property['id'] + 1110 ?></code>
-                        <a href="<?= BASE ?>/immobilie/<?= (int)$property['id'] + 1110 ?>" target="_blank" rel="noopener">Inserat ansehen</a>
-                    <?php else: ?>
-                        <span>Wird beim ersten Speichern vergeben</span>
-                    <?php endif; ?>
-                    <p>Die Nummer erscheint in der kurzen Adresse <code>/immobilie/<?= $action === 'edit' && !empty($property['id']) ? (int)$property['id'] + 1110 : '[Objektnummer]' ?></code>. Alte Links mit dem Titel bleiben weiterhin gültig.</p>
-                </div>
-
                 <form method="post" id="adminPropertyForm">
                     <?= csrf_field() ?>
                     <div class="card">
                         <h2 style="margin:0 0 1rem;font-size:1rem;color:#555;">Grunddaten</h2>
+                        <p class="form-help">Prüfen Sie vor der Veröffentlichung, ob Texte und Fotos persönliche Daten oder Rechte Dritter betreffen. Nur Angaben und Bilder verwenden, für deren Veröffentlichung eine Berechtigung vorliegt.</p>
+                        <p class="form-help">Bei vorhandenem Energieausweis können Angaben in Immobilienanzeigen gesetzlich vorgeschrieben sein. Prüfen Sie Ausweisart, Energiekennwert, Energieträger und bei Wohngebäuden Baujahr und Effizienzklasse nach <a href="https://www.gesetze-im-internet.de/geg/__87.html" target="_blank" rel="noopener noreferrer">§ 87 GEG</a>. Die Hinweise ersetzen keine Rechtsberatung.</p>
                         <div class="form-group">
                             <label>Titel *</label>
                             <input type="text" name="title" value="<?= htmlspecialchars($property['title'] ?? '') ?>" required>
@@ -808,15 +816,11 @@ $pageTitle = $action === 'list' ? 'Immobilien' : ($action === 'new' ? 'Neue Immo
                             <div class="form-group"><label>Adresse</label><input type="text" name="address" value="<?= htmlspecialchars($property['address'] ?? '') ?>"></div>
                             <div class="form-group"><label>Verfügbar ab</label><input type="text" name="available_from" value="<?= htmlspecialchars($property['available_from'] ?? '') ?>" placeholder="z.B. 01.04.2026 oder Sofort"></div>
                         </div>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <div class="check-wrap" style="margin-top:.35rem;">
-                                    <input type="checkbox" name="hide_exact_address" id="hide_exact_address" value="1" <?= !empty($extraData['hide_exact_address']) ? 'checked' : '' ?>>
-                                    <label for="hide_exact_address" style="margin:0;font-weight:normal;">Genaue Adresse im Inserat verbergen</label>
-                                </div>
-                            </div>
-                            <div class="form-group"><label>Öffentliche Ortsangabe (optional)</label><input type="text" name="address_public_note" value="<?= htmlspecialchars((string)($extraData['address_public_note'] ?? '')) ?>" placeholder="z.B. Frankfurt-Bornheim"></div>
+                        <div class="form-group">
+                            <label for="location_description">Lagebeschreibung</label>
+                            <textarea id="location_description" name="location_description" rows="5" placeholder="Beschreiben Sie nur überprüfte Angaben zur Umgebung und Anbindung."><?= htmlspecialchars((string)($extraData['location_description'] ?? '')) ?></textarea>
                         </div>
+                        <p class="form-hint">Im Inserat und auf der Karte erscheinen nur Ort und PLZ. Die genaue Adresse steht im persönlich angeforderten Exposé, sofern sie hier eingetragen ist. Die Lagebeschreibung ist öffentlich.</p>
                     </div>
 
                     <div class="card" id="upload-card">
@@ -865,6 +869,7 @@ $pageTitle = $action === 'list' ? 'Immobilien' : ($action === 'new' ? 'Neue Immo
                         <hr style="border:none;border-top:1px solid #e5e7eb;margin:1.25rem 0;">
 
                         <h3 style="margin:0 0 .5rem;font-size:.95rem;color:#475569;">Grundrisse</h3>
+                        <p class="form-help">Grundrisse und Dokumente sind öffentlich abrufbar. Laden Sie keine vertraulichen Unterlagen oder personenbezogenen Daten ohne Berechtigung hoch.</p>
                         <div class="upload-zone" id="floorplan-zone" style="padding:1rem;">
                             <div>
                                 <p style="margin:0;color:#374151;font-weight:600;">Grundriss hochladen</p>
@@ -911,16 +916,16 @@ $pageTitle = $action === 'list' ? 'Immobilien' : ($action === 'new' ? 'Neue Immo
                         }
 
                         .upload-previews {
-                            display: flex;
-                            flex-wrap: wrap;
+                            display: grid;
+                            grid-template-columns: repeat(4, minmax(0, 1fr));
                             gap: .75rem;
                             margin-top: 1rem;
                         }
+                        .form-hint { margin: 0; color: #64748b; font-size: .85rem; }
 
                         .upload-preview-item {
                             position: relative;
-                            width: 140px;
-                            flex-shrink: 0;
+                            min-width: 0;
                             border: 1px solid #e5e7eb;
                             border-radius: 6px;
                             overflow: hidden;
@@ -934,13 +939,20 @@ $pageTitle = $action === 'list' ? 'Immobilien' : ($action === 'new' ? 'Neue Immo
 
                         .upload-preview-item img {
                             width: 100%;
-                            height: 90px;
+                            aspect-ratio: 4 / 3;
                             object-fit: cover;
                             display: block;
                         }
 
                         .upload-preview-item .preview-label {
                             padding: 4px 6px;
+                        }
+
+                        @media (max-width: 900px) {
+                            .upload-previews { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+                        }
+                        @media (max-width: 620px) {
+                            .upload-previews { grid-template-columns: repeat(2, minmax(0, 1fr)); }
                         }
 
                         .upload-preview-item .preview-label input {

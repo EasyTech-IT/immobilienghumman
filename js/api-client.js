@@ -407,7 +407,7 @@ function createPropertyCard(property) {
                     <span>🛏️ ${property.rooms} Zimmer</span>
                 </div>
                 <div class="property-actions">
-                    <a href="${window.SITE_BASE||''}/immobilie/${encodeURIComponent(Number(property.public_number) || (Number(property.id) + 1110))}" class="btn-primary">Details ansehen</a>
+                    <a href="${window.SITE_BASE||''}/immobilie/${encodeURIComponent(property.slug || '')}" class="btn-primary">Details ansehen</a>
                 </div>
             </div>
         </div>

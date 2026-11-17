@@ -468,7 +468,7 @@ try {
                         $ssrLocation = trim((string)($sp['location'] ?? ''));
                         $ssrZip = trim((string)($sp['zip'] ?? ''));
                         $ssrAddress = trim($ssrLocation . ($ssrZip !== '' ? ' · ' . $ssrZip : ''));
-                        $ssrPublicNumber = (int)$sp['id'] + 1110;
+                        $ssrSlug = (string)($sp['slug'] ?? '');
                         $ssrIsNew = !empty($sp['created_at']) && strtotime((string)$sp['created_at']) >= strtotime('-14 days');
                         $ssrOfferType = strtolower((string)($sp['offer_type'] ?? ''));
                         $ssrIsPurchase = $ssrOfferType === 'kauf';
@@ -518,7 +518,7 @@ try {
                             data-location="<?= htmlspecialchars(strtolower($ssrLocation), ENT_QUOTES) ?>"
                             data-search="<?= htmlspecialchars(mb_strtolower($ssrSearch, 'UTF-8'), ENT_QUOTES) ?>">
                             <a class="property-card-link-overlay"
-                                href="<?= BASE ?>/immobilie/<?= $ssrPublicNumber ?>"
+                                href="<?= BASE ?>/immobilie/<?= rawurlencode($ssrSlug) ?>"
                                 aria-label="<?= htmlspecialchars('Immobilienangebot in ' . $ssrAddress . ' ansehen', ENT_QUOTES) ?>"></a>
                             <div class="property-image">
                                 <?php if ($ssrImage !== ''): ?>

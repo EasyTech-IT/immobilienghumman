@@ -7,6 +7,9 @@ RewriteEngine On
 # Disable MultiViews to prevent Apache content negotiation conflicts
 Options -MultiViews
 
+# PHP dependencies are for server-side use only.
+RewriteRule ^vendor(?:/|$) - [F,NC,L]
+
 # ==================================================================
 # SITEMAP – dynamische Generierung via sitemap.php
 # ==================================================================

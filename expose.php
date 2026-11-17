@@ -1,6 +1,6 @@
 <?php
-require_once __DIR__ . '/includes/config.php';
-require_once __DIR__ . '/includes/db.php';
+require_once __DIR__ . '/admin/_auth_check.php';
+header('Cache-Control: private, no-store');
 
 $slug = trim((string)($_GET['slug'] ?? ''));
 $id = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
@@ -9,8 +9,8 @@ $property = null;
 if ($slug !== '' || $id > 0) {
     try {
         $stmt = db()->prepare($slug !== ''
-            ? "SELECT * FROM properties WHERE slug = ? AND status = 'available' LIMIT 1"
-            : "SELECT * FROM properties WHERE id = ? AND status = 'available' LIMIT 1");
+            ? 'SELECT * FROM properties WHERE slug = ? LIMIT 1'
+            : 'SELECT * FROM properties WHERE id = ? LIMIT 1');
         $stmt->execute([$slug !== '' ? $slug : $id]);
         $property = $stmt->fetch() ?: null;
     } catch (Throwable $e) {

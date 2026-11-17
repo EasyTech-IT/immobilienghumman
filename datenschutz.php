@@ -243,6 +243,7 @@ require_once __DIR__ . '/includes/header.php';
                 <p><strong>Rechtsgrundlage:</strong> Art. 6 Abs. 1 lit. b DSGVO (vorvertragliche Maßnahmen) und Art.
                     6 Abs. 1 lit. f DSGVO (berechtigtes Interesse an der Bearbeitung von Kundenanfragen)</p>
 
+                <p>Bei einer Exposé-Anfrage erstellen und speichern wir ein personalisiertes PDF mit Ihren angegebenen Kontaktdaten und senden es Ihnen per E-Mail zu. Eine Kopie ist für die Bearbeitung im geschützten Verwaltungsbereich verfügbar. E-Mails bieten keinen durchgehenden Ende-zu-Ende-Schutz.</p>
                 <p><strong>Speicherdauer:</strong> Ihre Anfragen werden nach abschließender Bearbeitung gelöscht,
                     sofern keine gesetzlichen Aufbewahrungspflichten entgegenstehen.</p>
 

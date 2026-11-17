@@ -17,8 +17,8 @@ $property = [
     'features' => '["Balkon"]',
     'images' => '[{"url":"/bild.jpg","label":"Wohnzimmer"}]',
     'extra_data' => json_encode([
-        'hide_exact_address' => true,
-        'address_public_note' => 'Bad Vilbel',
+        'hide_exact_address' => false,
+        'address_public_note' => 'Geheime Adresse',
         'commission_required' => true,
         'commission_amount' => 2.975,
         'commission_unit' => 'percent',
@@ -35,10 +35,10 @@ require __DIR__ . '/../includes/expose-template.php';
 $html = ob_get_clean();
 $checks = [
     'Titel wird maskiert' => strpos($html, 'Wohnung &lt;Test&gt;') !== false,
-    'Verborgene Adresse bleibt verborgen' => strpos($html, 'Geheime Straße') === false,
+    'Genaue Adresse bleibt unabhängig von der Alt-Option verborgen' => strpos($html, 'Geheime Straße') === false && strpos($html, 'Geheime Adresse') === false,
     'Mietpreis wird formatiert' => strpos($html, '1.250,00 €') !== false && strpos($html, 'Kaltmiete') !== false,
     'Provision und Ausstattung erscheinen' => strpos($html, '2,975 %') !== false && strpos($html, 'Balkon') !== false,
-    'Objektnummer wird kompakt formatiert' => strpos($html, 'Exposé · Objekt 0042') !== false,
+    'Objektnummer wird nicht öffentlich angezeigt' => strpos($html, 'Objekt 0042') === false,
     'Bilder und Dokumente sind verknüpft' => strpos($html, 'Wohnzimmer') !== false && strpos($html, '/grundriss.pdf') !== false,
     'Druckansicht verwendet dieselbe Exposé-Vorlage' => strpos($html, 'window.print()') !== false,
     'Unsichere URL wird verworfen' => strpos($html, 'javascript:') === false,

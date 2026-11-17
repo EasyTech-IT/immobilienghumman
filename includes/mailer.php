@@ -42,7 +42,8 @@ class SimpleSocketMailer
         string $subject,
         string $textBody = '',
         string $htmlBody = '',
-        string $replyTo = ''
+        string $replyTo = '',
+        ?array $attachment = null
     ): bool {
         if ($this->host === '' || $to === '') {
             error_log('SMTP Mailer: host/to fehlt.');
@@ -76,7 +77,7 @@ class SimpleSocketMailer
             $this->command('RCPT TO:<' . $this->sanitizeAddress($to) . '>', [250, 251]);
             $this->command('DATA', [354]);
 
-            $rawMessage = $this->buildMessage($fromEmail, $fromName, $to, $subject, $textBody, $htmlBody, $replyTo);
+            $rawMessage = $this->buildMessage($fromEmail, $fromName, $to, $subject, $textBody, $htmlBody, $replyTo, $attachment);
             $this->write($this->dotStuff($rawMessage) . "\r\n.\r\n");
             $this->expect(250);
 
@@ -123,7 +124,8 @@ class SimpleSocketMailer
         string $subject,
         string $textBody,
         string $htmlBody,
-        string $replyTo
+        string $replyTo,
+        ?array $attachment = null
     ): string {
         $subjectEnc = '=?UTF-8?B?' . base64_encode($subject) . '?=';
         $fromNameEnc = '=?UTF-8?B?' . base64_encode($fromName) . '?=';
@@ -139,6 +141,30 @@ class SimpleSocketMailer
         $headers[] = 'MIME-Version: 1.0';
         $headers[] = 'Message-ID: <' . bin2hex(random_bytes(10)) . '@' . $this->resolveMessageIdDomain($fromEmail) . '>';
         $headers[] = 'X-Mailer: ImmobilienGhumman-SocketMailer/1.0';
+
+        if ($attachment !== null) {
+            if (!isset($attachment['content']) || !is_string($attachment['content']) || $attachment['content'] === '') {
+                throw new InvalidArgumentException('E-Mail-Anhang ist leer.');
+            }
+            if ($htmlBody !== '') throw new InvalidArgumentException('HTML mit PDF-Anhang wird nicht unterstützt.');
+            $boundary = '=_ghumman_mixed_' . bin2hex(random_bytes(8));
+            $headers[] = 'Content-Type: multipart/mixed; boundary="' . $boundary . '"';
+            $body = [
+                '--' . $boundary,
+                'Content-Type: text/plain; charset=UTF-8',
+                'Content-Transfer-Encoding: base64',
+                '',
+                rtrim(chunk_split(base64_encode($this->normalizeLineEndings($textBody)), 76, "\r\n")),
+                '--' . $boundary,
+                'Content-Type: application/pdf; name="expose.pdf"',
+                'Content-Disposition: attachment; filename="expose.pdf"',
+                'Content-Transfer-Encoding: base64',
+                '',
+                rtrim(chunk_split(base64_encode($attachment['content']), 76, "\r\n")),
+                '--' . $boundary . '--',
+            ];
+            return implode("\r\n", $headers) . "\r\n\r\n" . implode("\r\n", $body);
+        }
 
         if ($htmlBody !== '') {
             $boundary = '=_ghumman_' . bin2hex(random_bytes(8));
@@ -216,9 +242,14 @@ class SimpleSocketMailer
             throw new RuntimeException('SMTP Socket nicht geoeffnet.');
         }
 
-        $written = fwrite($this->socket, $data);
-        if ($written === false || $written < strlen($data)) {
-            throw new RuntimeException('SMTP write fehlgeschlagen.');
+        $offset = 0;
+        $length = strlen($data);
+        while ($offset < $length) {
+            $written = fwrite($this->socket, substr($data, $offset, 65536));
+            if ($written === false || $written === 0) {
+                throw new RuntimeException('SMTP write fehlgeschlagen.');
+            }
+            $offset += $written;
         }
     }
 

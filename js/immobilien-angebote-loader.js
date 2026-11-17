@@ -91,7 +91,6 @@ function convertPropertyData(property, isNew = false) {
 
     return {
         id: property.id,
-        publicNumber: Number(property.public_number) || (Number(property.id) + 1110),
         slug: property.slug || '',
         title: property.title,
         location: locationName.toLowerCase().replace(/\s+/g, '-'),
@@ -186,7 +185,7 @@ function createAngebotePropertyCard(property) {
 
     const newBadgeHTML = property.isNew ? '<span class="new-badge">NEU</span>' : '';
     const locationLabel = [property.locationName, property.zip].filter(Boolean).join(' · ');
-    const detailUrl = `${window.SITE_BASE || ''}/immobilie/${encodeURIComponent(property.publicNumber)}`;
+    const detailUrl = `${window.SITE_BASE || ''}/immobilie/${encodeURIComponent(property.slug)}`;
 
     card.style.position = 'relative';
     card.innerHTML = `

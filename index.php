@@ -110,7 +110,7 @@ require_once __DIR__ . '/includes/header.php';
                 $hPrice = (float)($hp['price'] ?? 0);
                 $hArea = (float)($hp['area'] ?? 0);
                 $hRooms = (string)($hp['rooms'] ?? '');
-                $hUrl = BASE . '/immobilie/' . ((int)($hp['id'] ?? 0) + 1110);
+                $hUrl = BASE . '/immobilie/' . rawurlencode((string)($hp['slug'] ?? ''));
             ?>
             <a class="hx-slide<?= $i === 0 ? ' is-active' : '' ?>" href="<?= htmlspecialchars($hUrl) ?>" <?= $i === 0 ? '' : 'tabindex="-1" aria-hidden="true"' ?>>
                 <span class="hx-slide-info">
@@ -466,7 +466,7 @@ require_once __DIR__ . '/includes/header.php';
                         $image = 'https://via.placeholder.com/400x300?text=Kein+Bild';
                     }
 
-                    $detailUrl = BASE . '/immobilie/' . ((int)($p['id'] ?? 0) + 1110);
+                    $detailUrl = BASE . '/immobilie/' . rawurlencode((string)($p['slug'] ?? ''));
 
                     $badgeText = ($offerType === 'miete') ? 'Miete' : 'Kauf';
                     $badgeStyle = '';
@@ -628,7 +628,7 @@ require_once __DIR__ . '/includes/header.php';
                 var priceStr = price ?
                     price.toLocaleString('de-DE') + '\u00a0\u20ac' + (offerType === 'miete' ? '/Mo.' : '') :
                     'Auf Anfrage';
-                var detailUrl = '<?= BASE ?>/immobilie/' + encodeURIComponent(Number(p.public_number) || (Number(p.id) + 1110));
+                var detailUrl = '<?= BASE ?>/immobilie/' + encodeURIComponent(p.slug || '');
                 return '<a href="' + detailUrl + '" class="featured-card reveal">' +
                     '<div class="featured-card-img">' +
                     '<img src="' + (image || 'https://via.placeholder.com/400x300?text=Kein+Bild') + '" alt="' + title.replace(/"/g, '&quot;') + '" loading="lazy">' +
