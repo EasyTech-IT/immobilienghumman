@@ -396,7 +396,7 @@ $extraHead .= '<link rel="stylesheet" href="' . BASE . '/immobilien-angebote.css
 
 $extraScripts =
     '<script src="' . BASE . '/js/api-client.js"></script>
-<script src="' . BASE . '/js/immobilien-angebote-loader.js"></script>';
+<script src="' . BASE . '/js/immobilien-angebote-loader.js?v=' . (@filemtime(__DIR__ . '/js/immobilien-angebote-loader.js') ?: 1) . '"></script>';
 
 require_once __DIR__ . '/includes/header.php';
 ?>
