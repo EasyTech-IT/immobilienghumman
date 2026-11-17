@@ -74,17 +74,25 @@ require_once __DIR__ . '/includes/header.php';
         <input type="hidden" name="property_title" id="inquiry_property_title" value="">
         <input type="hidden" name="property_link" id="inquiry_property_link" value="">
 
-        <div class="pd-form-field">
-            <label for="pd-inquiry-name">Name *</label>
-            <input id="pd-inquiry-name" type="text" name="name" autocomplete="name" required>
+        <div class="pd-form-row">
+            <div class="pd-form-field">
+                <label for="pd-inquiry-first-name">Vorname *</label>
+                <input id="pd-inquiry-first-name" type="text" name="vorname" autocomplete="given-name" required>
+            </div>
+            <div class="pd-form-field">
+                <label for="pd-inquiry-last-name">Nachname *</label>
+                <input id="pd-inquiry-last-name" type="text" name="nachname" autocomplete="family-name" required>
+            </div>
         </div>
-        <div class="pd-form-field">
+        <div class="pd-form-row">
+            <div class="pd-form-field">
             <label for="pd-inquiry-email">E-Mail *</label>
             <input id="pd-inquiry-email" type="email" name="email" autocomplete="email" required>
-        </div>
-        <div class="pd-form-field">
-            <label for="pd-inquiry-phone">Telefon (optional)</label>
-            <input id="pd-inquiry-phone" type="tel" name="phone" autocomplete="tel">
+            </div>
+            <div class="pd-form-field">
+                <label for="pd-inquiry-phone">Telefon *</label>
+                <input id="pd-inquiry-phone" type="tel" name="phone" autocomplete="tel" maxlength="50" required>
+            </div>
         </div>
         <div class="pd-form-field">
             <label for="pd-inquiry-message">Ihre Nachricht</label>

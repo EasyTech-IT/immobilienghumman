@@ -82,7 +82,7 @@ class PropertyManager {
                         ${features}
                     </div>
                     <div class="property-actions">
-                        <button class="details-btn" onclick="window.location.href=(window.SITE_BASE||'')+'/${property.slug ? ('immobilie/' + encodeURIComponent(property.slug)) : ('property-detail.php?id=' + property.id)}'">
+                        <button class="details-btn" onclick="window.location.href=(window.SITE_BASE||'')+'/immobilie/'+encodeURIComponent(Number(property.public_number)||(Number(property.id)+1110))">
                             Details ansehen
                         </button>
                         <button class="contact-btn" onclick="openContactModal('${property.title}')">

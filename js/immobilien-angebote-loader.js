@@ -91,6 +91,7 @@ function convertPropertyData(property, isNew = false) {
 
     return {
         id: property.id,
+        publicNumber: Number(property.public_number) || (Number(property.id) + 1110),
         slug: property.slug || '',
         title: property.title,
         location: locationName.toLowerCase().replace(/\s+/g, '-'),
@@ -185,27 +186,23 @@ function createAngebotePropertyCard(property) {
 
     const newBadgeHTML = property.isNew ? '<span class="new-badge">NEU</span>' : '';
     const locationLabel = [property.locationName, property.zip].filter(Boolean).join(' · ');
-    const objectNumber = `Objekt ${String(property.id || '').padStart(4, '0')}`;
-    const detailUrl = `${window.SITE_BASE || ''}/${property.slug
-        ? `immobilie/${encodeURIComponent(property.slug)}`
-        : `property-detail.php?id=${encodeURIComponent(property.id)}`}`;
+    const detailUrl = `${window.SITE_BASE || ''}/immobilie/${encodeURIComponent(property.publicNumber)}`;
 
     card.style.position = 'relative';
     card.innerHTML = `
-        <a href="${escapeHtml(detailUrl)}" class="property-card-link-overlay" aria-label="${escapeHtml(`${objectNumber} in ${locationLabel} ansehen`)}"></a>
+        <a href="${escapeHtml(detailUrl)}" class="property-card-link-overlay" aria-label="${escapeHtml(`Immobilienangebot in ${locationLabel} ansehen`)}"></a>
         <div class="property-image">
             ${property.image
                 ? `<img src="${escapeHtml(property.image)}" alt="Immobilienangebot in ${escapeHtml(locationLabel)}" loading="lazy" decoding="async">`
                 : '<div class="property-image-placeholder" aria-hidden="true"><i class="fas fa-house"></i></div>'}
             <span class="property-offer-badge">${offerLabel}</span>
             ${newBadgeHTML}
-            <button type="button" class="property-card-fav fav-btn" data-fav-id="${escapeHtml(property.id)}" aria-label="${escapeHtml(objectNumber)} merken" title="Zu Favoriten hinzufügen">
+            <button type="button" class="property-card-fav fav-btn" data-fav-id="${escapeHtml(property.id)}"             aria-label="${escapeHtml(`Immobilie in ${locationLabel} merken`)}" title="Zu Favoriten hinzufügen">
                 <i class="far fa-heart"></i>
             </button>
             <div class="property-image-location"><i class="fas fa-location-dot" aria-hidden="true"></i> ${escapeHtml(locationLabel)}</div>
         </div>
         <div class="property-content">
-            <p class="property-reference">${escapeHtml(objectNumber)}</p>
             <div class="property-facts property-facts--count-${facts.length}">
                 ${facts.map(fact => `
                     <div class="property-fact">

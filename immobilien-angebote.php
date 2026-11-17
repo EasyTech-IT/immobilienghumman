@@ -468,7 +468,7 @@ try {
                         $ssrLocation = trim((string)($sp['location'] ?? ''));
                         $ssrZip = trim((string)($sp['zip'] ?? ''));
                         $ssrAddress = trim($ssrLocation . ($ssrZip !== '' ? ' · ' . $ssrZip : ''));
-                        $ssrObjectNumber = 'Objekt ' . str_pad((string)$sp['id'], 4, '0', STR_PAD_LEFT);
+                        $ssrPublicNumber = (int)$sp['id'] + 1110;
                         $ssrIsNew = !empty($sp['created_at']) && strtotime((string)$sp['created_at']) >= strtotime('-14 days');
                         $ssrOfferType = strtolower((string)($sp['offer_type'] ?? ''));
                         $ssrIsPurchase = $ssrOfferType === 'kauf';
@@ -518,8 +518,8 @@ try {
                             data-location="<?= htmlspecialchars(strtolower($ssrLocation), ENT_QUOTES) ?>"
                             data-search="<?= htmlspecialchars(mb_strtolower($ssrSearch, 'UTF-8'), ENT_QUOTES) ?>">
                             <a class="property-card-link-overlay"
-                                href="<?= BASE ?>/immobilie/<?= rawurlencode($sp['slug']) ?>"
-                                aria-label="<?= htmlspecialchars($ssrObjectNumber . ' in ' . $ssrAddress . ' ansehen', ENT_QUOTES) ?>"></a>
+                                href="<?= BASE ?>/immobilie/<?= $ssrPublicNumber ?>"
+                                aria-label="<?= htmlspecialchars('Immobilienangebot in ' . $ssrAddress . ' ansehen', ENT_QUOTES) ?>"></a>
                             <div class="property-image">
                                 <?php if ($ssrImage !== ''): ?>
                                     <img src="<?= htmlspecialchars($ssrImage, ENT_QUOTES) ?>"
@@ -532,12 +532,11 @@ try {
                                 <?php if ($ssrIsNew): ?><span class="new-badge">NEU</span><?php endif; ?>
                                 <button type="button" class="property-card-fav fav-btn"
                                     data-fav-id="<?= (int)$sp['id'] ?>"
-                                    aria-label="<?= htmlspecialchars($ssrObjectNumber . ' merken', ENT_QUOTES) ?>"
+                                    aria-label="<?= htmlspecialchars('Immobilie in ' . $ssrAddress . ' merken', ENT_QUOTES) ?>"
                                     title="Zu Favoriten hinzufügen"><i class="far fa-heart" aria-hidden="true"></i></button>
                                 <div class="property-image-location"><i class="fas fa-location-dot" aria-hidden="true"></i> <?= htmlspecialchars($ssrAddress, ENT_QUOTES) ?></div>
                             </div>
                             <div class="property-content">
-                                <p class="property-reference"><?= htmlspecialchars($ssrObjectNumber, ENT_QUOTES) ?></p>
                                 <div class="property-facts property-facts--count-<?= count($ssrFacts) ?>">
                                     <?php foreach ($ssrFacts as $ssrFact): ?>
                                         <div class="property-fact">

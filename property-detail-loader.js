@@ -1,6 +1,6 @@
 /**
  * Property Detail Page Loader
- * Lädt eine Immobilie per Slug/ID aus der API und rendert die Detailseite.
+ * Lädt eine Immobilie per Objektnummer, Slug oder ID aus der API.
  * Datenquelle: ausschließlich API/DB – es werden keine Objektdaten erfunden.
  */
 (function () {
@@ -8,6 +8,7 @@
 
     const SITE_BASE = window.SITE_BASE || '';
     const API_BASE = window.API_BASE_URL || (SITE_BASE + '/api');
+    const PUBLIC_OBJECT_NUMBER_OFFSET = 1110;
     const FETCH_TIMEOUT_MS = 15000;
     const PHONE_TEL = '+4916098787878';
     const PHONE_LABEL = '+49 160 98787878';
@@ -43,6 +44,8 @@
     const money = v => { const n = parseNum(v); return n == null ? '' : moneyFmt.format(n); };
     const fmtNum = v => { const n = parseNum(v); return n == null ? '' : numFmt.format(n); };
     const hasVal = v => v !== null && v !== undefined && String(v).trim() !== '' && v !== 0 && v !== '0' && v !== '0.00';
+    const publicObjectNumber = p => Number(p.public_number) || (Number(p.id) + PUBLIC_OBJECT_NUMBER_OFFSET);
+    const publicPropertyPath = p => `${SITE_BASE}/immobilie/${encodeURIComponent(publicObjectNumber(p))}`;
 
     function parseDate(v) {
         if (!v) return null;
@@ -131,7 +134,9 @@
 
     /* ───────────── Data loading ───────────── */
     async function fetchProperty(ref) {
-        const url = ref.slug
+        const url = ref.number
+            ? `${API_BASE}/properties.php?number=${encodeURIComponent(ref.number)}`
+            : ref.slug
             ? `${API_BASE}/properties.php?slug=${encodeURIComponent(ref.slug)}`
             : `${API_BASE}/properties.php?id=${encodeURIComponent(ref.id)}`;
         const ctrl = new AbortController();
@@ -165,14 +170,16 @@
                 try { slug = decodeURIComponent(m[1]); } catch (e) { slug = m[1]; }
             }
         }
-        if (!slug && !id) { showError('invalid'); return; }
+        const number = slug && /^\d+$/.test(slug) ? slug : '';
+        if (number) slug = '';
+        if (!slug && !id && !number) { showError('invalid'); return; }
 
         setState('loading');
         let data = null;
         let lastErr = null;
         for (let attempt = 0; attempt < 2 && !data; attempt++) {
             try {
-                data = await fetchProperty({ slug, id });
+                data = await fetchProperty({ number, slug, id });
             } catch (e) {
                 lastErr = e;
                 if (e.code === 'not_found') break;
@@ -437,7 +444,7 @@
         const pr = priceInfo(p);
         const status = p.status && p.status !== 'available' ? (STATUS[p.status] || p.status) : '';
         const loc = [p.address_public || p.address, place].filter((v, i, a) => v && a.indexOf(v) === i).join(', ');
-        const objectNumber = `Objekt ${String(p.id || '').padStart(4, '0')}`;
+        const objectNumber = `Objekt ${publicObjectNumber(p)}`;
         const exposeUrl = `${SITE_BASE}/expose.php?${p.slug ? 'slug=' + encodeURIComponent(p.slug) : 'id=' + encodeURIComponent(p.id)}`;
         return `
         <header class="pd-head">
@@ -468,17 +475,15 @@
 
     function factsHtml(p) {
         const f = [];
+        const e = extra(p);
         const area = parseNum(p.area != null ? p.area : (p.size != null ? p.size : p.living_area));
         if (area) f.push(['fa-ruler-combined', `${fmtNum(area)} m²`, 'Wohnfläche']);
         const rooms = parseNum(p.rooms);
         if (rooms) f.push(['fa-door-open', fmtNum(rooms), 'Zimmer']);
         const baths = parseNum(p.bathrooms);
         if (baths) f.push(['fa-bath', fmtNum(baths), 'Badezimmer']);
-        if (!isRent(p) && area && hasVal(p.price)) {
-            f.push(['fa-euro-sign', money(Math.round(parseNum(p.price) / area)), 'Preis pro m²']);
-        } else if (isRent(p) && hasVal(p.warm_rent)) {
-            f.push(['fa-euro-sign', money(p.warm_rent), 'Warmmiete']);
-        }
+        if (hasVal(e.bedrooms)) f.push(['fa-bed', fmtNum(e.bedrooms), 'Schlafzimmer']);
+        else if (hasVal(e.parking_spaces)) f.push(['fa-car', fmtNum(e.parking_spaces), 'Stellplätze']);
         if (!f.length) return '';
         return `<section class="pd-facts" aria-label="Eckdaten">${f.map(x => `
             <div class="pd-fact"><span class="pd-fact-icon"><i class="fas ${x[0]}" aria-hidden="true"></i></span><div><strong>${esc(x[1])}</strong><span>${esc(x[2])}</span></div></div>`).join('')}</section>`;
@@ -490,11 +495,22 @@
         const short = String(p.short_description || '').trim();
         const body = text || short;
         if (!body) return '';
-        const paras = body.split(/\n+/).map(s => s.trim()).filter(Boolean);
-        let html = '';
-        if (text && short && short !== text) html += `<p><strong>${esc(short)}</strong></p>`;
-        html += paras.map(s => `<p>${esc(s)}</p>`).join('');
-        return section('pd-description', 'fa-align-left', 'Beschreibung', `<div class="pd-text">${html}</div>`);
+        const paras = value => value.split(/\n+/).map(s => s.trim()).filter(Boolean).map(s => `<p>${esc(s)}</p>`).join('');
+        if (body.length <= 520) {
+            const intro = text && short && short !== text ? `<p><strong>${esc(short)}</strong></p>` : '';
+            return section('pd-description', 'fa-align-left', 'Beschreibung', `<div class="pd-text">${intro}${paras(body)}</div>`);
+        }
+
+        const previewSource = short && short !== body ? short : body;
+        const cutoff = body.lastIndexOf(' ', 520);
+        const previewText = previewSource === body
+            ? body.slice(0, cutoff > 200 ? cutoff : 520).trim()
+            : short;
+        const remainder = previewSource === body ? body.slice(previewText.length).trim() : body;
+        const preview = previewText + (previewSource === body ? '…' : '');
+        const more = `<details class="pd-description-more"><summary>Mehr anzeigen</summary><div class="pd-text pd-description-full">${paras(remainder)}</div></details>`;
+        const html = `<div class="pd-text"><p>${esc(preview)}</p>${more}</div>`;
+        return section('pd-description', 'fa-align-left', 'Beschreibung', html);
     }
 
     function costsHtml(p) {
@@ -515,6 +531,7 @@
                 : '';
             list = [
                 { label: 'Kaufpreis', value: money(p.price) },
+                { label: 'Kaufpreis pro m²', value: hasVal(p.area) && hasVal(p.price) ? money(Math.round(parseNum(p.price) / parseNum(p.area))) : '' },
                 { label: 'Hausgeld', value: hasVal(e.house_fee) ? money(e.house_fee) : '' },
                 { label: 'Käuferprovision', value: comm }
             ];
@@ -527,7 +544,21 @@
     function featuresHtml(p) {
         const list = (Array.isArray(p.features) ? p.features : []).map(x => String(x).trim()).filter(Boolean);
         if (!list.length) return '';
-        return section('pd-features', 'fa-couch', 'Ausstattung', `<ul class="pd-chips">${list.map(f => `<li><i class="fas fa-check" aria-hidden="true"></i>${esc(f)}</li>`).join('')}</ul>`);
+        const iconForFeature = label => {
+            const value = label.toLowerCase();
+            if (/erstbezug|neubau/.test(value)) return 'fa-building';
+            if (/balkon|terrasse/.test(value)) return 'fa-umbrella-beach';
+            if (/einbauk[uü]che|k[uü]che/.test(value)) return 'fa-kitchen-set';
+            if (/garage|stellplatz|parkplatz/.test(value)) return 'fa-car';
+            if (/aufzug|lift/.test(value)) return 'fa-elevator';
+            if (/keller/.test(value)) return 'fa-box-archive';
+            if (/garten/.test(value)) return 'fa-tree';
+            if (/bad|dusche|wanne/.test(value)) return 'fa-bath';
+            if (/heizung|w[aä]rmepumpe/.test(value)) return 'fa-temperature-half';
+            if (/barrierefrei|rollstuhl/.test(value)) return 'fa-wheelchair';
+            return 'fa-circle-check';
+        };
+        return section('pd-features', 'fa-couch', 'Ausstattung', `<ul class="pd-chips">${list.map(f => `<li><i class="fas ${iconForFeature(f)}" aria-hidden="true"></i>${esc(f)}</li>`).join('')}</ul>`);
     }
 
     function locationHtml(p) {
@@ -543,7 +574,7 @@
         ];
         const body = rows(list) +
             (hidden ? `<p class="pd-note"><i class="fas fa-circle-info"></i> ${note ? esc(note) + ' · ' : ''}Die genaue Adresse erhalten Sie auf Anfrage.</p>` : '') +
-            `<div id="property-map-section" hidden><div id="property-map" class="pd-map" role="img" aria-label="Kartenansicht der ungefähren Lage"></div><p class="pd-note">Kartenansicht ist ungefähr.</p></div>`;
+            `<div id="property-map-section" hidden><div id="property-map" class="pd-map" role="img" aria-label="Kartenansicht der ungefähren Lage"></div><a id="property-map-fallback" class="pd-map-fallback" hidden target="_blank" rel="noopener noreferrer">Karte auf OpenStreetMap öffnen</a><p class="pd-note">Kartenansicht ist ungefähr.</p></div>`;
         if (!rows(list) && !hidden) return '';
         return section('pd-location', 'fa-map-location-dot', 'Lage', body);
     }
@@ -565,9 +596,11 @@
             { label: 'Baujahr lt. Energieausweis', value: e.energy_building_year || e.building_year || p.year_built || '' },
             { label: 'Gültig bis', value: fmtDate(e.energy_valid_until) }
         ];
-        if (!list.some(r => r.value)) {
-            return section('pd-energy', 'fa-leaf', 'Energieinformationen', '<p class="pd-note" style="margin:0">Zu diesem Objekt liegen aktuell keine Energieangaben vor. Gern senden wir Ihnen diese auf Anfrage zu.</p>');
-        }
+        const hasEnergyData = [
+            cert, e.energy_value_kind, e.energy_value, e.energy_source, cls,
+            e.heating_type, e.heating_year, e.energy_building_year, e.energy_valid_until
+        ].some(value => value != null && String(value).trim() !== '');
+        if (!hasEnergyData) return '';
         const scale = ENERGY_COLORS[cls] ? `<div class="pd-scale" aria-hidden="true">${Object.keys(ENERGY_COLORS).map(k => `<span class="${k === cls ? 'on' : ''}" style="background:${ENERGY_COLORS[k]}">${k}</span>`).join('')}</div>` : '';
         return section('pd-energy', 'fa-leaf', 'Energieinformationen', `<div class="pd-energy">${scale}${rows(list)}</div>`);
     }
@@ -593,7 +626,9 @@
             { label: 'Letzte Modernisierung', value: e.last_modernization_year || '' },
             { label: 'Verfügbar ab', value: fmtDate(p.available_from) }
         ];
-        const html = rows(list);
+        const html = list.filter(item => item.value != null && String(item.value).trim() !== '').map(item =>
+            `<div class="pd-detail-fact"><span>${esc(item.label)}</span><strong>${esc(item.value)}</strong></div>`
+        ).join('');
         return html ? section('pd-details', 'fa-list-check', 'Fakten', html) : '';
     }
 
@@ -630,7 +665,7 @@
 
     /* — Contact — */
     function waLink(p) {
-        const link = (window.location.origin || '') + (p.slug ? `${SITE_BASE}/immobilie/${encodeURIComponent(p.slug)}` : `${SITE_BASE}/property-detail?id=${encodeURIComponent(p.id)}`);
+        const link = (window.location.origin || '') + publicPropertyPath(p);
         return `${WA_BASE}?text=${encodeURIComponent(`Guten Tag, ich interessiere mich für die Immobilie „${p.title}“: ${link}`)}`;
     }
 
@@ -638,7 +673,7 @@
         return `
         <div class="pd-card pd-contact" id="contact-form">
             <h2 class="pd-h2">Kontaktformular</h2>
-            <p class="pd-contact-intro">Senden Sie uns Ihre Frage zu Objekt ${esc(String(p.id || '').padStart(4, '0'))}.</p>
+            <p class="pd-contact-intro">Senden Sie uns Ihre Frage zu Objekt ${esc(publicObjectNumber(p))}.</p>
             <div id="propertyInquirySlot"></div>
             <div class="pd-contact-actions">
                 <a class="pd-btn pd-btn-outline pd-btn-block" href="tel:${PHONE_TEL}"><i class="fas fa-phone"></i> ${PHONE_LABEL}</a>
@@ -714,10 +749,9 @@
     function syncInquiryForm(p) {
         const idInput = $('#inquiry_property_id'), titleInput = $('#inquiry_property_title'), linkInput = $('#inquiry_property_link');
         if (!idInput || !titleInput || !linkInput) return;
-        const slugPath = p.slug ? `${SITE_BASE}/immobilie/${encodeURIComponent(p.slug)}` : `${SITE_BASE}/property-detail?id=${encodeURIComponent(p.id)}`;
         idInput.value = p.id || '';
         titleInput.value = p.title || '';
-        linkInput.value = (window.location.origin || 'https://www.immobilienghumman.de') + slugPath;
+        linkInput.value = (window.location.origin || 'https://www.immobilienghumman.de') + publicPropertyPath(p);
     }
 
     document.addEventListener('keydown', e => {
@@ -738,19 +772,39 @@
     /* ───────────── Map (Leaflet + Nominatim) ───────────── */
     function initPropertyMap(p) {
         const wrap = $('#property-map-section'), mapEl = $('#property-map');
-        if (!wrap || !mapEl || typeof L === 'undefined') return;
+        if (!wrap || !mapEl) return;
         const e = extra(p);
         const exact = !e.hide_exact_address && p.address;
         const query = [exact ? p.address : '', p.zip, p.location || p.city, 'Deutschland'].filter(Boolean).join(', ');
         if (!p.zip && !p.location && !p.city) return;
 
+        const fallback = $('#property-map-fallback');
+        const showFallback = error => {
+            console.error('Kartenansicht konnte nicht geladen werden:', error);
+            wrap.hidden = false;
+            mapEl.hidden = true;
+            if (fallback) {
+                fallback.href = `https://www.openstreetmap.org/search?query=${encodeURIComponent(query)}`;
+                fallback.hidden = false;
+            }
+        };
+        if (typeof L === 'undefined') {
+            showFallback(new Error('Leaflet ist nicht verfügbar'));
+            return;
+        }
+
         fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1`, { headers: { 'Accept-Language': 'de' } })
-            .then(r => r.json())
+            .then(r => {
+                if (!r.ok) throw new Error(`Geocoding HTTP ${r.status}`);
+                return r.json();
+            })
             .then(data => {
-                if (!data || !data.length) return;
+                if (!data || !data.length) throw new Error('Keine passende Kartenposition gefunden');
                 const lat = parseFloat(data[0].lat), lon = parseFloat(data[0].lon);
-                if (!isFinite(lat) || !isFinite(lon)) return;
+                if (!isFinite(lat) || !isFinite(lon)) throw new Error('Ungültige Kartenkoordinaten');
                 wrap.hidden = false;
+                mapEl.hidden = false;
+                if (fallback) fallback.hidden = true;
                 const map = L.map(mapEl, { scrollWheelZoom: false }).setView([lat, lon], exact ? 15 : 13);
                 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
@@ -768,7 +822,7 @@
                 }
                 setTimeout(() => map.invalidateSize(), 50);
             })
-            .catch(() => { /* Karte bleibt ausgeblendet */ });
+            .catch(showFallback);
     }
 
     /* ───────────── SEO ───────────── */

@@ -102,7 +102,7 @@ foreach (['floorplans' => 'Grundriss', 'documents' => 'Dokument'] as $key => $la
 <nav class="expose-toolbar" aria-label="Exposé Aktionen">
     <a href="<?= BASE ?>/immobilien-angebote">Alle Immobilien</a>
     <?php if ($property): ?>
-    <a href="<?= !empty($property['slug']) ? BASE . '/immobilie/' . rawurlencode($property['slug']) : BASE . '/property-detail?id=' . (int)$property['id'] ?>">Zur Immobilie</a>
+    <a href="<?= BASE ?>/immobilie/<?= (int)$property['id'] + 1110 ?>">Zur Immobilie</a>
     <button type="button" onclick="window.print()">Drucken / als PDF speichern</button>
     <?php endif; ?>
 </nav>

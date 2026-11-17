@@ -110,7 +110,7 @@ require_once __DIR__ . '/includes/header.php';
                 $hPrice = (float)($hp['price'] ?? 0);
                 $hArea = (float)($hp['area'] ?? 0);
                 $hRooms = (string)($hp['rooms'] ?? '');
-                $hUrl = !empty($hp['slug']) ? BASE . '/immobilie/' . rawurlencode((string)$hp['slug']) : BASE . '/property-detail?id=' . rawurlencode((string)($hp['id'] ?? ''));
+                $hUrl = BASE . '/immobilie/' . ((int)($hp['id'] ?? 0) + 1110);
             ?>
             <a class="hx-slide<?= $i === 0 ? ' is-active' : '' ?>" href="<?= htmlspecialchars($hUrl) ?>" <?= $i === 0 ? '' : 'tabindex="-1" aria-hidden="true"' ?>>
                 <span class="hx-slide-info">
@@ -466,9 +466,7 @@ require_once __DIR__ . '/includes/header.php';
                         $image = 'https://via.placeholder.com/400x300?text=Kein+Bild';
                     }
 
-                    $detailUrl = !empty($p['slug'])
-                        ? BASE . '/immobilie/' . rawurlencode((string)$p['slug'])
-                        : BASE . '/property-detail?id=' . rawurlencode((string)($p['id'] ?? ''));
+                    $detailUrl = BASE . '/immobilie/' . ((int)($p['id'] ?? 0) + 1110);
 
                     $badgeText = ($offerType === 'miete') ? 'Miete' : 'Kauf';
                     $badgeStyle = '';
@@ -630,7 +628,7 @@ require_once __DIR__ . '/includes/header.php';
                 var priceStr = price ?
                     price.toLocaleString('de-DE') + '\u00a0\u20ac' + (offerType === 'miete' ? '/Mo.' : '') :
                     'Auf Anfrage';
-                var detailUrl = p.slug ? ('<?= BASE ?>/immobilie/' + encodeURIComponent(p.slug)) : ('<?= BASE ?>/property-detail?id=' + encodeURIComponent(p.id));
+                var detailUrl = '<?= BASE ?>/immobilie/' + encodeURIComponent(Number(p.public_number) || (Number(p.id) + 1110));
                 return '<a href="' + detailUrl + '" class="featured-card reveal">' +
                     '<div class="featured-card-img">' +
                     '<img src="' + (image || 'https://via.placeholder.com/400x300?text=Kein+Bild') + '" alt="' + title.replace(/"/g, '&quot;') + '" loading="lazy">' +

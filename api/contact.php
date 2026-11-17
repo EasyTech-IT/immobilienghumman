@@ -99,6 +99,11 @@ if (in_array($action, ['inquiry', 'general']) && $method === 'POST') {
     $errors = [];
     if (empty($name))                                                     $errors[] = 'Name ist erforderlich';
     if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL))      $errors[] = 'Gültige E-Mail-Adresse ist erforderlich';
+    if ($action === 'inquiry') {
+        if ($vorname === '') $errors[] = 'Vorname ist erforderlich';
+        if ($nachname === '') $errors[] = 'Nachname ist erforderlich';
+        if ($phone === '') $errors[] = 'Telefonnummer ist erforderlich';
+    }
     $privacyOk = !empty($data['privacy_accept']) && $data['privacy_accept'] !== 'false' && $data['privacy_accept'] !== '0';
     if ((!empty($data['privacy_required']) || $isAnalysis) && !$privacyOk) {
         $errors[] = $isAnalysis ? 'Bitte akzeptieren Sie die Datenschutzerklärung' : 'Bitte akzeptieren Sie die AGB und die Datenschutzerklärung';
@@ -210,17 +215,15 @@ if (in_array($action, ['inquiry', 'general']) && $method === 'POST') {
         $pdo  = db();
 
         $propertyTitle = '';
-        $propertySlug = '';
         $propertyUrl = trim((string)($data['property_link'] ?? ''));
         if ($propId) {
-            $propStmt = $pdo->prepare('SELECT title, slug FROM properties WHERE id = ? LIMIT 1');
+            $propStmt = $pdo->prepare('SELECT title FROM properties WHERE id = ? LIMIT 1');
             $propStmt->execute([$propId]);
             $prop = $propStmt->fetch();
             if ($prop) {
                 $propertyTitle = trim((string)($prop['title'] ?? ''));
-                $propertySlug = trim((string)($prop['slug'] ?? ''));
-                if ($propertyUrl === '' && $propertySlug !== '') {
-                    $propertyUrl = rtrim(SITE_URL, '/') . '/immobilie/' . rawurlencode($propertySlug);
+                if ($propertyUrl === '') {
+                    $propertyUrl = rtrim(SITE_URL, '/') . '/immobilie/' . ((int)$propId + 1110);
                 }
             }
         }

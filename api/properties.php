@@ -6,7 +6,8 @@
  * REST-Endpunkt für Immobilien (GET/POST/PUT/DELETE)
  *
  * GET    /api/properties.php           – Liste (mit Filtern)
- * GET    /api/properties.php?id=123    – Einzelne Immobilie
+ * GET    /api/properties.php?id=123    – Einzelne Immobilie per Datenbank-ID
+ * GET    /api/properties.php?number=1123 – Einzelne Immobilie per öffentlicher Objektnummer
  * POST   /api/properties.php           – Neue Immobilie anlegen  (Auth erforderlich)
  * PUT    /api/properties.php?id=123    – Immobilie aktualisieren (Auth erforderlich)
  * DELETE /api/properties.php?id=123   – Immobilie löschen       (Auth erforderlich)
@@ -98,6 +99,7 @@ function properties_has_extra_data(PDO $pdo): bool
 // Immobilien-Row → API-Objekt
 function row_to_property(array $row): array
 {
+    $row['public_number'] = (int)($row['id'] ?? 0) + 1110;
     $row['images']    = decode_images($row['images'] ?? '');
     $row['features']  = decode_features($row['features'] ?? '');
     $row['extra_data'] = decode_extra_data($row['extra_data'] ?? '');
@@ -120,6 +122,17 @@ function row_to_property(array $row): array
 
 // ── GET ─────────────────────────────────────────────────────
 if ($method === 'GET') {
+    if (isset($_GET['number'])) {
+        if (!is_string($_GET['number'])) {
+            json_error('Ungültige Objektnummer');
+        }
+        $publicNumber = filter_var($_GET['number'], FILTER_VALIDATE_INT);
+        if ($publicNumber === false || $publicNumber < 1111) {
+            json_error('Ungültige Objektnummer');
+        }
+        $id = $publicNumber - 1110;
+    }
+
     $pdo = db();
 
     // Einzelne Immobilie

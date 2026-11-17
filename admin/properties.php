@@ -299,7 +299,7 @@ if ($action === 'list') {
     $params = [];
 
     if ($listSearch !== '') {
-        $where[] = '(title LIKE ? OR location LIKE ? OR slug LIKE ?)';
+        $where[] = '(title LIKE ? OR location LIKE ? OR CAST(id + 1110 AS CHAR) LIKE ?)';
         $params[] = '%' . $listSearch . '%';
         $params[] = '%' . $listSearch . '%';
         $params[] = '%' . $listSearch . '%';
@@ -344,13 +344,35 @@ $pageTitle = $action === 'list' ? 'Immobilien' : ($action === 'new' ? 'Neue Immo
     <style>
         .form-row {
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 1rem;
-            margin-bottom: 1rem;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: .75rem;
+            margin-bottom: .75rem;
         }
 
         .form-row.three {
-            grid-template-columns: 1fr 1fr 1fr;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+
+        .content > .card { overflow: hidden; }
+        .properties-table-wrap { overflow-x: auto; overscroll-behavior-x: contain; }
+        .properties-table-wrap table { min-width: 1040px; }
+        .properties-table-wrap th, .properties-table-wrap td { padding: .55rem .7rem; }
+        #adminPropertyForm > .card { padding: 1.1rem; margin-bottom: .9rem; }
+        #adminPropertyForm .form-group { min-width: 0; margin-bottom: .55rem; }
+        .public-number-note { display: flex; flex-wrap: wrap; align-items: center; gap: .55rem .8rem; margin: 0 0 1rem; padding: .8rem 1rem; border-radius: 10px; background: #f1f6fa; color: #334155; }
+        .public-number-note strong { color: #1a3a5c; font-variant-numeric: tabular-nums; }
+        .public-number-note code { color: #1a56a4; }
+        .public-number-note p { flex-basis: 100%; margin: 0; color: #64748b; font-size: .82rem; }
+        .table-actions { display: flex; flex-wrap: wrap; gap: .35rem; min-width: 190px; }
+        .form-help { margin: .2rem 0 0; color: #64748b; font-size: .82rem; }
+        @media (max-width: 900px) {
+            .form-row.three { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
+        @media (max-width: 620px) {
+            .form-row, .form-row.three { grid-template-columns: minmax(0, 1fr); gap: .35rem; }
+            .table-tools > * { width: 100%; min-width: 0; }
+            #adminPropertyForm > .card { padding: .85rem; }
+            .public-number-note { align-items: flex-start; flex-direction: column; }
         }
 
         .check-wrap {
@@ -491,7 +513,7 @@ $pageTitle = $action === 'list' ? 'Immobilien' : ($action === 'new' ? 'Neue Immo
                 <div class="card">
                     <form method="get" class="table-tools">
                         <input type="hidden" name="action" value="list">
-                        <input type="text" name="q" value="<?= htmlspecialchars($listSearch) ?>" placeholder="Suche: Titel, Ort, Slug">
+                        <input type="text" name="q" value="<?= htmlspecialchars($listSearch) ?>" placeholder="Suche: Titel, Ort, Objektnummer">
                         <select name="status">
                             <option value="">Alle Status</option>
                             <option value="available" <?= $listStatus === 'available' ? 'selected' : '' ?>>Verfügbar</option>
@@ -509,10 +531,11 @@ $pageTitle = $action === 'list' ? 'Immobilien' : ($action === 'new' ? 'Neue Immo
                         <button class="btn btn-secondary" type="submit">Filtern</button>
                         <a class="btn btn-outline" href="?action=list">Zurücksetzen</a>
                     </form>
+                    <div class="properties-table-wrap">
                     <table>
                         <thead>
                             <tr>
-                                <th>#</th>
+                                <th>Objektnr.</th>
                                 <th>Hauptbild</th>
                                 <th>Titel</th>
                                 <th>Bilder</th>
@@ -533,7 +556,7 @@ $pageTitle = $action === 'list' ? 'Immobilien' : ($action === 'new' ? 'Neue Immo
                                 $isVisible = ($p['status'] === 'available');
                                 ?>
                                 <tr>
-                                    <td><?= $p['id'] ?></td>
+                                    <td><?= (int)$p['id'] + 1110 ?></td>
                                     <td>
                                         <?php if (!empty($p['main_image'])): ?>
                                             <img class="thumb-sm" src="<?= htmlspecialchars($p['main_image']) ?>" alt="">
@@ -560,9 +583,12 @@ $pageTitle = $action === 'list' ? 'Immobilien' : ($action === 'new' ? 'Neue Immo
                                     <td><?= $isVisible ? 'Ja' : 'Nein' ?></td>
                                     <td><?= date('d.m.Y', strtotime((string)$p['created_at'])) ?></td>
                                     <td>
-                                        <a href="?action=edit&id=<?= $p['id'] ?>" class="btn btn-sm btn-secondary">Bearbeiten</a>
-                                        <a href="?action=toggle_visibility&id=<?= $p['id'] ?>&token=<?= urlencode(CSRF_TOKEN) ?>" class="btn btn-sm btn-outline"><?= $isVisible ? 'Unsichtbar' : 'Sichtbar' ?></a>
-                                        <a href="?action=delete&id=<?= $p['id'] ?>&token=<?= urlencode(CSRF_TOKEN) ?>" class="btn btn-sm btn-danger" onclick="return confirm('Wirklich löschen?')">Löschen</a>
+                                        <div class="table-actions">
+                                            <a href="?action=edit&id=<?= $p['id'] ?>" class="btn btn-sm btn-secondary">Bearbeiten</a>
+                                            <a href="<?= BASE ?>/immobilie/<?= (int)$p['id'] + 1110 ?>" class="btn btn-sm btn-outline" target="_blank" rel="noopener">Ansehen</a>
+                                            <a href="?action=toggle_visibility&id=<?= $p['id'] ?>&token=<?= urlencode(CSRF_TOKEN) ?>" class="btn btn-sm btn-outline"><?= $isVisible ? 'Unsichtbar' : 'Sichtbar' ?></a>
+                                            <a href="?action=delete&id=<?= $p['id'] ?>&token=<?= urlencode(CSRF_TOKEN) ?>" class="btn btn-sm btn-danger" onclick="return confirm('Wirklich löschen?')">Löschen</a>
+                                        </div>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>
@@ -573,6 +599,7 @@ $pageTitle = $action === 'list' ? 'Immobilien' : ($action === 'new' ? 'Neue Immo
                             <?php endif; ?>
                         </tbody>
                     </table>
+                    </div>
                 </div>
 
             <?php else: // new or edit 
@@ -583,6 +610,17 @@ $pageTitle = $action === 'list' ? 'Immobilien' : ($action === 'new' ? 'Neue Immo
                 </div>
                 <?php if (isset($_GET['saved'])): ?><div class="alert alert-success">Gespeichert!</div><?php endif; ?>
                 <?php if ($msg && strpos($msg, 'error:') === 0): ?><div class="alert alert-error"><?= htmlspecialchars(substr($msg, 6)) ?></div><?php endif; ?>
+
+                <div class="public-number-note">
+                    <strong>Öffentliche Objektnummer</strong>
+                    <?php if ($action === 'edit' && !empty($property['id'])): ?>
+                        <code><?= (int)$property['id'] + 1110 ?></code>
+                        <a href="<?= BASE ?>/immobilie/<?= (int)$property['id'] + 1110 ?>" target="_blank" rel="noopener">Inserat ansehen</a>
+                    <?php else: ?>
+                        <span>Wird beim ersten Speichern vergeben</span>
+                    <?php endif; ?>
+                    <p>Die Nummer erscheint in der kurzen Adresse <code>/immobilie/<?= $action === 'edit' && !empty($property['id']) ? (int)$property['id'] + 1110 : '[Objektnummer]' ?></code>. Alte Links mit dem Titel bleiben weiterhin gültig.</p>
+                </div>
 
                 <form method="post" id="adminPropertyForm">
                     <?= csrf_field() ?>
@@ -603,7 +641,7 @@ $pageTitle = $action === 'list' ? 'Immobilien' : ($action === 'new' ? 'Neue Immo
                             </div>
                             <div class="form-group">
                                 <label>Angebotsart</label>
-                                <select name="offer_type">
+                                <select name="offer_type" id="offer_type_input">
                                     <option value="Miete" <?= ($property['offer_type'] ?? 'Miete') === 'Miete' ? 'selected' : '' ?>>Miete</option>
                                     <option value="Kauf" <?= ($property['offer_type'] ?? '') === 'Kauf' ? 'selected' : '' ?>>Kauf</option>
                                 </select>
@@ -622,15 +660,15 @@ $pageTitle = $action === 'list' ? 'Immobilien' : ($action === 'new' ? 'Neue Immo
                     <div class="card">
                         <h2 style="margin:0 0 1rem;font-size:1rem;color:#555;">Kosten</h2>
                         <div class="form-row three">
-                            <div class="form-group"><label>Kaltmiete / Kaufpreis (€) *</label><input type="number" id="price_input" name="price" value="<?= $property['price'] ?? '' ?>" step="0.01" required></div>
-                            <div class="form-group"><label>Nebenkosten (€)</label><input type="number" id="extra_costs_input" name="extra_costs" value="<?= $property['extra_costs'] ?? 0 ?>" step="0.01"></div>
-                            <div class="form-group"><label>Heizkosten (€)</label><input type="number" id="heating_costs_input" name="heating_costs" value="<?= $property['heating_costs'] ?? 0 ?>" step="0.01"></div>
+                            <div class="form-group"><label id="price_label">Kaltmiete / Kaufpreis (€) *</label><input type="number" id="price_input" name="price" value="<?= $property['price'] ?? '' ?>" step="0.01" required></div>
+                            <div class="form-group" data-rent-only><label>Nebenkosten / Monat (€)</label><input type="number" id="extra_costs_input" name="extra_costs" value="<?= $property['extra_costs'] ?? 0 ?>" step="0.01"></div>
+                            <div class="form-group" data-rent-only><label>Heizkosten / Monat (€)</label><input type="number" id="heating_costs_input" name="heating_costs" value="<?= $property['heating_costs'] ?? 0 ?>" step="0.01"></div>
                         </div>
                         <div class="form-row">
-                            <div class="form-group"><label>Warmmiete (€)</label><input type="number" id="warm_rent_input" name="warm_rent" value="<?= $property['warm_rent'] ?? 0 ?>" step="0.01"></div>
-                            <div class="form-group"><label>Kaution (€)</label><input type="number" name="deposit" value="<?= $property['deposit'] ?? 0 ?>" step="0.01"></div>
+                            <div class="form-group" data-rent-only><label>Warmmiete / Monat (€)</label><input type="number" id="warm_rent_input" name="warm_rent" value="<?= $property['warm_rent'] ?? 0 ?>" step="0.01"></div>
+                            <div class="form-group" data-rent-only><label>Kaution (€)</label><input type="number" name="deposit" value="<?= $property['deposit'] ?? 0 ?>" step="0.01"></div>
                         </div>
-                        <p style="margin:.25rem 0 0;color:#64748b;font-size:.82rem;">Warmmiete wird automatisch aus Kaltmiete + Nebenkosten + Heizkosten berechnet, bis Sie den Wert manuell ändern.</p>
+                        <p id="warm-rent-help" class="form-help">Warmmiete wird aus Kaltmiete + Nebenkosten + Heizkosten berechnet, bis Sie den Wert manuell ändern.</p>
                     </div>
 
                     <div class="card">
@@ -666,7 +704,8 @@ $pageTitle = $action === 'list' ? 'Immobilien' : ($action === 'new' ? 'Neue Immo
                     </div>
 
                     <div class="card">
-                        <h2 style="margin:0 0 1rem;font-size:1rem;color:#555;">Energieausweis (Pflicht für verfügbare Inserate)</h2>
+                        <h2 style="margin:0 0 1rem;font-size:1rem;color:#555;">Energieausweis</h2>
+                        <p class="form-help">Nur ausgefüllte Energieangaben erscheinen später im Inserat.</p>
                         <div class="form-row three">
                             <div class="form-group">
                                 <label>Energieausweistyp</label>
@@ -1012,6 +1051,9 @@ $pageTitle = $action === 'list' ? 'Immobilien' : ($action === 'new' ? 'Neue Immo
                             var extraInput = document.getElementById('extra_costs_input');
                             var heatingInput = document.getElementById('heating_costs_input');
                             var warmInput = document.getElementById('warm_rent_input');
+                            var offerTypeInput = document.getElementById('offer_type_input');
+                            var priceLabel = document.getElementById('price_label');
+                            var warmRentHelp = document.getElementById('warm-rent-help');
                             var warmRentManuallyTouched = false;
 
                             // Image data array: [{url, label}]
@@ -1278,7 +1320,7 @@ $pageTitle = $action === 'list' ? 'Immobilien' : ($action === 'new' ? 'Neue Immo
                             }
 
                             function computeWarmRent() {
-                                if (warmRentManuallyTouched) return;
+                                if (warmRentManuallyTouched || !offerTypeInput || offerTypeInput.value !== 'Miete') return;
                                 var kalt = parseFloat(priceInput.value || '0');
                                 var nk = parseFloat(extraInput.value || '0');
                                 var hk = parseFloat(heatingInput.value || '0');
@@ -1287,15 +1329,31 @@ $pageTitle = $action === 'list' ? 'Immobilien' : ($action === 'new' ? 'Neue Immo
                             }
 
                             if (warmInput) {
+                                var initialWarmRent = parseFloat(warmInput.value || '0');
+                                var initialCosts = [priceInput, extraInput, heatingInput].reduce(function(sum, el) {
+                                    var value = el ? parseFloat(el.value || '0') : 0;
+                                    return sum + (isNaN(value) ? 0 : value);
+                                }, 0);
+                                warmRentManuallyTouched = initialWarmRent > 0 && Math.abs(initialWarmRent - initialCosts) > 0.01;
                                 warmInput.addEventListener('input', function() {
                                     warmRentManuallyTouched = true;
                                 });
                             }
+                            function updateOfferType() {
+                                var isRent = offerTypeInput && offerTypeInput.value === 'Miete';
+                                document.querySelectorAll('[data-rent-only]').forEach(function(el) {
+                                    el.hidden = !isRent;
+                                });
+                                if (priceLabel) priceLabel.textContent = isRent ? 'Kaltmiete / Monat (€) *' : 'Kaufpreis (€) *';
+                                if (warmRentHelp) warmRentHelp.hidden = !isRent;
+                                if (isRent) computeWarmRent();
+                            }
+                            if (offerTypeInput) offerTypeInput.addEventListener('change', updateOfferType);
                             [priceInput, extraInput, heatingInput].forEach(function(el) {
                                 if (!el) return;
                                 el.addEventListener('input', computeWarmRent);
                             });
-                            computeWarmRent();
+                            updateOfferType();
 
                             bindDropZone(floorplanZone, floorplanInput, function(files) {
                                 var valid = files.filter(function(f) {
@@ -1325,7 +1383,8 @@ $pageTitle = $action === 'list' ? 'Immobilien' : ($action === 'new' ? 'Neue Immo
                         <h2 style="margin:0 0 1rem;font-size:1rem;color:#555;">Ausstattung &amp; Status</h2>
                         <div class="form-group">
                             <label>Ausstattungsmerkmale (eine pro Zeile)</label>
-                            <textarea name="features_text"><?= htmlspecialchars(implode("\n", json_decode($property['features'] ?? '[]', true) ?: [])) ?></textarea>
+                            <textarea name="features_text" placeholder="z. B. Erstbezug, Einbauküche, Balkon"><?= htmlspecialchars(implode("\n", json_decode($property['features'] ?? '[]', true) ?: [])) ?></textarea>
+                            <p class="form-help">Passende Symbole werden auf der Detailseite automatisch zugeordnet.</p>
                         </div>
                         <div class="form-row">
                             <div class="form-group">

@@ -47,7 +47,7 @@ RewriteCond %{REQUEST_URI} ^/property-detail/?$ [NC]
 RewriteCond %{QUERY_STRING} (^|&)slug=([^&]+) [NC]
 RewriteRule ^property-detail/?$ /immobilie/%2? [R=301,L,NE]
 
-# Clean Property Route: /immobilie/<slug>
+# Property route: /immobilie/<number-or-legacy-slug>
 RewriteRule ^immobilie/([^/]+)/?$ property-detail.php?slug=$1 [L,QSA]
 
 # Ratgeber-Artikel: /ratgeber/<slug> -> ratgeber-artikel.php
