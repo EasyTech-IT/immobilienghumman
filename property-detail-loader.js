@@ -799,8 +799,6 @@
     window.closeLightbox = closeLightbox;
     window.nextImage = nextImage;
     window.previousImage = previousImage;
-    window.openContactModal = openContactModal;
-    window.closeContactModal = closeContactModal;
     window.loadPropertyDetails = loadPropertyDetails;
 
     if (document.readyState === 'loading') {

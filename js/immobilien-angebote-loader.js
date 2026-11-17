@@ -137,7 +137,7 @@ function createAngebotePropertyCard(property) {
     ].join(' ').toLocaleLowerCase('de-DE');
 
     const formatPrice = (price) => {
-        return new Intl.NumberFormat('de-DE').format(price);
+        return new Intl.NumberFormat('de-DE', { maximumFractionDigits: 0 }).format(price);
     };
 
     const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({
@@ -148,12 +148,41 @@ function createAngebotePropertyCard(property) {
         "'": '&#39;'
     })[char]);
 
-    const offerLabel = property.offerType === 'kauf' ? 'Kaufen' : 'Mieten';
-    const priceLabel = property.offerType === 'kauf' ? 'Kaufpreis' : 'Kaltmiete';
+    const isPurchase = property.offerType === 'kauf';
+    const offerLabel = isPurchase ? 'Kaufen' : 'Mieten';
     const formatMeasure = (value) => new Intl.NumberFormat('de-DE', { maximumFractionDigits: 1 }).format(value);
-    const areaLabel = property.area > 0 ? `${formatMeasure(property.area)} m²` : '—';
-    const roomsLabel = property.rooms > 0 ? formatMeasure(property.rooms) : '—';
-    const priceValue = property.price > 0 ? `${formatPrice(property.price)} €` : 'Auf Anfrage';
+    const facts = [{
+        icon: 'fas fa-tag',
+        value: property.price > 0 ? `${formatPrice(property.price)} €` : 'Auf Anfrage',
+        label: isPurchase ? 'Kaufpreis' : 'Kaltmiete'
+    }];
+
+    if (isPurchase) {
+        if (property.area > 0) {
+            facts.push({ icon: 'far fa-square', value: `${formatMeasure(property.area)} m²`, label: 'Wohnfläche' });
+        }
+        if (property.rooms > 0) {
+            facts.push({ icon: 'fas fa-door-open', value: formatMeasure(property.rooms), label: 'Zimmer' });
+        }
+        if (property.price > 0 && property.area > 0) {
+            facts.push({
+                icon: 'fas fa-euro-sign',
+                value: `${formatPrice(property.price / property.area)} € / m²`,
+                label: 'Kaufpreis pro m²'
+            });
+        }
+    } else {
+        if (property.rooms > 0) {
+            facts.push({ icon: 'fas fa-door-open', value: formatMeasure(property.rooms), label: 'Zimmer' });
+        }
+        if (property.warmRent > 0) {
+            facts.push({ icon: 'fas fa-euro-sign', value: `${formatPrice(property.warmRent)} €`, label: 'Warmmiete' });
+        }
+        if (property.area > 0) {
+            facts.push({ icon: 'far fa-square', value: `${formatMeasure(property.area)} m²`, label: 'Wohnfläche' });
+        }
+    }
+
     const newBadgeHTML = property.isNew ? '<span class="new-badge">NEU</span>' : '';
     const locationLabel = [property.locationName, property.zip].filter(Boolean).join(' · ');
     const objectNumber = `Objekt ${String(property.id || '').padStart(4, '0')}`;
@@ -177,19 +206,13 @@ function createAngebotePropertyCard(property) {
         </div>
         <div class="property-content">
             <p class="property-reference">${escapeHtml(objectNumber)}</p>
-            <div class="property-facts">
-                <div class="property-fact">
-                    <i class="fas fa-tag" aria-hidden="true"></i>
-                    <div><strong>${priceValue}</strong><span>${priceLabel}</span></div>
-                </div>
-                <div class="property-fact">
-                    <i class="far fa-square" aria-hidden="true"></i>
-                    <div><strong>${areaLabel}</strong><span>Wohnfläche</span></div>
-                </div>
-                <div class="property-fact">
-                    <i class="fas fa-door-open" aria-hidden="true"></i>
-                    <div><strong>${roomsLabel}</strong><span>Zimmer</span></div>
-                </div>
+            <div class="property-facts property-facts--count-${facts.length}">
+                ${facts.map(fact => `
+                    <div class="property-fact">
+                        <i class="${fact.icon}" aria-hidden="true"></i>
+                        <div><strong>${escapeHtml(fact.value)}</strong><span>${escapeHtml(fact.label)}</span></div>
+                    </div>
+                `).join('')}
             </div>
         </div>
     `;

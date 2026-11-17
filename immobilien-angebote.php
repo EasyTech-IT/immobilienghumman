@@ -471,10 +471,42 @@ try {
                         $ssrObjectNumber = 'Objekt ' . str_pad((string)$sp['id'], 4, '0', STR_PAD_LEFT);
                         $ssrIsNew = !empty($sp['created_at']) && strtotime((string)$sp['created_at']) >= strtotime('-14 days');
                         $ssrOfferType = strtolower((string)($sp['offer_type'] ?? ''));
-                        $ssrPriceLabel = $ssrOfferType === 'kauf' ? 'Kaufpreis' : 'Kaltmiete';
-                        $ssrPrice = (float)($sp['price'] ?? 0) > 0 ? number_format((float)$sp['price'], 0, ',', '.') . ' €' : 'Auf Anfrage';
-                        $ssrArea = !empty($sp['area']) ? number_format((float)$sp['area'], 1, ',', '.') . ' m²' : '—';
-                        $ssrRooms = !empty($sp['rooms']) ? number_format((float)$sp['rooms'], 1, ',', '.') : '—';
+                        $ssrIsPurchase = $ssrOfferType === 'kauf';
+                        $ssrPriceNumber = (float)($sp['price'] ?? 0);
+                        $ssrAreaNumber = (float)($sp['area'] ?? 0);
+                        $ssrRoomsNumber = (float)($sp['rooms'] ?? 0);
+                        $ssrWarmRentNumber = (float)($sp['warm_rent'] ?? 0);
+                        $ssrPrice = $ssrPriceNumber > 0 ? number_format($ssrPriceNumber, 0, ',', '.') . ' €' : 'Auf Anfrage';
+                        $ssrFacts = [[
+                            'icon' => 'fas fa-tag',
+                            'value' => $ssrPrice,
+                            'label' => $ssrIsPurchase ? 'Kaufpreis' : 'Kaltmiete',
+                        ]];
+                        if ($ssrIsPurchase) {
+                            if ($ssrAreaNumber > 0) {
+                                $ssrFacts[] = ['icon' => 'far fa-square', 'value' => number_format($ssrAreaNumber, 1, ',', '.') . ' m²', 'label' => 'Wohnfläche'];
+                            }
+                            if ($ssrRoomsNumber > 0) {
+                                $ssrFacts[] = ['icon' => 'fas fa-door-open', 'value' => number_format($ssrRoomsNumber, 1, ',', '.'), 'label' => 'Zimmer'];
+                            }
+                            if ($ssrPriceNumber > 0 && $ssrAreaNumber > 0) {
+                                $ssrFacts[] = [
+                                    'icon' => 'fas fa-euro-sign',
+                                    'value' => number_format($ssrPriceNumber / $ssrAreaNumber, 0, ',', '.') . ' € / m²',
+                                    'label' => 'Kaufpreis pro m²',
+                                ];
+                            }
+                        } else {
+                            if ($ssrRoomsNumber > 0) {
+                                $ssrFacts[] = ['icon' => 'fas fa-door-open', 'value' => number_format($ssrRoomsNumber, 1, ',', '.'), 'label' => 'Zimmer'];
+                            }
+                            if ($ssrWarmRentNumber > 0) {
+                                $ssrFacts[] = ['icon' => 'fas fa-euro-sign', 'value' => number_format($ssrWarmRentNumber, 0, ',', '.') . ' €', 'label' => 'Warmmiete'];
+                            }
+                            if ($ssrAreaNumber > 0) {
+                                $ssrFacts[] = ['icon' => 'far fa-square', 'value' => number_format($ssrAreaNumber, 1, ',', '.') . ' m²', 'label' => 'Wohnfläche'];
+                            }
+                        }
                         $ssrSearch = implode(' ', [$sp['title'] ?? '', $ssrLocation, $ssrZip]);
                         ?>
                         <article class="property-card"
@@ -506,10 +538,16 @@ try {
                             </div>
                             <div class="property-content">
                                 <p class="property-reference"><?= htmlspecialchars($ssrObjectNumber, ENT_QUOTES) ?></p>
-                                <div class="property-facts">
-                                    <div class="property-fact"><i class="fas fa-tag" aria-hidden="true"></i><div><strong><?= $ssrPrice ?></strong><span><?= htmlspecialchars($ssrPriceLabel, ENT_QUOTES) ?></span></div></div>
-                                    <div class="property-fact"><i class="far fa-square" aria-hidden="true"></i><div><strong><?= htmlspecialchars($ssrArea, ENT_QUOTES) ?></strong><span>Wohnfläche</span></div></div>
-                                    <div class="property-fact"><i class="fas fa-door-open" aria-hidden="true"></i><div><strong><?= htmlspecialchars($ssrRooms, ENT_QUOTES) ?></strong><span>Zimmer</span></div></div>
+                                <div class="property-facts property-facts--count-<?= count($ssrFacts) ?>">
+                                    <?php foreach ($ssrFacts as $ssrFact): ?>
+                                        <div class="property-fact">
+                                            <i class="<?= htmlspecialchars($ssrFact['icon'], ENT_QUOTES) ?>" aria-hidden="true"></i>
+                                            <div>
+                                                <strong><?= htmlspecialchars($ssrFact['value'], ENT_QUOTES) ?></strong>
+                                                <span><?= htmlspecialchars($ssrFact['label'], ENT_QUOTES) ?></span>
+                                            </div>
+                                        </div>
+                                    <?php endforeach; ?>
                                 </div>
                             </div>
                         </article>
