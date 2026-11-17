@@ -23,9 +23,13 @@ $property = [
     'price' => 250000,
     'area' => 100,
     'rooms' => 3,
-    'description' => "Heller Wohnbereich.\n\nZwei Ebenen.",
+    'extra_costs' => '0.00',
+    'heating_costs' => '25.00',
+    'warm_rent' => '1000.00',
+    'deposit' => '500.00',
+    'description' => "Heller Wohnbereich.\n\nZwei Ebenen.\n\nHeller Wohnbereich.",
     'features' => json_encode(['Balkon']),
-    'extra_data' => json_encode(['commission_required' => true, 'commission_amount' => 3.57, 'commission_payer' => 'Käufer', 'location_description' => 'Nah am Bahnhof']),
+    'extra_data' => json_encode(['commission_required' => true, 'commission_amount' => 3.57, 'commission_payer' => 'Käufer', 'location_description' => 'Nah am Bahnhof', 'plot_area' => 1234, 'residential_units' => 4]),
 ];
 $recipient = ['name' => 'Anna <Test>', 'email' => 'anna@example.test', 'phone' => '12345'];
 $html = expose_pdf_html($property, $recipient);
@@ -33,6 +37,37 @@ check(strpos($html, 'Anna &lt;Test&gt;') !== false && strpos($html, '<Test>') ==
 check(strpos($html, 'Musterweg 1') !== false && strpos($html, '3,57 %') !== false, 'Adresse und Provision stehen im Exposé');
 check(strpos($html, '<h2>Lage</h2>') !== false && strpos($html, 'Nah am Bahnhof') !== false, 'Eingetragene Lagebeschreibung erscheint im Exposé');
 check(strpos($html, '<h2>Energieinformationen</h2>') === false, 'Leere Energieinformationen bleiben verborgen');
+check(strpos($html, 'Nebenkosten') === false && strpos($html, 'Warmmiete') === false && strpos($html, 'Kaution') === false && strpos($html, 'Heizkosten') === false, 'Mietkosten erscheinen nicht im Kaufexposé');
+check(strpos($html, 'Grundstücksfläche') !== false && strpos($html, '1.234,00 m²') !== false && strpos($html, 'Wohneinheiten') !== false, 'Eingetragene Grundstücksfläche und Wohneinheiten erscheinen');
+check(substr_count($html, 'Heller Wohnbereich.') === 1, 'Identische Beschreibungsabsätze werden nicht wiederholt');
+check(strpos($html, 'gesetzliche Haftungsansprüche bleiben unberührt') !== false && strpos($html, '<h2>Ihr Kontakt</h2>') !== false, 'Kontakt und Hinweis zu den Angaben erscheinen');
+$rental = $property;
+$rental['offer_type'] = 'Miete';
+check(strpos(expose_pdf_html($rental, $recipient), 'Warmmiete') !== false, 'Mietkosten bleiben bei Mietobjekten sichtbar');
+
+$imageFile = tempnam(__DIR__ . '/../uploads', 'expose-test-');
+if ($imageFile === false) throw new RuntimeException('Testbild konnte nicht angelegt werden.');
+$pngFile = $imageFile . '.png';
+if (file_exists($pngFile) || !rename($imageFile, $pngFile)) {
+    unlink($imageFile);
+    throw new RuntimeException('Testbild konnte nicht vorbereitet werden.');
+}
+$imageFile = $pngFile;
+try {
+    file_put_contents($imageFile, base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/l2cAAAAASUVORK5CYII='));
+    $url = '/uploads/' . basename($imageFile);
+    $pictured = $property;
+    $pictured['main_image'] = $url;
+    $pictured['images'] = json_encode([['url' => $url, 'label' => 'Dachstudio', 'virtual_staging' => true]]);
+    $extra = json_decode($pictured['extra_data'], true);
+    $extra['floorplans'] = [['url' => $url, 'label' => 'Dachgeschoss W4']];
+    $pictured['extra_data'] = json_encode($extra);
+    $pictureHtml = expose_pdf_html($pictured, $recipient);
+    check(strpos($pictureHtml, 'Visualisierung / Einrichtungsbeispiel · Dachstudio') !== false, 'Gekennzeichnete Visualisierungen sind im Exposé erkennbar');
+    check(strpos($pictureHtml, '<h3>Dachgeschoss W4</h3>') !== false, 'Grundrisse tragen ihre eingetragene Beschriftung');
+} finally {
+    unlink($imageFile);
+}
 $pdf = expose_pdf_render($property, $recipient);
 check(strncmp($pdf, '%PDF-', 5) === 0 && strlen($pdf) > 1000, 'Ein echtes PDF wird erzeugt');
 try {

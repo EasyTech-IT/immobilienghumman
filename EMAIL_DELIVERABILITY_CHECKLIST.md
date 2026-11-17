@@ -51,6 +51,18 @@ Im DNS der Absenderdomain (z. B. immobilienghumman.de):
 2. Pruefen, ob Anfrage-Mail an `MAIL_TO` ankommt.
 3. Pruefen, ob Bestaetigungs-Mail beim Absender ankommt.
 
+Die Annahme durch den SMTP-Server bestaetigt noch keinen Posteingang. Falls
+eine Nachricht fehlt, Spam-Ordner und Unzustellbarkeitsmeldungen pruefen und
+die vollstaendigen Mail-Header einer zugestellten Testnachricht auf SPF,
+DKIM und DMARC untersuchen.
+
+Bei Versand ueber IONOS und gleichzeitig genutztem Proton Mail muessen beide
+Versender im **gleichen** SPF-TXT-Eintrag stehen. Fuer die EU nennt IONOS
+`include:_spf-eu.ionos.com`; der bestehende Proton-Include muss erhalten bleiben.
+Vor der Aenderung den tatsaechlichen produktiven SMTP-Anbieter und dessen DKIM
+pruefen. Keinen zweiten SPF-Eintrag anlegen und DMARC nicht abschwaechen.
+Siehe https://www.ionos.de/hilfe/domains/mailserver-und-verwandte-records-konfigurieren/spam-versand-vermeiden-mit-spf-record/
+
 ## 5) Monitoring
 
 Woechentliche KPIs:

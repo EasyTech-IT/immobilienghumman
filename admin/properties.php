@@ -94,6 +94,7 @@ function normalize_upload_list($raw): array
             'url'  => $url,
             'name' => trim((string)($item['name'] ?? '')),
             'mime' => trim((string)($item['mime'] ?? '')),
+            'label' => trim((string)($item['label'] ?? '')),
         ];
     }
 
@@ -197,6 +198,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && in_array($action, ['new', 'edit']))
             'floor' => trim((string)($d['floor'] ?? '')),
             'floors_total' => (($d['floors_total'] ?? '') !== '' ? (int)$d['floors_total'] : null),
             'bedrooms' => (($d['bedrooms'] ?? '') !== '' ? (int)$d['bedrooms'] : null),
+            'plot_area' => (($d['plot_area'] ?? '') !== '' ? (float)$d['plot_area'] : null),
+            'residential_units' => (($d['residential_units'] ?? '') !== '' ? (int)$d['residential_units'] : null),
+            'guest_toilets' => (($d['guest_toilets'] ?? '') !== '' ? (int)$d['guest_toilets'] : null),
             'balcony_area' => (($d['balcony_area'] ?? '') !== '' ? (float)$d['balcony_area'] : null),
             'has_balcony_terrace' => !empty($d['has_balcony_terrace']),
             'has_builtin_kitchen' => !empty($d['has_builtin_kitchen']),
@@ -215,6 +219,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && in_array($action, ['new', 'edit']))
             'commission_amount' => (($d['commission_amount'] ?? '') !== '' ? (float)$d['commission_amount'] : null),
             'commission_unit' => trim((string)($d['commission_unit'] ?? 'percent')),
             'commission_payer' => trim((string)($d['commission_payer'] ?? '')),
+            'commission_note' => trim((string)($d['commission_note'] ?? '')),
             'hide_exact_address' => true,
             'floorplans' => $floorplans,
             'documents' => $documents,
@@ -686,6 +691,12 @@ $pageTitle = $action === 'list' ? 'Immobilien' : ($action === 'new' ? 'Neue Immo
                             <div class="form-group"><label>Zimmer</label><input type="number" name="rooms" value="<?= $property['rooms'] ?? '' ?>" step="0.5"></div>
                             <div class="form-group"><label>Badezimmer</label><input type="number" name="bathrooms" value="<?= $property['bathrooms'] ?? 1 ?>"></div>
                         </div>
+                        <div class="form-row">
+                            <div class="form-group"><label>Grundstücksfläche (m²)</label><input type="number" name="plot_area" min="0" step="0.01" value="<?= htmlspecialchars((string)($extraData['plot_area'] ?? '')) ?>"></div>
+                            <div class="form-group"><label>Wohneinheiten</label><input type="number" name="residential_units" min="0" step="1" value="<?= htmlspecialchars((string)($extraData['residential_units'] ?? '')) ?>"></div>
+                            <div class="form-group"><label>Gäste-WCs</label><input type="number" name="guest_toilets" min="0" step="1" value="<?= htmlspecialchars((string)($extraData['guest_toilets'] ?? '')) ?>"></div>
+                        </div>
+                        <p class="form-help">Zimmer, Bäder und Wohneinheiten anhand der Unterlagen prüfen; keine Werte aus Grundrissen schätzen.</p>
                     </div>
 
                     <div class="card">
@@ -713,7 +724,10 @@ $pageTitle = $action === 'list' ? 'Immobilien' : ($action === 'new' ? 'Neue Immo
 
                     <div class="card">
                         <h2 style="margin:0 0 1rem;font-size:1rem;color:#555;">Energieausweis</h2>
-                        <p class="form-help">Nur ausgefüllte Energieangaben erscheinen später im Inserat.</p>
+                        <p class="form-help">Nur ausgefüllte Energieangaben erscheinen im Inserat und im PDF. Die erforderlichen Angaben anhand des gültigen Ausweises prüfen; fehlende Werte nicht schätzen.</p>
+                        <?php if (empty($extraData['energy_certificate_type']) || !isset($extraData['energy_value']) || $extraData['energy_value'] === '' || empty($extraData['energy_source']) || empty($extraData['energy_building_year']) || empty($extraData['energy_efficiency_class'])): ?>
+                            <p class="form-help"><strong>Energieangaben unvollständig:</strong> Bitte vor der Vermarktung anhand des Energieausweises prüfen, welche Angaben für dieses Objekt erforderlich sind.</p>
+                        <?php endif; ?>
                         <div class="form-row three">
                             <div class="form-group">
                                 <label>Energieausweistyp</label>
@@ -802,8 +816,9 @@ $pageTitle = $action === 'list' ? 'Immobilien' : ($action === 'new' ? 'Neue Immo
                         </div>
                         <div class="form-row">
                             <div class="form-group"><label>Wer zahlt die Courtage?</label><input type="text" name="commission_payer" value="<?= htmlspecialchars((string)($extraData['commission_payer'] ?? '')) ?>" placeholder="z.B. Käufer, Verkäufer, Mieter"></div>
-                            <div></div>
+                            <div class="form-group"><label>Provisionshinweis</label><input type="text" name="commission_note" value="<?= htmlspecialchars((string)($extraData['commission_note'] ?? '')) ?>" placeholder="z.B. inkl. gesetzlicher Umsatzsteuer"></div>
                         </div>
+                        <p class="form-help">Falls eine Provision anfällt, Höhe, Einheit und zahlende Partei vollständig eintragen und rechtlich prüfen.</p>
                     </div>
 
                     <div class="card">
@@ -865,6 +880,7 @@ $pageTitle = $action === 'list' ? 'Immobilien' : ($action === 'new' ? 'Neue Immo
                         <div class="upload-previews" id="upload-previews">
                             <!-- Populated by JS from existing images and new uploads -->
                         </div>
+                        <p class="form-help">Die ersten acht Bilder werden im Exposé verwendet. Mit den Pfeilen können Sie die Reihenfolge ändern; digital eingerichtete Bilder bitte als Visualisierung kennzeichnen.</p>
 
                         <hr style="border:none;border-top:1px solid #e5e7eb;margin:1.25rem 0;">
 
@@ -965,9 +981,14 @@ $pageTitle = $action === 'list' ? 'Immobilien' : ($action === 'new' ? 'Neue Immo
 
                         .upload-preview-item .preview-actions {
                             display: flex;
+                            flex-wrap: wrap;
                             gap: 4px;
                             padding: 4px 6px;
                         }
+                        .upload-preview-item .preview-staging {
+                            display: flex; align-items: center; gap: .35rem; padding: 4px 6px; font-size: .75rem;
+                        }
+                        .upload-preview-item .preview-staging input { width: auto; margin: 0; }
 
                         .upload-preview-item .preview-actions button {
                             flex: 1;
@@ -1012,6 +1033,8 @@ $pageTitle = $action === 'list' ? 'Immobilien' : ($action === 'new' ? 'Neue Immo
 
                         .file-row {
                             display: flex;
+                            flex-wrap: wrap;
+                            gap: .5rem;
                             align-items: center;
                             justify-content: space-between;
                             border: 1px solid #e5e7eb;
@@ -1082,8 +1105,11 @@ $pageTitle = $action === 'list' ? 'Immobilien' : ($action === 'new' ? 'Neue Immo
                                         (i === 0 ? '<div class="main-badge">Hauptbild</div>' : '') +
                                         '<img src="' + escHtml(img.url) + '" alt="" loading="lazy">' +
                                         '<div class="preview-label"><input type="text" placeholder="Raum (z.B. Küche)" value="' + escHtml(img.label || '') + '" data-idx="' + i + '"></div>' +
+                                        '<label class="preview-staging"><input type="checkbox" data-staging="' + i + '"' + (img.virtual_staging ? ' checked' : '') + '> Visualisierung</label>' +
                                         '<div class="preview-actions">' +
                                         (i > 0 ? '<button type="button" data-action="main" data-idx="' + i + '">★ Haupt</button>' : '<span style="flex:1"></span>') +
+                                        (i > 0 ? '<button type="button" data-action="up" data-idx="' + i + '" aria-label="Bild nach vorne">↑</button>' : '') +
+                                        (i < images.length - 1 ? '<button type="button" data-action="down" data-idx="' + i + '" aria-label="Bild nach hinten">↓</button>' : '') +
                                         '<button type="button" data-action="del" data-idx="' + i + '" class="del-btn">✕</button>' +
                                         '</div>';
                                     previews.appendChild(item);
@@ -1114,6 +1140,7 @@ $pageTitle = $action === 'list' ? 'Immobilien' : ($action === 'new' ? 'Neue Immo
                                     row.className = 'file-row';
                                     row.innerHTML =
                                         '<a class="file-row-name" href="' + escHtml(item.url) + '" target="_blank" rel="noopener">' + escHtml(item.name || ('Datei ' + (idx + 1))) + '</a>' +
+                                        (type === 'floorplan' ? '<input type="text" data-floorplan-label="' + idx + '" placeholder="Geschoss / Einheit" aria-label="Grundriss beschriften" value="' + escHtml(item.label || '') + '">' : '') +
                                         '<button type="button" data-file-type="' + type + '" data-file-idx="' + idx + '">Entfernen</button>';
                                     targetEl.appendChild(row);
                                 });
@@ -1134,6 +1161,10 @@ $pageTitle = $action === 'list' ? 'Immobilien' : ($action === 'new' ? 'Neue Immo
                                 } else if (btn.dataset.action === 'main') {
                                     var item = images.splice(idx, 1)[0];
                                     images.unshift(item);
+                                } else if (btn.dataset.action === 'up' || btn.dataset.action === 'down') {
+                                    var target = idx + (btn.dataset.action === 'up' ? -1 : 1);
+                                    var moved = images.splice(idx, 1)[0];
+                                    images.splice(target, 0, moved);
                                 }
                                 renderPreviews();
                             });
@@ -1142,9 +1173,18 @@ $pageTitle = $action === 'list' ? 'Immobilien' : ($action === 'new' ? 'Neue Immo
                                 if (e.target.dataset.idx !== undefined) {
                                     images[parseInt(e.target.dataset.idx)].label = e.target.value;
                                     syncInputs();
+                                } else if (e.target.dataset.staging !== undefined) {
+                                    images[parseInt(e.target.dataset.staging)].virtual_staging = e.target.checked;
+                                    syncInputs();
                                 }
                             });
 
+                            floorplanList.addEventListener('input', function(e) {
+                                if (e.target.dataset.floorplanLabel !== undefined) {
+                                    floorplans[parseInt(e.target.dataset.floorplanLabel, 10)].label = e.target.value;
+                                    syncInputs();
+                                }
+                            });
                             document.addEventListener('click', function(e) {
                                 var btn = e.target.closest('button[data-file-type]');
                                 if (!btn) return;

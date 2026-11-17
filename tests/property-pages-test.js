@@ -159,12 +159,12 @@ const detailContext = vm.createContext({
                     location: 'Büdingen',
                     zip: '63654',
                     address: 'Geheime Straße 1',
-                    images: [],
+                    images: [{ url: '/uploads/staged.jpg', virtual_staging: true }, { url: '/uploads/room.jpg' }],
                     features: ['Neubau', 'Erstbezug', 'Balkon', 'Einbauküche'],
                     extra_data: {
-                        building_year: 1980, energy_value_kind: 'bedarf', energy_value: detailEnergyValue, hide_exact_address: false, address_public_note: 'Geheime Adresse',
+                        building_year: 1980, plot_area: 800, residential_units: 4, energy_value_kind: 'bedarf', energy_value: detailEnergyValue, hide_exact_address: false, address_public_note: 'Geheime Adresse',
                         location_description: 'Ruhige Lage nahe dem Bahnhof. '.repeat(30),
-                        floorplans: [{ url: '/uploads/plan.png', name: 'Grundriss' }, { url: '/uploads/plan.pdf', name: 'PDF' }],
+                        floorplans: [{ url: '/uploads/plan.png', name: 'Grundriss', label: 'Dachgeschoss W4' }, { url: '/uploads/plan.pdf', name: 'PDF' }],
                         documents: [{ url: '/uploads/dokument.jpg?version=1', name: 'Dokument' }]
                     }
                 }
@@ -186,6 +186,10 @@ detailWindow.loadPropertyDetails().then(() => {
     assert(!detailContent.innerHTML.includes('id="pd-energy"'));
     assert(detailContent.innerHTML.includes('class="pd-detail-facts"'));
     assert(detailContent.innerHTML.includes('pd-detail-fact'));
+    assert(detailContent.innerHTML.includes('Grundstücksfläche'));
+    assert(detailContent.innerHTML.includes('Wohneinheiten'));
+    assert(detailContent.innerHTML.includes('Visualisierung / Einrichtungsbeispiel'));
+    assert(detailContent.innerHTML.includes('Dachgeschoss W4'));
     assert(detailContent.innerHTML.includes('fa-kitchen-set'));
     assert(!detailContent.innerHTML.includes('Objekt 1123'));
     assert(!detailContent.innerHTML.includes('Geheime Straße'));

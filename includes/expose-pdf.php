@@ -75,13 +75,16 @@ function expose_pdf_html(array $property, array $recipient): string
         'Adresse' => $property['address'] ?? '',
         'Objektart' => $property['type'] ?? '',
         $rent ? 'Kaltmiete' : 'Kaufpreis' => !empty($property['price']) ? $money($property['price']) : '',
-        'Nebenkosten' => !empty($property['extra_costs']) ? $money($property['extra_costs']) : '',
-        'Heizkosten' => !empty($property['heating_costs']) ? $money($property['heating_costs']) : '',
-        'Warmmiete' => !empty($property['warm_rent']) ? $money($property['warm_rent']) : '',
-        'Kaution' => !empty($property['deposit']) ? $money($property['deposit']) : '',
+        'Nebenkosten' => $rent && !empty($property['extra_costs']) ? $money($property['extra_costs']) : '',
+        'Heizkosten' => $rent && !empty($property['heating_costs']) ? $money($property['heating_costs']) : '',
+        'Warmmiete' => $rent && !empty($property['warm_rent']) ? $money($property['warm_rent']) : '',
+        'Kaution' => $rent && !empty($property['deposit']) ? $money($property['deposit']) : '',
         'Wohnfläche' => !empty($property['area']) ? number_format((float)$property['area'], 2, ',', '.') . ' m²' : '',
+        'Grundstücksfläche' => !empty($e['plot_area']) ? number_format((float)$e['plot_area'], 2, ',', '.') . ' m²' : '',
+        'Wohneinheiten' => $e['residential_units'] ?? '',
         'Zimmer' => $property['rooms'] ?? '',
         'Badezimmer' => $property['bathrooms'] ?? '',
+        'Gäste-WCs' => $e['guest_toilets'] ?? '',
         'Schlafzimmer' => $e['bedrooms'] ?? '',
         'Etage' => $e['floor'] ?? '',
         'Etagen' => $e['floors_total'] ?? '',
@@ -105,6 +108,7 @@ function expose_pdf_html(array $property, array $recipient): string
         $facts['Provision'] = ($e['commission_unit'] ?? 'percent') === 'eur'
             ? $money($e['commission_amount']) : str_replace('.', ',', (string)$e['commission_amount']) . ' %';
         if (!empty($e['commission_payer'])) $facts['Provisionspflichtig'] = $e['commission_payer'];
+        if (!empty($e['commission_note'])) $facts['Provisionshinweis'] = $e['commission_note'];
     }
     $energy = [
         'Energieausweis' => ['verbrauchsausweis' => 'Verbrauchsausweis', 'bedarfsausweis' => 'Bedarfsausweis'][$e['energy_certificate_type'] ?? ''] ?? ($e['energy_certificate_type'] ?? ''),
@@ -127,22 +131,29 @@ function expose_pdf_html(array $property, array $recipient): string
     };
     $images = expose_pdf_list($property['images'] ?? []);
     $imageUrls = [];
-    if (!empty($property['main_image'])) $imageUrls[] = (string)$property['main_image'];
     foreach ($images as $image) {
         $url = is_string($image) ? $image : (string)($image['url'] ?? $image['image_url'] ?? '');
-        if ($url !== '') $imageUrls[] = $url;
+        if ($url !== '') $imageUrls[$url] = is_array($image) ? $image : [];
     }
-    $imageUrls = array_values(array_unique($imageUrls));
+    if (!empty($property['main_image'])) {
+        $main = (string)$property['main_image'];
+        $imageUrls = [$main => $imageUrls[$main] ?? []] + $imageUrls;
+    }
     $imageHtml = [];
-    foreach (array_slice($imageUrls, 0, 8) as $url) {
-        $imageHtml[] = '<div class="picture"><img src="' . expose_pdf_image($url) . '" alt=""></div>';
+    foreach (array_slice($imageUrls, 0, 8, true) as $url => $image) {
+        $label = trim((string)($image['label'] ?? ''));
+        if (!empty($image['virtual_staging'])) $label = 'Visualisierung / Einrichtungsbeispiel' . ($label !== '' ? ' · ' . $label : '');
+        $imageHtml[] = '<div class="picture"><img src="' . expose_pdf_image($url) . '" alt="">'
+            . ($label !== '' ? '<p class="picture-label">' . expose_pdf_escape($label) . '</p>' : '') . '</div>';
     }
     $cover = array_shift($imageHtml) ?: '';
     $plans = '';
     foreach (expose_pdf_list($e['floorplans'] ?? []) as $plan) {
         $url = is_string($plan) ? $plan : (string)($plan['url'] ?? '');
         if ($url !== '' && preg_match('/\.(jpe?g|png|gif|webp)(?:[?#]|$)/i', $url)) {
-            $plans .= '<div class="picture"><img src="' . expose_pdf_image($url) . '" alt="Grundriss"></div>';
+            $label = is_array($plan) ? trim((string)($plan['label'] ?? '')) : '';
+            $plans .= '<div class="picture">' . ($label !== '' ? '<h3>' . expose_pdf_escape($label) . '</h3>' : '')
+                . '<img src="' . expose_pdf_image($url) . '" alt="Grundriss"></div>';
         }
     }
     $documents = '';
@@ -163,8 +174,14 @@ function expose_pdf_html(array $property, array $recipient): string
     }
     $description = trim((string)($property['description'] ?? ''));
     $descriptionHtml = '';
+    $seenParagraphs = [];
     foreach (preg_split('/\R{2,}/u', $description) ?: [] as $paragraph) {
-        if (trim($paragraph) !== '') $descriptionHtml .= '<p>' . nl2br(expose_pdf_escape($paragraph)) . '</p>';
+        $paragraph = trim($paragraph);
+        $key = mb_strtolower((string)preg_replace('/\s+/u', ' ', $paragraph), 'UTF-8');
+        if ($paragraph !== '' && !isset($seenParagraphs[$key])) {
+            $descriptionHtml .= '<p>' . nl2br(expose_pdf_escape($paragraph)) . '</p>';
+            $seenParagraphs[$key] = true;
+        }
     }
     $locationHtml = '';
     foreach (preg_split('/\R{2,}/u', trim((string)($e['location_description'] ?? ''))) ?: [] as $paragraph) {
@@ -186,11 +203,12 @@ function expose_pdf_html(array $property, array $recipient): string
         .recipient { background: #edf4f9; padding: 10pt; margin: 12pt 0; }
         .picture { margin: 12pt 0; page-break-inside: avoid; text-align: center; }
         .picture img { max-width: 100%; max-height: 350pt; }
+        .picture-label { font-size: 9pt; color: #546778; margin: 4pt 0; }
         .facts { border-collapse: collapse; width: 100%; }
         .facts th, .facts td { border-bottom: 1px solid #dce5eb; padding: 6pt; text-align: left; vertical-align: top; }
         .facts th { width: 40%; font-weight: normal; color: #546778; }
         li { margin-bottom: 4pt; } p { margin: 0 0 10pt; }
-        .footer { margin-top: 20pt; border-top: 1px solid #dce5eb; padding-top: 10pt; font-size: 9pt; }
+        .footer { page-break-before: always; border-top: 2px solid #3070a0; padding-top: 16pt; font-size: 10pt; }
         </style></head><body><div class="brand">IMMOBILIEN GHUMMAN</div><div class="eyebrow">Immobilien-Exposé</div><h1>'
         . expose_pdf_escape($property['title'] ?? '') . '</h1><p>' . expose_pdf_escape(trim(($property['zip'] ?? '') . ' ' . ($property['location'] ?? ''))) . '</p>'
         . $person . $cover . '<h2>Fakten und Konditionen</h2>' . $table($facts)
@@ -201,7 +219,12 @@ function expose_pdf_html(array $property, array $recipient): string
         . (count($imageUrls) > 8 ? '<p>Weitere Bilder erhalten Sie auf Anfrage.</p>' : '')
         . ($plans !== '' ? '<h2>Grundrisse</h2>' . $plans : '')
         . ($documents !== '' ? '<h2>Weitere Unterlagen</h2><ul>' . $documents . '</ul>' : '')
-        . '<div class="footer">Immobilien Ghumman · ' . expose_pdf_escape(SITE_PHONE) . ' · ' . expose_pdf_escape(SITE_EMAIL) . '</div></body></html>';
+        . '<div class="footer"><h2>Ihr Kontakt</h2><p><strong>Immobilien Ghumman</strong><br>Telefon: '
+        . expose_pdf_escape(SITE_PHONE) . '<br>E-Mail: ' . expose_pdf_escape(SITE_EMAIL) . '</p>'
+        . (isset($facts['Provision']) ? '<h3>Provision</h3><p>' . expose_pdf_escape($facts['Provision'])
+            . (!empty($facts['Provisionspflichtig']) ? ' · ' . expose_pdf_escape($facts['Provisionspflichtig']) : '')
+            . (!empty($facts['Provisionshinweis']) ? ' · ' . expose_pdf_escape($facts['Provisionshinweis']) : '') . '</p>' : '')
+        . '<h3>Hinweis zu den Angaben</h3><p>Die Angaben beruhen auf Informationen der Eigentümerseite. Für Vollständigkeit und Richtigkeit kann keine Gewähr übernommen werden; gesetzliche Haftungsansprüche bleiben unberührt.</p></div></body></html>';
 }
 
 function expose_pdf_render(array $property, array $recipient = []): string

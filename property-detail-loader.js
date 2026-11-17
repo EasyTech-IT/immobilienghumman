@@ -264,7 +264,11 @@
         raw.forEach(img => {
             const url = typeof img === 'string' ? img : (img && (img.url || img.image_url));
             const u = assetUrl(url);
-            if (u) images.push({ url: u, label: (img && typeof img === 'object' && img.label) ? String(img.label) : '' });
+            if (u) {
+                const label = (img && typeof img === 'object' && img.label) ? String(img.label) : '';
+                const staged = !!(img && typeof img === 'object' && img.virtual_staging);
+                images.push({ url: u, label: [staged ? 'Visualisierung / Einrichtungsbeispiel' : '', label].filter(Boolean).join(' · '), staged });
+            }
         });
         if (!images.length && p.main_image) {
             const u = assetUrl(p.main_image);
@@ -292,9 +296,9 @@
                     <div class="pd-label" id="pd-label"></div>
                     ${multi ? '<div class="pd-counter" id="pd-counter"></div>' : ''}`}
                 </div>
-                ${multi ? `<button type="button" class="pd-gallery-preview" data-gallery-next aria-label="Nächstes Bild">
+                ${multi ? `<button type="button" class="pd-gallery-preview" data-gallery-next aria-label="Nächstes Bild${images[(current + 1) % images.length].staged ? ': Visualisierung / Einrichtungsbeispiel' : ''}">
                     <img data-preview-image src="${esc(images[(current + 1) % images.length].url)}" alt="" loading="lazy" decoding="async">
-                    <span><i class="fas fa-camera" aria-hidden="true"></i> ${images.length} Bilder</span>
+                    <span><i class="fas fa-camera" aria-hidden="true"></i> ${images.length} Bilder <span data-preview-staging>${images[(current + 1) % images.length].staged ? ' · Visualisierung' : ''}</span></span>
                 </button>` : ''}
             </div>
         </section>`;
@@ -303,7 +307,7 @@
     function thumbnailsHtml() {
         if (images.length < 2) return '';
         return `<div class="pd-thumbs" id="gallery-thumbnails" role="group" aria-label="Miniaturbilder">
-            ${images.map((img, i) => `<button type="button" class="pd-thumb${i === current ? ' active' : ''}" data-index="${i}" aria-label="Bild ${i + 1}${img.label ? ': ' + esc(img.label) : ''}"><img src="${esc(img.url)}" alt="" loading="${i < 6 ? 'eager' : 'lazy'}" decoding="async" width="96" height="68"></button>`).join('')}
+            ${images.map((img, i) => `<button type="button" class="pd-thumb${i === current ? ' active' : ''}" data-index="${i}" aria-label="Bild ${i + 1}${img.label ? ': ' + esc(img.label) : ''}"><img src="${esc(img.url)}" alt="" loading="${i < 6 ? 'eager' : 'lazy'}" decoding="async" width="96" height="68">${img.staged ? '<span class="pd-thumb-visualization">Visualisierung</span>' : ''}</button>`).join('')}
         </div>`;
     }
 
@@ -341,6 +345,10 @@
         if (img && img.getAttribute('src') !== item.url) img.src = item.url;
         const preview = $('[data-preview-image]');
         if (preview && images.length > 1) preview.src = images[(current + 1) % images.length].url;
+        const previewButton = $('[data-gallery-next]');
+        if (previewButton) previewButton.setAttribute('aria-label', 'Nächstes Bild' + (images[(current + 1) % images.length].staged ? ': Visualisierung / Einrichtungsbeispiel' : ''));
+        const previewStaging = $('[data-preview-staging]');
+        if (previewStaging) previewStaging.textContent = images[(current + 1) % images.length].staged ? ' · Visualisierung' : '';
         const bg = $('#pd-stage-bg');
         if (bg) bg.style.backgroundImage = `url("${item.url.replace(/"/g, '%22')}")`;
         const label = $('#pd-label');
@@ -353,6 +361,13 @@
             if (on) t.setAttribute('aria-current', 'true'); else t.removeAttribute('aria-current');
         });
         const active = $('.pd-thumb.active');
+        const thumbs = $('#gallery-thumbnails');
+        if (active && thumbs) {
+            const itemBox = active.getBoundingClientRect();
+            const stripBox = thumbs.getBoundingClientRect();
+            if (itemBox.left < stripBox.left) thumbs.scrollLeft += itemBox.left - stripBox.left;
+            else if (itemBox.right > stripBox.right) thumbs.scrollLeft += itemBox.right - stripBox.right;
+        }
         [current + 1, current - 1].forEach(i => {
             const n = images[(i + images.length) % images.length];
             if (n) { const pre = new Image(); pre.src = n.url; }
@@ -538,7 +553,7 @@
             ];
         } else {
             const comm = e.commission_required && hasVal(e.commission_amount)
-                ? (e.commission_unit === 'percent' ? `${fmtNum(e.commission_amount)} %` : money(e.commission_amount)) + (e.commission_payer ? ` (${e.commission_payer})` : '')
+                ? (e.commission_unit === 'percent' ? `${fmtNum(e.commission_amount)} %` : money(e.commission_amount)) + (e.commission_payer ? ` (${e.commission_payer})` : '') + (e.commission_note ? ` · ${e.commission_note}` : '')
                 : '';
             list = [
                 { label: 'Kaufpreis', value: money(p.price) },
@@ -617,6 +632,9 @@
         const e = extra(p);
         const list = [
             { label: 'Baujahr', value: e.building_year || p.year_built || '' },
+            { label: 'Grundstücksfläche', value: hasVal(e.plot_area) ? `${fmtNum(e.plot_area)} m²` : '' },
+            { label: 'Wohneinheiten', value: hasVal(e.residential_units) ? fmtNum(e.residential_units) : '' },
+            { label: 'Gäste-WCs', value: hasVal(e.guest_toilets) ? fmtNum(e.guest_toilets) : '' },
             { label: 'Etagen', value: e.floors_total || '' },
             { label: 'Etage', value: hasVal(e.floor) ? e.floor : '' },
             { label: 'Schlafzimmer', value: hasVal(e.bedrooms) ? e.bedrooms : '' },
@@ -644,7 +662,7 @@
         return (Array.isArray(arr) ? arr : []).map(x => {
             if (typeof x === 'string') return { url: assetUrl(x), name: '' };
             if (!x || typeof x !== 'object') return null;
-            return { url: assetUrl(x.url || x.file || x.path || x.image_url), name: x.name || x.title || x.label || x.filename || '' };
+            return { url: assetUrl(x.url || x.file || x.path || x.image_url), name: x.label || x.name || x.title || x.filename || '' };
         }).filter(x => x && x.url);
     }
 

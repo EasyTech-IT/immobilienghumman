@@ -339,7 +339,7 @@ if (in_array($action, ['inquiry', 'general']) && $method === 'POST') {
             http_response_code(503);
             echo json_encode(['success' => false, 'stored' => true, 'message' => 'Ihre Anfrage wurde gespeichert, der E-Mail-Versand konnte aber nicht bestätigt werden. Bitte nicht erneut senden und uns telefonisch kontaktieren.'], JSON_UNESCAPED_UNICODE);
         } else {
-            echo json_encode(['success' => true, 'message' => 'Ihr persönliches Exposé wurde an den E-Mail-Server übergeben.'], JSON_UNESCAPED_UNICODE);
+            echo json_encode(['success' => true, 'message' => 'Ihre Anfrage wurde gespeichert und das Exposé an den E-Mail-Server übergeben. Bitte prüfen Sie auch Ihren Spam-Ordner und kontaktieren Sie uns, falls die E-Mail nicht ankommt.'], JSON_UNESCAPED_UNICODE);
         }
         exit;
     }
