@@ -315,6 +315,7 @@
     color: #fff;
     font-size: .7rem;
     font-weight: 650;
+    pointer-events: none;
 }
 
 .angebote-page-v2 #properties-grid .property-card .new-badge {
@@ -334,6 +335,7 @@
     font-weight: 700;
     text-align: left;
     text-shadow: 0 1px 3px rgba(0, 0, 0, .35);
+    pointer-events: none;
 }
 
 .angebote-page-v2 #properties-grid .property-image-location i {
