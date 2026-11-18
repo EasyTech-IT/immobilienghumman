@@ -5,6 +5,7 @@
  */
 require_once __DIR__ . '/../includes/config.php';
 require_once __DIR__ . '/../includes/db.php';
+require_once __DIR__ . '/../api/auth_helper.php';
 
 // Bereits eingeloggt?
 if (!empty($_SESSION['admin_id'])) {
@@ -28,6 +29,8 @@ if ($reason === 'session_expired') {
     $info = 'Ihre Sitzung ist abgelaufen. Bitte melden Sie sich erneut an.';
 } elseif ($reason === 'account_invalid') {
     $info = 'Ihr Benutzerkonto ist nicht mehr aktiv. Bitte kontaktieren Sie den Administrator.';
+} elseif ($reason === 'revocation_failed') {
+    $info = 'Sie wurden lokal abgemeldet, aber bestehende Anmeldungen konnten nicht serverseitig widerrufen werden. Bitte informieren Sie den Administrator.';
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -48,28 +51,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $error = "Zu viele Fehlversuche. Bitte warten Sie $wait Minute(n).";
         } elseif (!empty($username) && !empty($password)) {
             $pdo  = db();
-            $stmt = $pdo->prepare('SELECT id, username, password_hash, role FROM admin_users WHERE username = ? AND is_active = 1');
-            $stmt->execute([$username]);
-            $user = $stmt->fetch();
-
-            if ($user && password_verify($password, $user['password_hash'])) {
-                $_SESSION['login_attempts'] = 0;
-                // Regenerate session ID BEFORE writing sensitive data (prevents session fixation)
-                session_regenerate_id(false);
-                $_SESSION['admin_id']   = $user['id'];
-                $_SESSION['admin_role'] = $user['role'];
-                // Flush session to disk before redirect to prevent race condition on Windows
-                session_write_close();
-                $pdo->prepare('UPDATE admin_users SET last_login = NOW() WHERE id = ?')->execute([$user['id']]);
-                header('Location: ' . ($nextPath ?: (BASE . '/admin/index.php')));
-                exit;
+            if (!ensure_admin_auth_versioning($pdo)) {
+                $error = 'Die Anmeldung ist vorübergehend nicht verfügbar. Bitte versuchen Sie es später erneut.';
             } else {
-                $_SESSION['login_attempts']++;
-                if ($_SESSION['login_attempts'] >= 5) {
-                    $_SESSION['login_lockout']  = time() + 900;
+                $stmt = $pdo->prepare('SELECT id, username, password_hash, role, auth_version FROM admin_users WHERE username = ? AND is_active = 1');
+                $stmt->execute([$username]);
+                $user = $stmt->fetch();
+
+                if ($user && password_verify($password, $user['password_hash'])) {
                     $_SESSION['login_attempts'] = 0;
+                    // Regenerate session ID BEFORE writing sensitive data (prevents session fixation)
+                    session_regenerate_id(false);
+                    $_SESSION['admin_id']   = $user['id'];
+                    $_SESSION['admin_auth_version'] = (int)$user['auth_version'];
+                    $_SESSION['admin_role'] = $user['role'];
+                    // Flush session to disk before redirect to prevent race condition on Windows
+                    session_write_close();
+                    $pdo->prepare('UPDATE admin_users SET last_login = NOW() WHERE id = ?')->execute([$user['id']]);
+                    header('Location: ' . ($nextPath ?: (BASE . '/admin/index.php')));
+                    exit;
+                } else {
+                    $_SESSION['login_attempts']++;
+                    if ($_SESSION['login_attempts'] >= 5) {
+                        $_SESSION['login_lockout']  = time() + 900;
+                        $_SESSION['login_attempts'] = 0;
+                    }
+                    $error = 'Ungültige Anmeldedaten.';
                 }
-                $error = 'Ungültige Anmeldedaten.';
             }
         } else {
             $error = 'Bitte alle Felder ausfüllen.';

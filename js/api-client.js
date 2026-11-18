@@ -162,8 +162,15 @@ class PropertyAPI {
     }
 
     async logout() {
-        this.setToken(null);
-        return { message: 'Erfolgreich abgemeldet' };
+        try {
+            const response = await fetch(`${this.baseURL}/auth.php?action=logout`, {
+                method: 'POST',
+                headers: this.getHeaders()
+            });
+            return await this.handleResponse(response);
+        } finally {
+            this.setToken(null);
+        }
     }
 
     async getCurrentUser() {

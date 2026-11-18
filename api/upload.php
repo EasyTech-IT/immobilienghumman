@@ -5,6 +5,7 @@
  * Unterstützt: Cloudinary (falls konfiguriert) oder lokaler Upload nach /uploads/
  */
 require_once __DIR__ . '/../includes/config.php';
+require_once __DIR__ . '/auth_helper.php';
 
 header('Content-Type: application/json; charset=utf-8');
 header('X-Content-Type-Options: nosniff');
@@ -17,11 +18,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit(json_encode(['error' => 'Method not allowed']));
 }
 
-// Admin-Session prüfen
-if (empty($_SESSION['admin_id'])) {
-    http_response_code(401);
-    exit(json_encode(['error' => 'Nicht authentifiziert. Bitte einloggen.']));
-}
+require_auth();
 
 // CSRF prüfen
 if (!csrf_verify($_POST['csrf_token'] ?? '')) {

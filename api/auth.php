@@ -66,8 +66,13 @@ if ($action === 'login' && $method === 'POST') {
         exit;
     }
 
-    $pdo  = db();
-    $stmt = $pdo->prepare('SELECT id, username, password_hash, role FROM admin_users WHERE username = ? AND is_active = 1');
+    $pdo = db();
+    if (!ensure_admin_auth_versioning($pdo)) {
+        http_response_code(503);
+        echo json_encode(['error' => 'Authentifizierung ist vorübergehend nicht verfügbar']);
+        exit;
+    }
+    $stmt = $pdo->prepare('SELECT id, username, password_hash, role, auth_version FROM admin_users WHERE username = ? AND is_active = 1');
     $stmt->execute([$username]);
     $user = $stmt->fetch();
 
@@ -86,6 +91,7 @@ if ($action === 'login' && $method === 'POST') {
     $_SESSION['login_attempts'] = 0;
     session_regenerate_id(false);
     $_SESSION['admin_id']       = $user['id'];
+    $_SESSION['admin_auth_version'] = (int)$user['auth_version'];
     $_SESSION['admin_role']     = $user['role'];
     session_write_close();
 
@@ -93,7 +99,7 @@ if ($action === 'login' && $method === 'POST') {
     $pdo->prepare('UPDATE admin_users SET last_login = NOW() WHERE id = ?')
         ->execute([$user['id']]);
 
-    $token = create_token(['id' => $user['id'], 'role' => $user['role']]);
+    $token = create_token(['id' => $user['id'], 'ver' => (int)$user['auth_version'], 'role' => $user['role']]);
     if ($token === false) {
         http_response_code(503);
         echo json_encode(['error' => 'Die sichere Authentifizierung ist nicht verfügbar.']);
@@ -110,6 +116,37 @@ if ($action === 'login' && $method === 'POST') {
 
 // ── Logout ──────────────────────────────────────────────────
 if ($action === 'logout' && $method === 'POST') {
+    $pdo = db();
+    if (!ensure_admin_auth_versioning($pdo)) {
+        http_response_code(503);
+        echo json_encode(['error' => 'Abmeldung konnte serverseitig nicht abgeschlossen werden']);
+        exit;
+    }
+    $credentials = [];
+    if (isset($_SESSION['admin_id'], $_SESSION['admin_auth_version'])) {
+        $id = (int)$_SESSION['admin_id'];
+        $version = (int)$_SESSION['admin_auth_version'];
+        if ($id > 0 && $version >= 0) $credentials[$id . ':' . $version] = [$id, $version];
+    }
+    $authHeader = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
+    if (preg_match('/^Bearer\s+(.+)$/i', $authHeader, $matches)) {
+        $payload = verify_token($matches[1]);
+        if (
+            $payload !== false
+            && isset($payload['id'], $payload['ver'])
+            && is_numeric($payload['id'])
+            && is_numeric($payload['ver'])
+            && (int)$payload['id'] > 0
+            && (int)$payload['ver'] >= 0
+        ) {
+            $id = (int)$payload['id'];
+            $version = (int)$payload['ver'];
+            $credentials[$id . ':' . $version] = [$id, $version];
+        }
+    }
+    foreach ($credentials as [$id, $version]) {
+        auth_revoke_admin($pdo, $id, $version);
+    }
     $_SESSION = [];
     if (ini_get('session.use_cookies')) {
         $p = session_get_cookie_params();
@@ -124,7 +161,7 @@ if ($action === 'logout' && $method === 'POST') {
 if ($action === 'me' && $method === 'GET') {
     require_auth();
     $pdo  = db();
-    $stmt = $pdo->prepare('SELECT id, username, role, last_login FROM admin_users WHERE id = ?');
+    $stmt = $pdo->prepare('SELECT id, username, role, last_login FROM admin_users WHERE id = ? AND is_active = 1');
     $stmt->execute([$_SESSION['admin_id']]);
     $user = $stmt->fetch();
     if (!$user) {

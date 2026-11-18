@@ -6,6 +6,7 @@
  */
 require_once __DIR__ . '/../includes/config.php';
 require_once __DIR__ . '/../includes/db.php';
+require_once __DIR__ . '/../api/auth_helper.php';
 
 if (!empty($_SESSION['admin_id'])) {
     header('Location: ' . BASE . '/admin/index.php');
@@ -20,6 +21,9 @@ $isValidToken = false;
 if ($token !== '' && preg_match('/^[a-f0-9]{64}$/', $token)) {
     try {
         $pdo = db();
+        if (!ensure_admin_auth_versioning($pdo)) {
+            throw new RuntimeException('Could not prepare admin auth versioning.');
+        }
         $pdo->exec("CREATE TABLE IF NOT EXISTS password_reset_tokens (
             id INT UNSIGNED NOT NULL AUTO_INCREMENT,
             user_id INT UNSIGNED NOT NULL,
@@ -56,7 +60,7 @@ if ($token !== '' && preg_match('/^[a-f0-9]{64}$/', $token)) {
                     $msg = 'Die Passwoerter stimmen nicht ueberein.';
                     $msgType = 'error';
                 } else {
-                    $pdo->prepare('UPDATE admin_users SET password_hash = ? WHERE id = ?')
+                    $pdo->prepare('UPDATE admin_users SET password_hash = ?, auth_version = auth_version + 1 WHERE id = ?')
                         ->execute([password_hash($new, PASSWORD_DEFAULT), $tokenRow['user_id']]);
 
                     $pdo->prepare('UPDATE password_reset_tokens SET used_at = NOW() WHERE id = ?')

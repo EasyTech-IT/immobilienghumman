@@ -54,8 +54,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['change_password'])) {
             $msg = 'Neue Passw&ouml;rter stimmen nicht &uuml;berein.';
             $msgType = 'error';
         } else {
-            $pdo->prepare('UPDATE admin_users SET password_hash = ? WHERE id = ?')
+            $pdo->prepare('UPDATE admin_users SET password_hash = ?, auth_version = auth_version + 1 WHERE id = ?')
                 ->execute([password_hash($new, PASSWORD_DEFAULT), $admin['id']]);
+            $_SESSION['admin_auth_version'] = (int)$_SESSION['admin_auth_version'] + 1;
             $msg = 'Passwort erfolgreich ge&auml;ndert.';
             $msgType = 'success';
         }
