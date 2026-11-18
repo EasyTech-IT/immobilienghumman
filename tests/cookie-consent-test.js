@@ -25,7 +25,7 @@ function setup(initialConsent, failStorage = false) {
             contains() { return false; },
             remove() {
                 elements.delete(id);
-                for (const key of ['cookie-analytics', 'cookie-marketing', 'cookie-accept-all', 'cookie-reject-optional', 'cookie-save-selection']) elements.delete(key);
+                elements.delete('cookie-reject-optional');
             }
         };
     }
@@ -44,7 +44,7 @@ function setup(initialConsent, failStorage = false) {
         body: {
             appendChild(node) {
                 elements.set(node.id, node);
-                for (const id of ['cookie-analytics', 'cookie-marketing', 'cookie-accept-all', 'cookie-reject-optional', 'cookie-save-selection']) elements.set(id, element(id));
+                elements.set('cookie-reject-optional', element('cookie-reject-optional'));
             }
         }
     };
@@ -77,7 +77,7 @@ function setup(initialConsent, failStorage = false) {
     return { window, document, storage, scripts, events, elements, cookies, get reloads() { return reloads; }, get alerts() { return alerts; } };
 }
 
-test('analytics is not loaded without consent or after rejection', () => {
+test('analytics stays disabled and the notice can only be dismissed', () => {
     const page = setup();
     assert.equal(page.scripts.length, 0);
     assert.ok(page.elements.has('cookie-reject-optional'));
@@ -86,46 +86,42 @@ test('analytics is not loaded without consent or after rejection', () => {
     assert.equal(page.scripts.length, 0);
 });
 
-test('acceptance loads analytics once and withdrawal disables it and clears cookies', () => {
-    const page = setup();
-    page.elements.get('cookie-accept-all').click();
-    assert.equal(page.scripts.length, 1);
-    assert.match(page.scripts[0], /^https:\/\/www\.googletagmanager\.com\/gtag\/js\?/);
-    page.window.CookieConsent.show();
-    assert.equal(page.elements.get('cookie-analytics').checked, true);
+test('analytics stays disabled for previous and manually restored opt-ins and clears cookies', () => {
+    const oldConsent = setup({ version: '1.1', timestamp: new Date().toISOString(), analytics: true });
+    assert.equal(oldConsent.scripts.length, 0);
+    assert.ok(oldConsent.elements.has('cookie-consent-banner'));
+
+    const page = setup({ version: '1.2', timestamp: new Date().toISOString(), analytics: true });
+    assert.equal(page.scripts.length, 0);
+    assert.ok(page.elements.has('cookie-consent-banner'));
     page.cookies.set('_ga', 'test');
     page.cookies.set('_ga_123456', 'test');
-    page.elements.get('cookie-reject-optional').click();
-    assert.equal(JSON.parse(page.storage.getItem('cookie_consent')).analytics, false);
-    assert.equal(page.window['ga-disable-G-Q5J1C2PTR2'], true);
+    page.events.storage({ key: 'cookie_consent' });
     assert.equal(page.cookies.size, 0);
-    assert.equal(page.reloads, 1);
+    assert.equal(page.window['ga-disable-G-Q5J1C2PTR2'], true);
 });
 
-test('only an unexpired, explicit stored analytics choice enables tracking', () => {
-    const valid = { version: '1.0', timestamp: new Date().toISOString(), analytics: true };
-    assert.equal(setup(valid).scripts.length, 1);
-    assert.equal(setup({ ...valid, analytics: 'true' }).scripts.length, 0);
-    const expired = setup({ ...valid, timestamp: '2020-01-01T00:00:00Z' });
-    assert.equal(expired.scripts.length, 0);
-    assert.ok(expired.elements.has('cookie-reject-optional'));
+test('old consent versions are not treated as an active choice', () => {
+    const previousVersion = setup({ version: '1.1', timestamp: new Date().toISOString(), analytics: false });
+    assert.equal(previousVersion.scripts.length, 0);
+    assert.ok(previousVersion.elements.has('cookie-reject-optional'));
 });
 
 test('storage failure blocks analytics and withdrawal in another tab stops tracking', () => {
     const blocked = setup(null, true);
-    blocked.elements.get('cookie-accept-all').click();
+    blocked.elements.get('cookie-reject-optional').click();
     assert.equal(blocked.scripts.length, 0);
     assert.equal(blocked.alerts, 1);
 
-    const page = setup({ version: '1.0', timestamp: new Date().toISOString(), analytics: true });
-    page.storage.setItem('cookie_consent', JSON.stringify({ version: '1.0', timestamp: new Date().toISOString(), analytics: false }));
+    const page = setup({ version: '1.2', timestamp: new Date().toISOString(), analytics: false });
+    page.storage.setItem('cookie_consent', JSON.stringify({ version: '1.2', timestamp: new Date().toISOString(), analytics: true }));
     page.events.storage({ key: 'cookie_consent' });
     assert.equal(page.window['ga-disable-G-Q5J1C2PTR2'], true);
-    assert.equal(page.reloads, 1);
+    assert.equal(page.scripts.length, 0);
 });
 
 test('clearing consent in another tab displays the selection again', () => {
-    const page = setup({ version: '1.0', timestamp: new Date().toISOString(), analytics: false });
+    const page = setup({ version: '1.2', timestamp: new Date().toISOString(), analytics: false });
     assert.equal(page.elements.has('cookie-consent-banner'), false);
     page.storage.removeItem('cookie_consent');
     page.events.storage({ key: 'cookie_consent' });

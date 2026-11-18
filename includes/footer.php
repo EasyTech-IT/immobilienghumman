@@ -127,7 +127,7 @@
 <script src="<?= BASE ?>/js/enhancements.js" defer></script>
 
 <!-- Cookie Consent -->
-<script src="<?= BASE ?>/js/cookie-consent.js" defer></script>
+<script src="<?= BASE ?>/js/cookie-consent.js?v=<?= (int)@filemtime(__DIR__ . '/../js/cookie-consent.js') ?>" defer></script>
 
 <!-- Gemeinsames JS + Favoriten -->
 <script src="<?= BASE ?>/immobilien-script.js" defer></script>
@@ -139,8 +139,7 @@
     <script>
         window.TURNSTILE_SITE_KEY = <?= json_encode(TURNSTILE_SITE_KEY, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
     </script>
-    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
-    <script src="<?= BASE ?>/js/contact-turnstile.js" defer></script>
+    <script src="<?= BASE ?>/js/contact-turnstile.js?v=<?= (int)@filemtime(__DIR__ . '/../js/contact-turnstile.js') ?>" defer></script>
 <?php endif; ?>
 
 <?php if (!empty($extraScripts)) echo $extraScripts; ?>

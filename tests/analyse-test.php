@@ -75,6 +75,6 @@ $delivery = analyse_send_notifications(
         return true;
     }
 );
-expect_analysis($calls === ['internal@example.invalid', 'info@easytechit.de', 'sender@example.invalid'], 'Unexpected recipients or missing delivery attempt');
-expect_analysis($delivery === ['admin' => false, 'partner' => true, 'confirmation' => true], 'Delivery failure not surfaced');
+expect_analysis($calls === ['internal@example.invalid', 'sender@example.invalid'], 'Unexpected recipients or missing delivery attempt');
+expect_analysis($delivery === ['admin' => false, 'confirmation' => true], 'Delivery failure not surfaced');
 echo "Analyse tests passed.\n";

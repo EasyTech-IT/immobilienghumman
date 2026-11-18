@@ -1,6 +1,6 @@
 ﻿<?php
 $pageTitle       = 'Impressum | Immobilien Ghumman';
-$pageDescription = 'Impressum von Immobilien Ghumman – Angaben gemäß § 5 TMG. Immobilienmakler in Bad Vilbel.';
+$pageDescription = 'Impressum von Immobilien Ghumman – Angaben gemäß § 5 DDG. Immobilienmakler in Bad Vilbel.';
 $pageKeywords    = 'Impressum, Immobilien Ghumman, Bad Vilbel';
 $activeNav       = '';
 $extraHead       = '<style>
@@ -36,7 +36,7 @@ require_once __DIR__ . '/includes/header.php';
             <!-- Header -->
             <div class="legal-header">
                 <h1>Impressum</h1>
-                <p class="subtitle">Angaben gemäß § 5 TMG und § 18 Abs. 2 MStV</p>
+                <p class="subtitle">Angaben gemäß § 5 DDG und § 18 Abs. 2 MStV</p>
             </div>
 
             <!-- Deutsche Version -->
@@ -67,6 +67,11 @@ require_once __DIR__ . '/includes/header.php';
                             <i class="fas fa-map-marker-alt"></i>
                         </a>
                     </div>
+                </div>
+
+                <div class="info-box">
+                    <p><strong>Inhaltlich verantwortlich gemäß § 18 Abs. 2 MStV:</strong></p>
+                    <p>Nasir Ghumman<br>Homburger Str. 100<br>61118 Bad Vilbel</p>
                 </div>
 
                 <!-- Steuerliche Angaben -->
@@ -133,35 +138,20 @@ require_once __DIR__ . '/includes/header.php';
                 </h2>
                 <p>Wir sind nicht bereit oder verpflichtet, an Streitbeilegungsverfahren vor einer
                     Verbraucherschlichtungsstelle teilzunehmen.</p>
-                <div class="info-box">
-                    <p><strong>Plattform der EU-Kommission zur Online-Streitbeilegung (OS):</strong></p>
-                    <p><a href="https://ec.europa.eu/consumers/odr" target="_blank" rel="noopener noreferrer"
-                            class="text-brand-link">https://ec.europa.eu/consumers/odr</a></p>
-                </div>
-
                 <!-- Haftungsausschluss -->
                 <h2><i class="fas fa-exclamation-triangle"></i> Haftungsausschluss</h2>
 
                 <h3>Haftung für Inhalte</h3>
-                <p>Als Diensteanbieter sind wir gemäß § 7 Abs.1 TMG für eigene Inhalte auf diesen Seiten nach den
-                    allgemeinen Gesetzen verantwortlich. Nach §§ 8 bis 10 TMG sind wir als Diensteanbieter jedoch
-                    nicht verpflichtet, übermittelte oder gespeicherte fremde Informationen zu überwachen oder nach
-                    Umständen zu forschen, die auf eine rechtswidrige Tätigkeit hinweisen.</p>
-                <p>Verpflichtungen zur Entfernung oder Sperrung der Nutzung von Informationen nach den allgemeinen
-                    Gesetzen bleiben hiervon unberührt. Eine diesbezügliche Haftung ist jedoch erst ab dem Zeitpunkt
-                    der Kenntnis einer konkreten Rechtsverletzung möglich. Bei Bekanntwerden von entsprechenden
-                    Rechtsverletzungen werden wir diese Inhalte umgehend entfernen.</p>
+                <p>Für eigene Inhalte auf diesen Seiten gelten die allgemeinen gesetzlichen Vorschriften.
+                    Gesetzliche Pflichten zur Entfernung oder Sperrung rechtswidriger Inhalte bleiben unberührt.
+                    Sobald uns eine konkrete Rechtsverletzung bekannt wird, prüfen wir den Sachverhalt und entfernen
+                    oder sperren den betreffenden Inhalt im erforderlichen Umfang.</p>
 
                 <h3>Haftung für Links</h3>
-                <p>Unser Angebot enthält Links zu externen Websites Dritter, auf deren Inhalte wir keinen Einfluss
-                    haben. Deshalb können wir für diese fremden Inhalte auch keine Gewähr übernehmen. Für die
-                    Inhalte der verlinkten Seiten ist stets der jeweilige Anbieter oder Betreiber der Seiten
-                    verantwortlich. Die verlinkten Seiten wurden zum Zeitpunkt der Verlinkung auf mögliche
-                    Rechtsverstöße überprüft. Rechtswidrige Inhalte waren zum Zeitpunkt der Verlinkung nicht
-                    erkennbar.</p>
-                <p>Eine permanente inhaltliche Kontrolle der verlinkten Seiten ist jedoch ohne konkrete
-                    Anhaltspunkte einer Rechtsverletzung nicht zumutbar. Bei Bekanntwerden von Rechtsverletzungen
-                    werden wir derartige Links umgehend entfernen.</p>
+                <p>Diese Website enthält Links zu externen Websites. Auf deren Inhalte haben wir keinen
+                    redaktionellen Einfluss. Für Inhalte externer Seiten ist grundsätzlich deren jeweiliger
+                    Betreiber verantwortlich. Bei konkreten Hinweisen auf Rechtsverletzungen prüfen wir den
+                    betreffenden Link und entfernen ihn gegebenenfalls.</p>
 
                 <h3>Urheberrecht</h3>
                 <p>Die durch die Seitenbetreiber erstellten Inhalte und Werke auf diesen Seiten unterliegen dem

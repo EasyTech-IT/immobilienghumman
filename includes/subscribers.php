@@ -45,6 +45,30 @@ function subscribers_ensure_tables(PDO $pdo): void
     $done = true;
 }
 
+function subscribers_cleanup_expired(PDO $pdo): int
+{
+    subscribers_ensure_tables($pdo);
+
+    $ageLimit = "DATE_SUB(NOW(), INTERVAL 3 MONTH)";
+    $expired = "(status = 'pending' AND consent_at < $ageLimit)
+        OR (status = 'unsubscribed' AND unsubscribed_at < $ageLimit)";
+
+    $notificationsDeleted = $pdo->exec("DELETE n FROM property_notifications n
+        INNER JOIN subscribers s ON s.id = n.subscriber_id
+        WHERE (s.status = 'pending' AND s.consent_at < $ageLimit)
+           OR (s.status = 'unsubscribed' AND s.unsubscribed_at < $ageLimit)");
+    if ($notificationsDeleted === false) {
+        throw new RuntimeException('Expired newsletter notification cleanup failed.');
+    }
+
+    $deleted = $pdo->exec("DELETE FROM subscribers WHERE $expired");
+    if ($deleted === false) {
+        throw new RuntimeException('Expired newsletter subscriber cleanup failed.');
+    }
+
+    return $deleted;
+}
+
 function subscribers_token(): string
 {
     return bin2hex(random_bytes(24));

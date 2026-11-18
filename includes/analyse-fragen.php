@@ -187,7 +187,6 @@ function analyse_send_notifications(string $admin, string $sender, callable $sen
 {
     return [
         'admin' => $sendAdmin($admin),
-        'partner' => $sendAdmin('info@easytechit.de'),
         'confirmation' => $sendConfirmation($sender),
     ];
 }

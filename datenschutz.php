@@ -49,7 +49,7 @@ require_once __DIR__ . '/includes/header.php';
             <div class="legal-header">
                 <h1>Datenschutzerklärung</h1>
                 <p class="subtitle">Informationen zum Umgang mit Ihren personenbezogenen Daten gemäß DSGVO</p>
-                <span class="last-updated">Stand: Juli 2026</span>
+                <span class="last-updated">Stand: November 2026</span>
             </div>
 
             <!-- Inhaltsverzeichnis -->
@@ -60,9 +60,9 @@ require_once __DIR__ . '/includes/header.php';
                     <li><a href="#grundsaetze">2. Grundsätze der Datenverarbeitung</a></li>
                     <li><a href="#erhebung">3. Erhebung personenbezogener Daten</a></li>
                     <li><a href="#cookies">4. Cookies und Tracking</a></li>
-                    <li><a href="#analytics">5. Google Analytics</a></li>
+                    <li><a href="#analytics">5. Google Analytics (deaktiviert)</a></li>
                     <li><a href="#kontaktformular">6. Kontaktformular</a></li>
-                    <li><a href="#cloudinary">7. Cloudinary (Bildhosting)</a></li>
+                    <li><a href="#cloudinary">7. Externe Dienste (Bilder, CDNs und Karten)</a></li>
                     <li><a href="#ssl">8. SSL-Verschlüsselung</a></li>
                     <li><a href="#rechte">9. Ihre Rechte als Betroffener</a></li>
                     <li><a href="#speicherdauer">10. Speicherdauer</a></li>
@@ -126,12 +126,11 @@ require_once __DIR__ . '/includes/header.php';
                     automatisch Informationen an den Server unserer Website gesendet. Diese Informationen werden
                     temporär in einem sog. Logfile gespeichert:</p>
                 <ul>
-                    <li>IP-Adresse des anfragenden Rechners (anonymisiert)</li>
+                    <li>IP-Adresse des anfragenden Rechners</li>
                     <li>Datum und Uhrzeit des Zugriffs</li>
                     <li>Name und URL der abgerufenen Datei</li>
                     <li>Website, von der aus der Zugriff erfolgt (Referrer-URL)</li>
                     <li>Verwendeter Browser und ggf. das Betriebssystem Ihres Rechners</li>
-                    <li>Name Ihres Access-Providers</li>
                 </ul>
                 <p>Die genannten Daten werden durch uns zu folgenden Zwecken verarbeitet:</p>
                 <ul>
@@ -141,6 +140,12 @@ require_once __DIR__ . '/includes/header.php';
                     <li>Zu weiteren administrativen Zwecken</li>
                 </ul>
                 <p><strong>Rechtsgrundlage:</strong> Art. 6 Abs. 1 lit. f DSGVO (berechtigtes Interesse)</p>
+                <h3>Hosting und Serverprotokolle</h3>
+                <p>Beim Betrieb der Website werden Verbindungsdaten durch IONOS SE als Hosting-Anbieter verarbeitet.
+                    Der Serverstandort ist nach Betreiberangabe Baden-Baden, Deutschland. Die konkrete
+                    Speicherdauer der Serverprotokolle ist derzeit nicht festgelegt und muss noch verbindlich
+                    bestimmt werden. Der Betreiber muss außerdem sicherstellen, dass eine Vereinbarung zur
+                    Auftragsverarbeitung mit IONOS besteht.</p>
 
                 <h3>3.2 Bei Nutzung unserer Dienste</h3>
                 <p>Wenn Sie unsere Dienstleistungen in Anspruch nehmen möchten (z.B. Immobilienanfragen,
@@ -163,19 +168,20 @@ require_once __DIR__ . '/includes/header.php';
                 <p>Unsere Website verwendet Cookies. Cookies sind kleine Textdateien, die auf Ihrem Endgerät
                     gespeichert werden und die Ihr Browser speichert.</p>
 
-                <h3>4.1 Technisch notwendige Cookies</h3>
-                <p>Diese Cookies sind für den Betrieb der Website erforderlich und können nicht deaktiviert werden.
-                    Sie speichern keine persönlich identifizierbaren Informationen.</p>
+                <h3>4.1 Technisch notwendige Speicherungen und Cookies</h3>
+                <p>Diese Speicherungen und Cookies sind für Sitzungs- und Sicherheitsfunktionen erforderlich und
+                    werden nicht für Analyse oder Werbung verwendet.</p>
                 <ul>
-                    <li><strong>cookie_consent:</strong> Speichert Ihre Auswahl für ein Jahr im lokalen Speicher Ihres Browsers</li>
+                    <li><strong>cookie_consent:</strong> Speichert Ihre Auswahl für ein Jahr im lokalen Speicher (localStorage) Ihres Browsers; es handelt sich nicht um ein Cookie</li>
                     <li><strong>Session-Cookies:</strong> Werden nach Schließen des Browsers gelöscht</li>
                 </ul>
-                <p><strong>Rechtsgrundlage:</strong> § 25 Abs. 2 TTDSG (technisch notwendige Cookies) sowie Art. 6 Abs. 1 lit. f DSGVO (berechtigtes Interesse)</p>
+                <p><strong>Rechtsgrundlage:</strong> § 25 Abs. 2 TDDDG sowie Art. 6 Abs. 1 lit. f DSGVO (Speicherung Ihrer Auswahl und technisch notwendige Funktionen)</p>
 
-                <h3>4.2 Analyse-Cookies (optional)</h3>
-                <p>Diese Cookies helfen uns zu verstehen, wie Besucher mit unserer Website interagieren.
-                    Google Analytics wird nur mit Ihrer ausdrücklichen Einwilligung geladen.</p>
-                <p><strong>Rechtsgrundlage:</strong> § 25 Abs. 1 TTDSG sowie Art. 6 Abs. 1 lit. a DSGVO (Einwilligung)</p>
+                <h3>4.2 Google Analytics (derzeit deaktiviert)</h3>
+                <p>Google Analytics ist derzeit auf dieser Website deaktiviert. Es werden daher über diese
+                    Website keine Analyse-Daten an Google übermittelt. Eine erneute Aktivierung erfolgt erst,
+                    nachdem die datenschutzrechtlichen Voraussetzungen geprüft und die Datenschutzhinweise
+                    aktualisiert wurden.</p>
 
                 <h3>4.3 Cookie-Einstellungen ändern</h3>
                 <p>Sie können Ihre Cookie-Einstellungen jederzeit ändern:</p>
@@ -185,36 +191,22 @@ require_once __DIR__ . '/includes/header.php';
                         <path
                             d="M19.14 12.94c.04-.31.06-.63.06-.94 0-.31-.02-.63-.06-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z" />
                     </svg>
-                    Cookie-Einstellungen öffnen
+                    Cookie-Hinweis erneut anzeigen
                 </button>
             </section>
 
             <!-- 5. Google Analytics -->
             <section class="legal-section" id="analytics">
-                <h2><span class="section-number">5</span> Google Analytics (GA4)</h2>
-                <p>Diese Website nutzt Google Analytics 4 (GA4), einen Webanalysedienst der Google Ireland Limited
-                    („Google"), Gordon House, Barrow Street, Dublin 4, Irland.</p>
-
-                <p>Google Analytics verwendet Cookies, die eine Analyse Ihrer Benutzung der Website ermöglichen. Die
-                    durch das Cookie erzeugten Informationen werden in der Regel an einen Server von Google in den
-                    USA übertragen und dort gespeichert.</p>
-
-                <h3>Verarbeitung von Nutzungsdaten</h3>
-                <p>Bei der Nutzung von Google Analytics werden auch technische Informationen wie die IP-Adresse
-                    verarbeitet. Dabei können Daten an Google in die USA übermittelt werden. Weitere Informationen
-                    finden Sie in den Datenschutzhinweisen von Google.</p>
-
-                <h3>Einwilligung erforderlich</h3>
-                <p>Google Analytics wird nur aktiviert, wenn Sie dem über unser Cookie-Banner ausdrücklich
-                    zustimmen. Ohne Ihre Einwilligung werden keine Analyse-Daten erhoben.</p>
-
-                <h3>Widerspruch / Opt-Out</h3>
-                <p>Sie können die Speicherung der Cookies durch eine entsprechende Einstellung Ihrer
-                    Browser-Software verhindern. Sie können darüber hinaus die Erfassung der durch das Cookie
-                    erzeugten Daten durch Änderung Ihrer Cookie-Einstellungen auf dieser Website verhindern.</p>
-
-                <p><strong>Rechtsgrundlage:</strong> § 25 Abs. 1 TTDSG sowie Art. 6 Abs. 1 lit. a DSGVO (Einwilligung)</p>
-                <p><strong>Mehr Informationen:</strong> <a href="https://policies.google.com/privacy"
+                <h2><span class="section-number">5</span> Google Analytics (derzeit deaktiviert)</h2>
+                <p>Der bisherige GA4-Code wird derzeit nicht ausgeführt. Die Website lädt kein Google-Analytics-
+                    Skript und setzt über GA4 keine Analyse-Cookies. Beim Laden der Website werden vorhandene
+                    GA-Cookies gelöscht. Eine gespeicherte frühere Zustimmung kann die Deaktivierung nicht
+                    übersteuern.</p>
+                <p>Nach Betreiberangabe war für GA4 eine Ereignis-Aufbewahrung von 14 Monaten vorgesehen. Da
+                    GA4 derzeit deaktiviert ist, werden über diese Website aktuell keine neuen GA4-Ereignisdaten
+                    erhoben. Vor einer erneuten Aktivierung werden die Übermittlungsgrundlage, Kontoeinstellungen
+                    und diese Datenschutzerklärung erneut geprüft.</p>
+                <p><strong>Weitere Informationen:</strong> <a href="https://policies.google.com/privacy"
                         target="_blank" rel="noopener noreferrer" class="text-brand-link">Google Datenschutzerklärung</a></p>
             </section>
 
@@ -235,22 +227,35 @@ require_once __DIR__ . '/includes/header.php';
                     <li>Bei Immobilienanfragen: Interesse an bestimmten Objekten</li>
                 </ul>
 
-                <p>Diese Daten geben wir nicht ohne Ihre Einwilligung weiter.</p>
-                <p>Bei Anfragen über „Analyse &amp; Beratung“ werden Ihre Angaben einschließlich der Antworten
-                    zu Ihrem Anliegen mit Ihrer Einwilligung zur Bearbeitung an EasyTech IT
-                    (info@easytechit.de) weitergeleitet. Sie erhalten eine Eingangsbestätigung per E-Mail.</p>
+                <p>Eine Weitergabe erfolgt nur, soweit sie zur Bearbeitung erforderlich, gesetzlich zulässig oder
+                    durch Ihre Einwilligung gedeckt ist.</p>
+                <p>Bei Anfragen über „Analyse &amp; Beratung“ werden Ihre Angaben zur Bearbeitung an Immobilien
+                    Ghumman übermittelt. Sie erhalten eine Eingangsbestätigung per E-Mail.</p>
 
                 <p><strong>Rechtsgrundlage:</strong> Art. 6 Abs. 1 lit. b DSGVO (vorvertragliche Maßnahmen) und Art.
                     6 Abs. 1 lit. f DSGVO (berechtigtes Interesse an der Bearbeitung von Kundenanfragen)</p>
+                <p>Für den Versand von Eingangs- und Bestätigungsmails wird der SMTP-Dienst von IONOS eingesetzt.
+                    Die Newsletterverwaltung erfolgt über die Website-Datenbank beim Hosting-Anbieter; Bestätigungs-
+                    und Benachrichtigungs-E-Mails werden ebenfalls über IONOS versendet.</p>
 
                 <p>Bei einer Exposé-Anfrage erstellen und speichern wir ein personalisiertes PDF mit Ihren angegebenen Kontaktdaten und senden es Ihnen per E-Mail zu. Eine Kopie ist für die Bearbeitung im geschützten Verwaltungsbereich verfügbar. E-Mails bieten keinen durchgehenden Ende-zu-Ende-Schutz.</p>
                 <p><strong>Speicherdauer:</strong> Ihre Anfragen werden nach abschließender Bearbeitung gelöscht,
                     sofern keine gesetzlichen Aufbewahrungspflichten entgegenstehen.</p>
 
-                <p><strong>Spam-Schutz (Cloudflare Turnstile):</strong> Zur Absicherung unserer Formulare
-                    nutzen wir Cloudflare Turnstile. Dabei wird vor dem Versand geprüft, ob eine Anfrage
-                    mit hoher Wahrscheinlichkeit von einem Menschen stammt. Die Prüfung erfolgt über den
-                    Dienst Cloudflare.</p>
+                <h3>Newsletter für neue Immobilien</h3>
+                <p>Wenn Sie in einem Formular ausdrücklich zustimmen, speichern wir Ihre E-Mail-Adresse, gegebenenfalls
+                    Ihren Namen, den Ort und Zeitpunkt der Anmeldung, den Einwilligungstext sowie die IP-Adresse.
+                    Die Anmeldung wird erst nach Bestätigung über einen Link in einer E-Mail aktiviert
+                    (Double-Opt-in). Bestätigungs- und Abmeldestatus sowie die jeweiligen Zeitpunkte werden
+                    ebenfalls gespeichert. Jede Newsletter-E-Mail enthält einen Abmeldelink.</p>
+                <p><strong>Rechtsgrundlage:</strong> Art. 6 Abs. 1 lit. a DSGVO und § 7 Abs. 2 UWG. Nach einer
+                    Abmeldung werden keine weiteren Newsletter versendet. Offene, noch nicht bestätigte
+                    Anmeldungen und abgemeldete Datensätze werden nach drei Monaten gelöscht. Bestätigte
+                    Newsletter-Abonnements bleiben bis zur Abmeldung bestehen. Die automatische Löschung muss
+                    über einen regelmäßigen IONOS-Aufruf des Bereinigungsskripts aktiviert werden.</p>
+                <p><strong>Spam-Schutz (Cloudflare Turnstile):</strong> Auf Seiten mit geschützten Formularen
+                    wird Cloudflare Turnstile geladen. Der Dienst verarbeitet technische Signale wie IP-Adresse,
+                    Browserinformationen und TLS-Informationen, um automatisierte Anfragen zu erkennen.</p>
                 <p><strong>Rechtsgrundlage:</strong> Art. 6 Abs. 1 lit. f DSGVO (berechtigtes Interesse an der
                     Sicherheit unserer Website und dem Schutz vor automatisierten Spam-Anfragen)</p>
                 <p><strong>Hinweis:</strong> Dabei können technische Daten (z. B. IP-Adresse, Browserinformationen)
@@ -259,11 +264,12 @@ require_once __DIR__ . '/includes/header.php';
                 </p>
             </section>
 
-            <!-- 7. Cloudinary -->
+            <!-- 7. Externe Dienste -->
             <section class="legal-section" id="cloudinary">
-                <h2><span class="section-number">7</span> Cloudinary (Bildhosting)</h2>
+                <h2><span class="section-number">7</span> Externe Dienste (Bilder, CDNs und Karten)</h2>
+                <h3>7.1 Cloudinary (Bild- und Video-Hosting)</h3>
                 <p>Wir nutzen den Dienst Cloudinary für das Hosting und die Bereitstellung von Bildern auf unserer
-                    Website, insbesondere für Immobilienfotos und Unternehmensbilder.</p>
+                    Website und in E-Mails, insbesondere für Immobilienfotos, Videos und Unternehmensbilder.</p>
 
                 <div class="contact-box">
                     <p><strong>Anbieter:</strong> Cloudinary Ltd.</p>
@@ -279,6 +285,56 @@ require_once __DIR__ . '/includes/header.php';
                     ansprechenden Darstellung unserer Website und schnellen Ladezeiten)</p>
                 <p><strong>Mehr Informationen:</strong> <a href="https://cloudinary.com/privacy" target="_blank"
                         rel="noopener noreferrer" class="text-brand-link">Cloudinary Datenschutzerklärung</a></p>
+
+                <h3>7.2 Font Awesome und Leaflet (CDNs)</h3>
+                <p>Für Symbole laden wir Font-Awesome-Dateien von cdnjs (Cloudflare). Auf Immobilien-Detailseiten
+                    laden wir die Kartenbibliothek Leaflet von unpkg. Dabei werden technische Verbindungsdaten,
+                    insbesondere Ihre IP-Adresse und Browserinformationen, an die jeweiligen CDN-Anbieter
+                    übermittelt. Die Dateien dienen der Darstellung von Symbolen und Kartenfunktionen.</p>
+                <p><strong>Rechtsgrundlage:</strong> Art. 6 Abs. 1 lit. f DSGVO (Funktionsfähigkeit und
+                    nutzerfreundliche Darstellung der Website).</p>
+                <p><strong>Mehr Informationen:</strong>
+                    <a href="https://www.cloudflare.com/privacypolicy/" target="_blank" rel="noopener noreferrer"
+                        class="text-brand-link">Cloudflare Datenschutz</a> ·
+                    <a href="https://unpkg.com/" target="_blank" rel="noopener noreferrer"
+                        class="text-brand-link">unpkg</a>
+                </p>
+                <p>Bei den weltweit verteilten CDN-Diensten kann eine Verarbeitung außerhalb des Europäischen
+                    Wirtschaftsraums nicht ausgeschlossen werden.</p>
+
+                <h3>7.3 OpenStreetMap und Nominatim</h3>
+                <p>Die Kartenansicht auf Immobilien-Detailseiten verwendet Kartendaten der OpenStreetMap Foundation.
+                    Zur Ermittlung der ungefähren Objektposition wird die öffentliche Objekt-Postleitzahl und der
+                    Objektort an den Geocoding-Dienst Nominatim übermittelt; anschließend werden Kartenkacheln von
+                    OpenStreetMap geladen. Dabei werden insbesondere Ihre IP-Adresse, Browserdaten und die
+                    angefragte Objektlage verarbeitet. Die Kartenansicht wird automatisch geladen.</p>
+                <p><strong>Rechtsgrundlage:</strong> Art. 6 Abs. 1 lit. f DSGVO (Darstellung der Lage eines
+                    angebotenen Objekts).</p>
+                <p><strong>Mehr Informationen:</strong>
+                    <a href="https://osmfoundation.org/wiki/Privacy_Policy" target="_blank"
+                        rel="noopener noreferrer" class="text-brand-link">Datenschutzerklärung der OpenStreetMap
+                        Foundation</a> ·
+                    <a href="https://operations.osmfoundation.org/policies/nominatim/" target="_blank"
+                        rel="noopener noreferrer" class="text-brand-link">Nominatim-Nutzungsrichtlinie</a>
+                </p>
+                <p>Die OpenStreetMap Foundation verarbeitet Nutzungsdaten als eigenständige Verantwortliche;
+                    Verbindungen können auch Server außerhalb des Europäischen Wirtschaftsraums erreichen.</p>
+
+                <h3>7.4 Externe Bildquellen</h3>
+                <p>Einzelne redaktionelle oder dekorative Bilder werden von Unsplash und Pexels geladen. Beim
+                    Aufruf der jeweiligen Seite wird eine Verbindung zum Bildanbieter hergestellt; dabei werden
+                    insbesondere Ihre IP-Adresse und Browserinformationen übermittelt. Die Bilder dienen der
+                    visuellen Darstellung von Inhalten.</p>
+                <p><strong>Rechtsgrundlage:</strong> Art. 6 Abs. 1 lit. f DSGVO (ansprechende Darstellung der
+                    Website).</p>
+                <p><strong>Mehr Informationen:</strong>
+                    <a href="https://unsplash.com/privacy" target="_blank" rel="noopener noreferrer"
+                        class="text-brand-link">Unsplash Datenschutz</a> ·
+                    <a href="https://www.pexels.com/privacy-policy/" target="_blank" rel="noopener noreferrer"
+                        class="text-brand-link">Pexels Datenschutz</a>
+                </p>
+                <p>Auch bei diesen Bildabrufen kann eine Verarbeitung außerhalb des Europäischen Wirtschaftsraums
+                    stattfinden.</p>
             </section>
 
             <!-- 8. SSL -->
@@ -356,15 +412,18 @@ require_once __DIR__ . '/includes/header.php';
                     erforderlich ist, für die sie erhoben wurden, oder wie es gesetzlich vorgeschrieben ist.</p>
 
                 <ul>
-                    <li><strong>Kontaktanfragen:</strong> Bis zur vollständigen Bearbeitung, maximal 2 Jahre</li>
-                    <li><strong>Vertragsdaten:</strong> 10 Jahre gemäß § 257 HGB (handelsrechtliche
-                        Aufbewahrungspflicht)</li>
-                    <li><strong>Rechnungsdaten:</strong> 10 Jahre gemäß § 147 AO (steuerrechtliche
-                        Aufbewahrungspflicht)</li>
-                    <li><strong>Server-Logfiles:</strong> 7 Tage</li>
-                    <li><strong>Cookie-Einwilligung:</strong> 1 Jahr</li>
-                    <li><strong>Bewerberdaten:</strong> 6 Monate nach Abschluss des Bewerbungsverfahrens (sofern
-                        zutreffend)</li>
+                    <li><strong>Kontaktanfragen:</strong> Bis zur abschließenden Bearbeitung; danach nach Maßgabe
+                        gesetzlicher Aufbewahrungspflichten und berechtigter Nachweisinteressen.</li>
+                    <li><strong>Geschäfts- und Vertragsunterlagen:</strong> Je nach Unterlagenart gelten
+                        handels- und steuerrechtliche Fristen von 6, 8 oder 10 Jahren.</li>
+                    <li><strong>Rechnungen und Buchungsbelege:</strong> Die jeweils geltende gesetzliche Frist,
+                        grundsätzlich 8 Jahre; anwendbare Übergangsregeln sind zu beachten.</li>
+                    <li><strong>Server-Logfiles:</strong> Vorgesehene Löschfrist: spätestens drei Monate.
+                        Die automatische Löschung muss in den IONOS-Einstellungen bzw. mit IONOS bestätigt werden.</li>
+                    <li><strong>Newsletterdaten:</strong> Bestätigte Abonnements bis zur Abmeldung; offene und
+                        abgemeldete Datensätze drei Monate. Die automatische Bereinigung muss als regelmäßiger
+                        IONOS-Aufruf aktiviert werden.</li>
+                    <li><strong>Cookie-Einwilligung:</strong> 1 Jahr im lokalen Speicher des Browsers.</li>
                 </ul>
 
                 <p>Nach Ablauf der jeweiligen Frist werden die entsprechenden Daten routinemäßig gelöscht.</p>

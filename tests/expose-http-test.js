@@ -15,9 +15,10 @@ function write(name, content) {
     fs.writeFileSync(target, content);
     created.push(target);
 }
-for (const name of ['api/contact.php', 'api/auth_helper.php', 'admin/_auth_check.php', 'admin/expose-download.php', 'includes/expose-pdf.php', 'includes/inquiry-mail.php', 'includes/analyse-fragen.php']) {
+for (const name of ['api/contact.php', 'admin/_auth_check.php', 'admin/expose-download.php', 'includes/expose-pdf.php', 'includes/inquiry-mail.php', 'includes/analyse-fragen.php']) {
     write(name, fs.readFileSync(path.join(root, name)));
 }
+write('api/auth_helper.php', '<?php function ensure_admin_auth_versioning(PDO $pdo): bool { return true; }');
 write('vendor/autoload.php', '<?php require getenv("TEST_AUTOLOAD");');
 write('includes/config.php', `<?php
 session_save_path(getenv('TEST_SESSION_DIR'));
@@ -61,15 +62,15 @@ function db(): PDO {
     $db->exec('PRAGMA foreign_keys = ON');
     $db->exec('CREATE TABLE IF NOT EXISTS rate_limits (ip_address TEXT, action TEXT, hit_count INTEGER, window_start TEXT)');
     $db->exec('CREATE TABLE IF NOT EXISTS contact_inquiries (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, email TEXT, phone TEXT, message TEXT, property_id INTEGER, ip_address TEXT, status TEXT DEFAULT "new", created_at TEXT)');
-    $db->exec('CREATE TABLE IF NOT EXISTS admin_users (id INTEGER PRIMARY KEY, username TEXT, role TEXT, is_active INTEGER)');
-    $db->exec("INSERT OR IGNORE INTO admin_users VALUES (1, 'test', 'admin', 1)");
+    $db->exec('CREATE TABLE IF NOT EXISTS admin_users (id INTEGER PRIMARY KEY, username TEXT, role TEXT, is_active INTEGER, auth_version INTEGER NOT NULL DEFAULT 0)');
+    $db->exec("INSERT OR IGNORE INTO admin_users VALUES (1, 'test', 'admin', 1, 0)");
     $db->exec('CREATE TABLE IF NOT EXISTS properties (id INTEGER PRIMARY KEY, title TEXT, slug TEXT, status TEXT, type TEXT, offer_type TEXT, price REAL, location TEXT, zip TEXT, address TEXT, description TEXT, features TEXT, extra_data TEXT, images TEXT, main_image TEXT)');
     $db->exec("INSERT OR IGNORE INTO properties VALUES (1, 'Testwohnung', 'testwohnung', 'available', 'Wohnung', 'Kauf', 200000, 'Musterstadt', '12345', 'Musterweg 1', 'Testbeschreibung', '[]', '{}', '[]', '')");
     $db->exec("INSERT OR IGNORE INTO properties VALUES (2, 'Fehlerobjekt', 'fehlerobjekt', 'available', 'Wohnung', 'Kauf', 200000, 'Musterstadt', '12345', '', '', '[]', '{}', '[\\"https://example.test/invalid.jpg\\"]', '')");
     return $db;
 }
 `);
-write('test-login.php', '<?php require "includes/config.php"; $_SESSION["admin_id"] = 1; echo "ok";');
+write('test-login.php', '<?php require "includes/config.php"; $_SESSION["admin_id"] = 1; $_SESSION["admin_auth_version"] = 0; echo "ok";');
 write('test-status.php', '<?php require "includes/db.php"; echo json_encode(db()->query("SELECT inquiry_id, delivery_status FROM expose_requests ORDER BY inquiry_id")->fetchAll());');
 
 async function unusedPort() {

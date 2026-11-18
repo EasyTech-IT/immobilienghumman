@@ -7,10 +7,9 @@
     'use strict';
 
     const CONSENT_KEY = 'cookie_consent';
-    const CONSENT_VERSION = '1.0';
+    const CONSENT_VERSION = '1.2';
     const CONSENT_MAX_AGE = 365 * 24 * 60 * 60 * 1000;
     const ANALYTICS_ID = 'G-Q5J1C2PTR2';
-    let analyticsStarted = false;
     let hideTimer;
 
     // Consent-Status abrufen
@@ -20,7 +19,7 @@
             if (consent) {
                 const parsed = JSON.parse(consent);
                 const age = Date.now() - Date.parse(parsed.timestamp);
-                if (parsed.version === CONSENT_VERSION && age >= 0 && age < CONSENT_MAX_AGE) {
+                if (parsed.version === CONSENT_VERSION && parsed.analytics === false && age >= 0 && age < CONSENT_MAX_AGE) {
                     return parsed;
                 }
             }
@@ -31,13 +30,12 @@
     }
 
     // Consent speichern
-    function saveConsent(preferences) {
+    function saveConsent() {
         const consent = {
             version: CONSENT_VERSION,
             timestamp: new Date().toISOString(),
             necessary: true, // Immer erforderlich
-            analytics: preferences.analytics === true,
-            marketing: preferences.marketing === true
+            analytics: false
         };
         try {
             localStorage.setItem(CONSENT_KEY, JSON.stringify(consent));
@@ -62,32 +60,16 @@
         });
     }
 
-    function updateAnalytics(enabled) {
-        if (enabled === true) {
-            window['ga-disable-' + ANALYTICS_ID] = false;
-            if (analyticsStarted) return;
-            analyticsStarted = true;
-            window.dataLayer = window.dataLayer || [];
-            window.gtag = function () { window.dataLayer.push(arguments); };
-            window.gtag('js', new Date());
-            window.gtag('config', ANALYTICS_ID);
-            const script = document.createElement('script');
-            script.async = true;
-            script.src = 'https://www.googletagmanager.com/gtag/js?id=' + ANALYTICS_ID;
-            document.head.appendChild(script);
-        } else {
-            window['ga-disable-' + ANALYTICS_ID] = true;
-            clearAnalyticsCookies();
-        }
+    function updateAnalytics() {
+        window['ga-disable-' + ANALYTICS_ID] = true;
+        clearAnalyticsCookies();
     }
 
-    function applyConsent(preferences) {
-        const consent = saveConsent(preferences);
+    function applyConsent() {
+        const consent = saveConsent();
         if (!consent) return;
-        const reload = analyticsStarted && !consent.analytics;
-        updateAnalytics(consent.analytics);
-        if (reload) location.reload();
-        else hideBanner();
+        updateAnalytics();
+        hideBanner();
     }
 
     // Banner HTML erstellen
@@ -96,11 +78,6 @@
         if (existing) {
             clearTimeout(hideTimer);
             existing.style.animation = '';
-            const previous = getConsent();
-            if (previous) {
-                document.getElementById('cookie-analytics').checked = previous.analytics === true;
-                document.getElementById('cookie-marketing').checked = previous.marketing === true;
-            }
             return;
         }
         const banner = document.createElement('div');
@@ -109,8 +86,7 @@
             <div class="cookie-banner-content">
                 <div class="cookie-banner-text">
                     <h3>🍪 Cookie-Einstellungen</h3>
-                    <p>Wir verwenden Cookies, um Ihnen die bestmögliche Erfahrung auf unserer Website zu bieten. 
-                    Sie können wählen, welche Cookies Sie zulassen möchten.</p>
+                    <p>Google Analytics ist derzeit deaktiviert. Es werden keine Analyse-Daten an Google gesendet.</p>
                     <a href="${window.SITE_BASE || ''}/datenschutz.php" class="cookie-privacy-link">Datenschutzerklärung</a>
                 </div>
                 
@@ -122,33 +98,11 @@
                             <small>Erforderlich für grundlegende Funktionen</small>
                         </span>
                     </label>
-                    
-                    <label class="cookie-option">
-                        <input type="checkbox" id="cookie-analytics">
-                        <span class="cookie-option-text">
-                            <strong>Analyse</strong>
-                            <small>Google Analytics zur Reichweitenmessung</small>
-                        </span>
-                    </label>
-                    
-                    <label class="cookie-option">
-                        <input type="checkbox" id="cookie-marketing">
-                        <span class="cookie-option-text">
-                            <strong>Marketing</strong>
-                            <small>Für personalisierte Inhalte</small>
-                        </span>
-                    </label>
                 </div>
                 
                 <div class="cookie-buttons">
-                    <button type="button" class="cookie-btn cookie-btn-settings" id="cookie-reject-optional">
-                        Nur notwendige
-                    </button>
-                    <button type="button" class="cookie-btn cookie-btn-settings" id="cookie-save-selection">
-                        Auswahl speichern
-                    </button>
-                    <button type="button" class="cookie-btn cookie-btn-accept" id="cookie-accept-all">
-                        Alle akzeptieren
+                    <button type="button" class="cookie-btn cookie-btn-accept" id="cookie-reject-optional">
+                        Verstanden
                     </button>
                 </div>
             </div>
@@ -325,25 +279,8 @@
         if (!document.getElementById('cookie-consent-styles')) document.head.appendChild(style);
         document.body.appendChild(banner);
 
-        const previous = getConsent();
-        if (previous) {
-            document.getElementById('cookie-analytics').checked = !!previous.analytics;
-            document.getElementById('cookie-marketing').checked = !!previous.marketing;
-        }
-
-        // Event Listeners
-        document.getElementById('cookie-accept-all').addEventListener('click', function () {
-            applyConsent({ analytics: true, marketing: true });
-        });
-
         document.getElementById('cookie-reject-optional').addEventListener('click', function () {
-            applyConsent({ analytics: false, marketing: false });
-        });
-
-        document.getElementById('cookie-save-selection').addEventListener('click', function () {
-            const analytics = document.getElementById('cookie-analytics').checked;
-            const marketing = document.getElementById('cookie-marketing').checked;
-            applyConsent({ analytics, marketing });
+            applyConsent();
         });
     }
 
@@ -367,16 +304,13 @@
         const settingsButton = document.getElementById('cookieSettingsFloat');
         if (settingsButton) settingsButton.addEventListener('click', function () {
             createBanner();
-            document.getElementById('cookie-analytics').focus();
+            document.getElementById('cookie-reject-optional').focus();
         });
 
+        updateAnalytics();
         if (consent) {
-            // Consent vorhanden - Einstellungen anwenden
-            updateAnalytics(consent.analytics);
+            hideBanner();
         } else {
-            // Kein Consent - GA standardmäßig deaktivieren und Banner zeigen
-            updateAnalytics(false);
-
             // Warten bis DOM geladen ist
             if (document.readyState === 'loading') {
                 document.addEventListener('DOMContentLoaded', createBanner);
@@ -391,7 +325,7 @@
         show: createBanner,
         reset: function () {
             localStorage.removeItem(CONSENT_KEY);
-            updateAnalytics(false);
+            updateAnalytics();
             location.reload();
         },
         getStatus: getConsent
@@ -400,11 +334,8 @@
     window.addEventListener('storage', function (event) {
         if (event.key !== CONSENT_KEY && event.key !== null) return;
         const consent = getConsent();
-        const allowed = !!consent && consent.analytics === true;
-        const reload = analyticsStarted && !allowed;
-        updateAnalytics(allowed);
-        if (reload) location.reload();
-        else if (consent) hideBanner();
+        updateAnalytics();
+        if (consent) hideBanner();
         else createBanner();
     });
 

@@ -120,15 +120,20 @@
     }
 
     function boot() {
+        var needsTurnstile = Array.prototype.some.call(document.querySelectorAll('form'), function (form) {
+            return hasTurnstile(form) || !!form.querySelector('input[name="csrf_token"], input[name="form_type"]');
+        });
+        if (!needsTurnstile) return;
         if (init()) return;
-        var tries = 0;
-        var maxTries = 25;
-        var t = setInterval(function () {
-            tries += 1;
-            if (init() || tries >= maxTries) {
-                clearInterval(t);
-            }
-        }, 200);
+
+        var script = document.createElement('script');
+        script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js';
+        script.async = true;
+        script.addEventListener('load', init);
+        script.addEventListener('error', function () {
+            console.error('Cloudflare Turnstile konnte nicht geladen werden.');
+        });
+        document.head.appendChild(script);
     }
 
     if (document.readyState === 'loading') {

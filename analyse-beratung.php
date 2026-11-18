@@ -88,7 +88,7 @@ $escape = static fn($value) => htmlspecialchars((string)$value, ENT_QUOTES, 'UTF
                         </div>
                         <label class="analysis-consent">
                             <input type="checkbox" name="privacy_accept" value="1" required>
-                            <span>Ich stimme der Verarbeitung und Weiterleitung meiner Angaben an Immobilien Ghumman und EasyTech IT zur Bearbeitung meiner Anfrage gemäß der <a href="<?= BASE ?>/datenschutz" target="_blank" rel="noopener">Datenschutzerklärung</a> zu. *</span>
+                            <span>Ich stimme der Verarbeitung meiner Angaben durch Immobilien Ghumman zur Bearbeitung meiner Anfrage gemäß der <a href="<?= BASE ?>/datenschutz" target="_blank" rel="noopener">Datenschutzerklärung</a> zu. *</span>
                         </label>
                         <?php if (TURNSTILE_ENABLED): ?>
                             <div class="analysis-turnstile"><div class="cf-turnstile" data-sitekey="<?= $escape(TURNSTILE_SITE_KEY) ?>" data-theme="light"></div></div>
@@ -153,7 +153,7 @@ $escape = static fn($value) => htmlspecialchars((string)$value, ENT_QUOTES, 'UTF
                 <details><summary>Was kostet die Anfrage zur Immobilienbewertung?</summary><p>Ihre Anfrage und die erste Beratung sind kostenlos und unverbindlich. Den weiteren Ablauf besprechen wir persönlich mit Ihnen.</p></details>
                 <details><summary>Welche Angaben helfen bei der Bewertung?</summary><p>Art, Lage, Größe und Zustand der Immobilie sind wichtige Anhaltspunkte. Auch unbekannte Angaben können Sie im Formular auswählen.</p></details>
                 <details><summary>Erhalte ich sofort einen Immobilienwert?</summary><p>Nein. Wir prüfen Ihre Angaben und besprechen die nächsten Schritte persönlich mit Ihnen.</p></details>
-                <details><summary>Was passiert nach dem Absenden?</summary><p>Ihre Anfrage wird zur Bearbeitung an Immobilien Ghumman und EasyTech IT weitergeleitet. Sie erhalten eine Eingangsbestätigung per E-Mail.</p></details>
+                <details><summary>Was passiert nach dem Absenden?</summary><p>Ihre Anfrage wird von Immobilien Ghumman bearbeitet. Sie erhalten eine Eingangsbestätigung per E-Mail.</p></details>
                 <details><summary>Kann ich meine Antworten ändern?</summary><p>Ja. In der Übersicht vor dem Kontaktformular können Sie jede Antwort überprüfen und ändern.</p></details>
                 <details><summary>Ist die Bewertung ein Gutachten für Gericht oder Finanzamt?</summary><p>Eine persönliche Immobilienbewertung ersetzt nicht automatisch ein Verkehrswertgutachten. Teilen Sie uns den Anlass Ihrer Bewertung mit.</p></details>
             </div>

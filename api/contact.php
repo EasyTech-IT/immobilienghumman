@@ -354,7 +354,7 @@ if (in_array($action, ['inquiry', 'general']) && $method === 'POST') {
             static fn($to) => app_mail_html($to, 'Vielen Dank für Ihre Nachricht – ' . SITE_NAME, $confirmHtml)
         );
         if (in_array(false, $delivery, true)) {
-            error_log('Analyse-Mail fehlgeschlagen: intern=' . (int)$delivery['admin'] . ', Partner=' . (int)$delivery['partner'] . ', Bestätigung=' . (int)$delivery['confirmation']);
+            error_log('Analyse-Mail fehlgeschlagen: intern=' . (int)$delivery['admin'] . ', Bestätigung=' . (int)$delivery['confirmation']);
             http_response_code(503);
             echo json_encode([
                 'success' => false,
