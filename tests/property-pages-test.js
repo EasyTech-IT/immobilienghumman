@@ -70,6 +70,7 @@ assert(!rentalCard.includes('—'));
 const listeners = {};
 let requestedDetailUrl = '';
 let detailEnergyValue = null;
+let detailElectricityValue = null;
 const detailContent = { innerHTML: '' };
 const detailRoot = { setAttribute() {} };
 const detailLoading = { hidden: true };
@@ -162,7 +163,7 @@ const detailContext = vm.createContext({
                     images: [{ url: '/uploads/staged.jpg', virtual_staging: true }, { url: '/uploads/room.jpg' }],
                     features: ['Neubau', 'Erstbezug', 'Balkon', 'Einbauküche'],
                     extra_data: {
-                        building_year: 1980, plot_area: 800, residential_units: 4, energy_value_kind: 'bedarf', energy_value: detailEnergyValue, hide_exact_address: false, address_public_note: 'Geheime Adresse',
+                        building_year: 1980, plot_area: 800, residential_units: 4, energy_value_kind: 'bedarf', energy_value: detailEnergyValue, energy_value_electricity: detailElectricityValue, area_calculation_basis: 'WoFlV', hide_exact_address: false, address_public_note: 'Geheime Adresse',
                         location_description: 'Ruhige Lage nahe dem Bahnhof. '.repeat(30),
                         floorplans: [{ url: '/uploads/plan.png', name: 'Grundriss', label: 'Dachgeschoss W4' }, { url: '/uploads/plan.pdf', name: 'PDF' }],
                         documents: [{ url: '/uploads/dokument.jpg?version=1', name: 'Dokument' }]
@@ -188,6 +189,8 @@ detailWindow.loadPropertyDetails().then(() => {
     assert(detailContent.innerHTML.includes('pd-detail-fact'));
     assert(detailContent.innerHTML.includes('Grundstücksfläche'));
     assert(detailContent.innerHTML.includes('Wohneinheiten'));
+    assert(detailContent.innerHTML.includes('Berechnungsgrundlage Fläche'));
+    assert(detailContent.innerHTML.includes('WoFlV'));
     assert(detailContent.innerHTML.includes('Visualisierung / Einrichtungsbeispiel'));
     assert(detailContent.innerHTML.includes('Dachgeschoss W4'));
     assert(detailContent.innerHTML.includes('fa-kitchen-set'));
@@ -218,11 +221,15 @@ detailWindow.loadPropertyDetails().then(() => {
     assert.strictEqual(lightbox.style.display, 'none');
     detailWindow.location.pathname = '/immobilie/legacy-slug';
     detailEnergyValue = 0;
+    detailElectricityValue = 22;
     return detailWindow.loadPropertyDetails();
 }).then(() => {
     assert.strictEqual(requestedDetailUrl, '/api/properties.php?slug=legacy-slug');
     assert.strictEqual(detailWindow.location.pathname, '/immobilie/buedingen-wohnung-3-zimmer');
     assert(detailContent.innerHTML.includes('0 kWh/(m²·a)'));
+    assert(detailContent.innerHTML.includes('Endenergiebedarf Wärme'));
+    assert(detailContent.innerHTML.includes('Endenergiebedarf Strom'));
+    assert(detailContent.innerHTML.includes('22 kWh/(m²·a)'));
     console.log('Property page tests passed.');
 }).catch(error => {
     console.error(error);

@@ -15,6 +15,8 @@
 require_once __DIR__ . '/../includes/config.php';
 require_once __DIR__ . '/../includes/db.php';
 require_once __DIR__ . '/../includes/property-url.php';
+require_once __DIR__ . '/../includes/property-data.php';
+require_once __DIR__ . '/../includes/property-validation.php';
 require_once __DIR__ . '/auth_helper.php';
 
 header('Content-Type: application/json; charset=utf-8');
@@ -111,8 +113,7 @@ function row_to_property(array $row): array
 
     $row['address_public'] = (string)($row['location'] ?? '');
     $row['address'] = '';
-    $row['extra_data']['hide_exact_address'] = true;
-    unset($row['extra_data']['address_public_note'], $row['extra_data']['legacy_slugs']);
+    $row['extra_data'] = property_public_extra_data($row['extra_data']);
 
     return $row;
 }
@@ -255,6 +256,12 @@ if ($method === 'POST') {
     foreach ($required as $field) {
         if (empty($data[$field])) json_error("Pflichtfeld fehlt: $field");
     }
+    if (($data['status'] ?? 'available') === 'available') {
+        $extra = $data['extra_data'] ?? [];
+        if (is_string($extra)) $extra = decode_extra_data($extra);
+        $errors = property_listing_validation_errors(array_merge($data, is_array($extra) ? $extra : []), is_array($data['images'] ?? null) ? $data['images'] : []);
+        if ($errors) json_error(implode(' ', $errors), 422);
+    }
 
     $featured = !empty($data['featured']) || !empty($data['show_on_homepage']) ? 1 : 0;
 
@@ -336,9 +343,7 @@ if ($method === 'PUT') {
 
     $pdo = db();
     $hasExtraData = properties_has_extra_data($pdo);
-    $currentStmt = $pdo->prepare($hasExtraData
-        ? 'SELECT slug, title, extra_data FROM properties WHERE id = ? LIMIT 1'
-        : 'SELECT slug, title FROM properties WHERE id = ? LIMIT 1');
+    $currentStmt = $pdo->prepare('SELECT * FROM properties WHERE id = ? LIMIT 1');
     $currentStmt->execute([$id]);
     $current = $currentStmt->fetch();
     if (!$current) {
@@ -370,6 +375,15 @@ if ($method === 'PUT') {
             static fn($value): bool => is_string($value) && $value !== '' && $value !== $slug
         )));
         $data['extra_data'] = $incomingExtraData;
+    }
+    if (($data['status'] ?? $current['status']) === 'available' && ($current['status'] ?? '') !== 'available') {
+        $extra = $data['extra_data'] ?? $current['extra_data'] ?? [];
+        if (is_string($extra)) $extra = decode_extra_data($extra);
+        $listingData = array_merge($current, $data, is_array($extra) ? $extra : []);
+        $listingImages = $listingData['images'] ?? [];
+        if (is_string($listingImages)) $listingImages = decode_images($listingImages);
+        $errors = property_listing_validation_errors($listingData, is_array($listingImages) ? $listingImages : []);
+        if ($errors) json_error(implode(' ', $errors), 422);
     }
 
     $allowed = [

@@ -1,6 +1,7 @@
 <?php
 
 require_once __DIR__ . '/../vendor/autoload.php';
+require_once __DIR__ . '/private-expose.php';
 
 function expose_pdf_list($value): array
 {
@@ -68,6 +69,7 @@ function expose_pdf_image(string $url): string
 function expose_pdf_html(array $property, array $recipient): string
 {
     $e = expose_pdf_list($property['extra_data'] ?? []);
+    $private = expose_pdf_list($e['private_expose'] ?? []);
     $money = static fn($v): string => number_format((float)$v, 2, ',', '.') . ' €';
     $rent = strtolower((string)($property['offer_type'] ?? '')) === 'miete';
     $facts = [
@@ -84,6 +86,7 @@ function expose_pdf_html(array $property, array $recipient): string
         'Wohneinheiten' => $e['residential_units'] ?? '',
         'Zimmer' => $property['rooms'] ?? '',
         'Badezimmer' => $property['bathrooms'] ?? '',
+        'Berechnungsgrundlage Fläche' => $e['area_calculation_basis'] ?? '',
         'Gäste-WCs' => $e['guest_toilets'] ?? '',
         'Schlafzimmer' => $e['bedrooms'] ?? '',
         'Etage' => $e['floor'] ?? '',
@@ -103,7 +106,20 @@ function expose_pdf_html(array $property, array $recipient): string
         'Stellplatz' => $e['parking_info'] ?? '',
         'Anzahl Stellplätze' => $e['parking_spaces'] ?? '',
         'Stellplatztyp' => $e['parking_type'] ?? '',
+        'Vermietungsstand' => ['vacant' => 'Leerstehend', 'leased' => 'Vollständig vermietet', 'partially_leased' => 'Teilweise vermietet'][$private['rental_status'] ?? ''] ?? '',
+        'Jahresnettokaltmiete aktuell' => isset($private['current_annual_rent']) && $private['current_annual_rent'] !== '' ? $money($private['current_annual_rent']) : '',
+        'Jahresnettokaltmiete Soll' => isset($private['target_annual_rent']) && $private['target_annual_rent'] !== '' ? $money($private['target_annual_rent']) : '',
+        'Erbbaurecht' => ['yes' => 'Ja', 'no' => 'Nein', 'unknown' => 'Ungeklärt'][$private['leasehold_status'] ?? ''] ?? '',
+        'Erbbauzins jährlich' => isset($private['leasehold_annual_fee']) && $private['leasehold_annual_fee'] !== '' ? $money($private['leasehold_annual_fee']) : '',
+        'Restlaufzeit Erbbaurecht' => isset($private['leasehold_remaining_years']) ? $private['leasehold_remaining_years'] . ' Jahre' : '',
+        'Denkmalschutz' => ['yes' => 'Ja', 'no' => 'Nein', 'unknown' => 'Ungeklärt'][$private['monument_status'] ?? ''] ?? '',
+        'Baulasten / Rechte Dritter' => ['yes' => 'Ja', 'no' => 'Nein', 'unknown' => 'Ungeklärt'][$private['burdens_status'] ?? ''] ?? '',
+        'Erschließungsstand' => ['developed' => 'Erschlossen', 'partial' => 'Teilerschlossen', 'undeveloped' => 'Unerschlossen', 'unknown' => 'Ungeklärt'][$private['development_status'] ?? ''] ?? '',
+        'Ausrichtung / Garten' => $private['garden_orientation'] ?? '',
     ];
+    if (!empty($private['current_annual_rent']) && (float)($property['price'] ?? 0) > 0) {
+        $facts['Bruttomietrendite (Ist)'] = number_format((float)$private['current_annual_rent'] / (float)$property['price'] * 100, 2, ',', '.') . ' %';
+    }
     if (!empty($e['commission_required']) && isset($e['commission_amount']) && $e['commission_amount'] !== '') {
         $facts['Provision'] = ($e['commission_unit'] ?? 'percent') === 'eur'
             ? $money($e['commission_amount']) : str_replace('.', ',', (string)$e['commission_amount']) . ' %';
@@ -113,6 +129,7 @@ function expose_pdf_html(array $property, array $recipient): string
     $energy = [
         'Energieausweis' => ['verbrauchsausweis' => 'Verbrauchsausweis', 'bedarfsausweis' => 'Bedarfsausweis'][$e['energy_certificate_type'] ?? ''] ?? ($e['energy_certificate_type'] ?? ''),
         'Energiekennwert' => isset($e['energy_value']) && $e['energy_value'] !== '' ? $e['energy_value'] . ' kWh/(m²·a)' : '',
+        'Energiekennwert Strom' => isset($e['energy_value_electricity']) && $e['energy_value_electricity'] !== '' ? $e['energy_value_electricity'] . ' kWh/(m²·a)' : '',
         'Kennwertart' => ['bedarf' => 'Endenergiebedarf', 'verbrauch' => 'Endenergieverbrauch'][$e['energy_value_kind'] ?? ''] ?? '',
         'Energieträger' => $e['energy_source'] ?? '',
         'Effizienzklasse' => $e['energy_efficiency_class'] ?? '',
@@ -157,7 +174,7 @@ function expose_pdf_html(array $property, array $recipient): string
         }
     }
     $documents = '';
-    foreach (['floorplans' => 'Grundriss', 'documents' => 'Dokument'] as $key => $label) {
+    foreach (['floorplans' => 'Grundriss'] as $key => $label) {
         foreach (expose_pdf_list($e[$key] ?? []) as $item) {
             $url = is_string($item) ? $item : (string)($item['url'] ?? '');
             if ($url === '' || ($key === 'floorplans' && preg_match('/\.(jpe?g|png|gif|webp)(?:[?#]|$)/i', $url))) continue;
@@ -166,6 +183,13 @@ function expose_pdf_html(array $property, array $recipient): string
             $name = is_array($item) ? (string)($item['label'] ?? $item['name'] ?? $label) : $label;
             $documents .= '<li><a href="' . expose_pdf_escape($url) . '">' . expose_pdf_escape($name ?: $label) . '</a></li>';
         }
+    }
+    foreach (expose_pdf_list($private['documents'] ?? []) as $item) {
+        $url = is_array($item) ? (string)($item['url'] ?? '') : '';
+        if (!preg_match('/^private:([a-f0-9]{32})$/', $url, $matches)) continue;
+        $name = trim((string)($item['label'] ?? $item['name'] ?? 'Dokument'));
+        $link = private_expose_signed_url($matches[1], time() + 7 * 86400);
+        $documents .= '<li><a href="' . expose_pdf_escape($link) . '">' . expose_pdf_escape($name ?: 'Dokument') . '</a></li>';
     }
     $features = expose_pdf_list($property['features'] ?? []);
     $featureHtml = '';
@@ -186,6 +210,28 @@ function expose_pdf_html(array $property, array $recipient): string
     $locationHtml = '';
     foreach (preg_split('/\R{2,}/u', trim((string)($e['location_description'] ?? ''))) ?: [] as $paragraph) {
         if (trim($paragraph) !== '') $locationHtml .= '<p>' . nl2br(expose_pdf_escape($paragraph)) . '</p>';
+    }
+    $privateSections = '';
+    foreach ([
+        'Modernisierungs- und Sanierungshistorie' => $private['modernization_history'] ?? '',
+        'Raum- und Nutzungsdetails' => $private['room_details'] ?? '',
+        'Baulasten / Rechte Dritter – Hinweise' => $private['burdens_notes'] ?? '',
+    ] as $heading => $text) {
+        $text = trim((string)$text);
+        if ($text !== '') $privateSections .= '<h2>' . expose_pdf_escape($heading) . '</h2><p>' . nl2br(expose_pdf_escape($text)) . '</p>';
+    }
+    $unitRows = expose_pdf_list($private['unit_overview'] ?? []);
+    $unitHtml = '';
+    if ($unitRows) {
+        $unitHtml = '<h2>Übersicht Wohneinheiten</h2><table class="facts"><thead><tr><th>Einheit</th><th>Etage</th><th>Fläche</th><th>Zimmer</th><th>Status</th><th>Kaltmiete</th></tr></thead><tbody>';
+        foreach ($unitRows as $unit) {
+            if (!is_array($unit)) continue;
+            $unitHtml .= '<tr>' . implode('', array_map(
+                static fn($key): string => '<td>' . expose_pdf_escape($unit[$key] ?? '') . '</td>',
+                ['unit', 'floor', 'area', 'rooms', 'status', 'rent']
+            )) . '</tr>';
+        }
+        $unitHtml .= '</tbody></table>';
     }
     $person = '';
     if ($recipient) {
@@ -215,6 +261,7 @@ function expose_pdf_html(array $property, array $recipient): string
         . ($descriptionHtml !== '' ? '<h2>Objektbeschreibung</h2>' . $descriptionHtml : '')
         . ($featureHtml !== '' ? '<h2>Ausstattung</h2><ul>' . $featureHtml . '</ul>' : '')
         . ($locationHtml !== '' ? '<h2>Lage</h2>' . $locationHtml : '')
+        . $unitHtml . $privateSections
         . $energyTable . ($imageHtml ? '<h2>Impressionen</h2>' . implode('', $imageHtml) : '')
         . (count($imageUrls) > 8 ? '<p>Weitere Bilder erhalten Sie auf Anfrage.</p>' : '')
         . ($plans !== '' ? '<h2>Grundrisse</h2>' . $plans : '')

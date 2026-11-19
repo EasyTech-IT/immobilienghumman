@@ -55,6 +55,10 @@ h2 { color: #1a2d3f; font-size: 1rem; }
 .expose-text p + p { margin-top: .8rem; }
 .expose-text ul { padding-left: 1.2rem; }
 .expose-text .expose-attachment-note { margin-top: .5rem; font-size: .85rem; }
+.expose-table-wrap { min-width: 0; overflow-x: auto; }
+.expose-table-wrap table { width: 100%; border-collapse: collapse; font-size: .82rem; }
+.expose-table-wrap th, .expose-table-wrap td { padding: .4rem; border-bottom: 1px solid #dce5eb; text-align: left; }
+.expose-table-wrap th { color: #526a7c; }
 .expose-document a { color: #1e5a88; }
 .expose-contact { margin-top: 2rem; }
 .expose-gallery { margin-top: 2.5rem; }

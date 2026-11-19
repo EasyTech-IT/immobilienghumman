@@ -15,7 +15,7 @@ function write(name, content) {
     fs.writeFileSync(target, content);
     created.push(target);
 }
-for (const name of ['api/contact.php', 'admin/_auth_check.php', 'admin/expose-download.php', 'includes/expose-pdf.php', 'includes/inquiry-mail.php', 'includes/analyse-fragen.php']) {
+for (const name of ['api/contact.php', 'admin/_auth_check.php', 'admin/expose-download.php', 'includes/expose-pdf.php', 'includes/private-expose.php', 'includes/inquiry-mail.php', 'includes/analyse-fragen.php']) {
     write(name, fs.readFileSync(path.join(root, name)));
 }
 write('api/auth_helper.php', '<?php function ensure_admin_auth_versioning(PDO $pdo): bool { return true; }');

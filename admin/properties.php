@@ -5,6 +5,8 @@
  */
 require_once __DIR__ . '/_auth_check.php';
 require_once __DIR__ . '/../includes/property-url.php';
+require_once __DIR__ . '/../includes/property-validation.php';
+require_once __DIR__ . '/../includes/private-expose.php';
 
 $pdo    = db();
 require_once __DIR__ . '/../includes/subscribers.php';
@@ -45,6 +47,8 @@ function redirect_and_notify(string $url, int $propertyId, bool $notify): void
 $action = $_GET['action'] ?? 'list';
 $id     = isset($_GET['id']) ? (int)$_GET['id'] : null;
 $msg    = '';
+$postedFormData = [];
+$postedExtraData = [];
 $listSearch = trim((string)($_GET['q'] ?? ''));
 $listStatus = trim((string)($_GET['status'] ?? ''));
 $listSort = trim((string)($_GET['sort'] ?? 'newest'));
@@ -95,6 +99,7 @@ function normalize_upload_list($raw): array
             'name' => trim((string)($item['name'] ?? '')),
             'mime' => trim((string)($item['mime'] ?? '')),
             'label' => trim((string)($item['label'] ?? '')),
+            'legacy_source' => trim((string)($item['legacy_source'] ?? '')),
         ];
     }
 
@@ -107,14 +112,16 @@ if ($hasExtraDataColumn) {
 }
 $existingSlug = '';
 $existingExtraData = [];
+$existingStatus = '';
 if ($action === 'edit' && $id) {
     $existingStmt = $pdo->prepare($hasExtraDataColumn
-        ? 'SELECT slug, extra_data FROM properties WHERE id = ?'
-        : 'SELECT slug FROM properties WHERE id = ?');
+        ? 'SELECT slug, extra_data, status FROM properties WHERE id = ?'
+        : 'SELECT slug, status FROM properties WHERE id = ?');
     $existingStmt->execute([$id]);
     $existingProperty = $existingStmt->fetch();
     if ($existingProperty) {
         $existingSlug = (string)$existingProperty['slug'];
+        $existingStatus = (string)($existingProperty['status'] ?? '');
         $decodedExtraData = json_decode((string)($existingProperty['extra_data'] ?? '{}'), true);
         $existingExtraData = is_array($decodedExtraData) ? $decodedExtraData : [];
     }
@@ -140,11 +147,29 @@ if ($action === 'toggle_visibility' && $id) {
         $row = $stmt->fetch();
         if ($row) {
             $newStatus = ($row['status'] === 'available') ? 'inactive' : 'available';
-            $pdo->prepare('UPDATE properties SET status = ? WHERE id = ?')->execute([$newStatus, $id]);
-            header('Location: ' . BASE . '/admin/properties.php?toggled=1');
-            exit;
+            if ($newStatus === 'available') {
+                $stmt = $pdo->prepare('SELECT * FROM properties WHERE id = ? LIMIT 1');
+                $stmt->execute([$id]);
+                $propertyRow = $stmt->fetch();
+                $listingExtra = json_decode((string)($propertyRow['extra_data'] ?? '{}'), true);
+                $listingExtra = is_array($listingExtra) ? $listingExtra : [];
+                $listingData = array_merge($propertyRow ?: [], $listingExtra);
+                $listingImages = json_decode((string)($propertyRow['images'] ?? '[]'), true);
+                $errors = property_listing_validation_errors($listingData, is_array($listingImages) ? $listingImages : []);
+                if ($errors) {
+                    $msg = 'error:' . implode(' ', $errors);
+                }
+            }
+            if ($msg === '') {
+                $pdo->prepare('UPDATE properties SET status = ? WHERE id = ?')->execute([$newStatus, $id]);
+                header('Location: ' . BASE . '/admin/properties.php?toggled=1');
+                exit;
+            }
         }
     }
+}
+if ($action === 'toggle_visibility') {
+    $action = 'list';
 }
 
 // ── Speichern (neu / bearbeiten) ────────────────────────────
@@ -153,6 +178,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && in_array($action, ['new', 'edit']))
         $msg = 'error:Ungültiges Sicherheitstoken.';
     } else {
         $d = $_POST;
+        $validationErrors = [];
+        $postedFormData = $d;
         $features = array_filter(array_map('trim', explode("\n", $d['features_text'] ?? '')));
         // Support new drag-and-drop uploader (images_json) and legacy textarea (images_text)
         if (!empty($d['images_json'])) {
@@ -171,7 +198,49 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && in_array($action, ['new', 'edit']))
         }
 
         $floorplans = normalize_upload_list($d['floorplans_json'] ?? '[]');
-        $documents = normalize_upload_list($d['documents_json'] ?? '[]');
+        $privateDocuments = normalize_upload_list($d['private_documents_json'] ?? '[]');
+        foreach ($privateDocuments as $privateDocument) {
+            $documentUrl = (string)($privateDocument['url'] ?? '');
+            if (!preg_match('/^private:([a-f0-9]{32})$/', $documentUrl, $matches)
+                || private_expose_file($matches[1]) === null) {
+                $validationErrors[] = 'Eine private Exposé-Anlage ist ungültig oder nicht mehr verfügbar. Bitte erneut hochladen.';
+            }
+        }
+        foreach (normalize_upload_list(json_encode($existingExtraData['documents'] ?? [])) as $legacyDocument) {
+            $legacyPath = parse_url((string)($legacyDocument['url'] ?? ''), PHP_URL_PATH);
+            $legacyName = is_string($legacyPath) ? basename($legacyPath) : '';
+            if ($legacyName !== '' && in_array($legacyName, array_column($privateDocuments, 'legacy_source'), true)) {
+                continue;
+            }
+            try {
+                $migrated = private_expose_import_legacy_document($legacyDocument);
+                if ($migrated === null) {
+                    $validationErrors[] = 'Ein bisheriges Dokument konnte nicht automatisch geschützt werden. Bitte prüfen und erneut hochladen.';
+                } else {
+                    $privateDocuments[] = $migrated;
+                }
+            } catch (Throwable $e) {
+                error_log('Legacy Exposé-Dokument konnte nicht geschützt werden: ' . $e->getMessage());
+                $validationErrors[] = 'Ein bisheriges Dokument konnte nicht geschützt werden. Bitte erneut hochladen.';
+            }
+        }
+        $unitOverview = [];
+        foreach (preg_split('/\R/u', trim((string)($d['unit_overview_text'] ?? ''))) ?: [] as $line) {
+            if (trim($line) === '') continue;
+            $parts = array_map('trim', explode('|', $line));
+            if (count($parts) !== 6) {
+                $validationErrors[] = 'Jede Wohneinheit benötigt genau sechs durch | getrennte Angaben.';
+                continue;
+            }
+            $unitOverview[] = [
+                'unit' => $parts[0],
+                'floor' => $parts[1],
+                'area' => $parts[2],
+                'rooms' => $parts[3],
+                'status' => $parts[4],
+                'rent' => $parts[5],
+            ];
+        }
 
         $energyCertificateType = trim((string)($d['energy_certificate_type'] ?? ''));
         $energyValueKind = trim((string)($d['energy_value_kind'] ?? ''));
@@ -182,14 +251,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && in_array($action, ['new', 'edit']))
         $buildingYearRaw = trim((string)($d['building_year'] ?? ''));
         $buildingYear = ($buildingYearRaw === '' ? null : (int)$buildingYearRaw);
 
-        $validationErrors = [];
-
         $extraData = [
             'energy_certificate_type' => $energyCertificateType,
             'energy_value_kind' => $energyValueKind,
             'energy_value' => $energyValue,
+            'energy_value_electricity' => (($d['energy_value_electricity'] ?? '') !== '' ? (float)$d['energy_value_electricity'] : null),
             'energy_efficiency_class' => $energyClass,
             'energy_source' => $energySource,
+            'energy_certificate_status' => trim((string)($d['energy_certificate_status'] ?? '')),
             'energy_valid_until' => trim((string)($d['energy_valid_until'] ?? '')),
             'energy_building_year' => (($d['energy_building_year'] ?? '') !== '' ? (int)$d['energy_building_year'] : null),
             'heating_type' => trim((string)($d['heating_type'] ?? '')),
@@ -199,6 +268,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && in_array($action, ['new', 'edit']))
             'floors_total' => (($d['floors_total'] ?? '') !== '' ? (int)$d['floors_total'] : null),
             'bedrooms' => (($d['bedrooms'] ?? '') !== '' ? (int)$d['bedrooms'] : null),
             'plot_area' => (($d['plot_area'] ?? '') !== '' ? (float)$d['plot_area'] : null),
+            'area_calculation_basis' => trim((string)($d['area_calculation_basis'] ?? '')),
+            'heating_costs_included' => !empty($d['heating_costs_included']),
             'residential_units' => (($d['residential_units'] ?? '') !== '' ? (int)$d['residential_units'] : null),
             'guest_toilets' => (($d['guest_toilets'] ?? '') !== '' ? (int)$d['guest_toilets'] : null),
             'balcony_area' => (($d['balcony_area'] ?? '') !== '' ? (float)$d['balcony_area'] : null),
@@ -222,8 +293,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && in_array($action, ['new', 'edit']))
             'commission_note' => trim((string)($d['commission_note'] ?? '')),
             'hide_exact_address' => true,
             'floorplans' => $floorplans,
-            'documents' => $documents,
+            'private_expose' => [
+                'rental_status' => trim((string)($d['rental_status'] ?? '')),
+                'current_annual_rent' => (($d['current_annual_rent'] ?? '') !== '' ? (float)$d['current_annual_rent'] : null),
+                'target_annual_rent' => (($d['target_annual_rent'] ?? '') !== '' ? (float)$d['target_annual_rent'] : null),
+                'unit_overview' => $unitOverview,
+                'leasehold_status' => trim((string)($d['leasehold_status'] ?? '')),
+                'leasehold_annual_fee' => (($d['leasehold_annual_fee'] ?? '') !== '' ? (float)$d['leasehold_annual_fee'] : null),
+                'leasehold_remaining_years' => (($d['leasehold_remaining_years'] ?? '') !== '' ? (int)$d['leasehold_remaining_years'] : null),
+                'monument_status' => trim((string)($d['monument_status'] ?? '')),
+                'burdens_status' => trim((string)($d['burdens_status'] ?? '')),
+                'burdens_notes' => trim((string)($d['burdens_notes'] ?? '')),
+                'development_status' => trim((string)($d['development_status'] ?? '')),
+                'modernization_history' => trim((string)($d['modernization_history'] ?? '')),
+                'room_details' => trim((string)($d['room_details'] ?? '')),
+                'garden_orientation' => trim((string)($d['garden_orientation'] ?? '')),
+                'documents' => $privateDocuments,
+            ],
         ];
+        unset($extraData['documents']);
 
         $slug = ($action === 'edit' && !$hasExtraDataColumn)
             ? $existingSlug
@@ -239,8 +327,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && in_array($action, ['new', 'edit']))
             $extraData['legacy_slugs'] = $legacySlugs;
         }
 
+        $shouldValidatePublish = ($d['status'] ?? 'available') === 'available'
+            && ($action === 'new' || $existingStatus !== 'available');
+        if ($shouldValidatePublish) {
+            $validationErrors = array_merge($validationErrors, property_listing_validation_errors($d, $images));
+        }
+        $postedExtraData = $extraData;
+
         if (!empty($validationErrors)) {
-            $msg = 'error:' . implode(' ', $validationErrors);
+            $msg = 'error:' . implode(' ', array_unique($validationErrors));
         }
 
         $fields = [
@@ -321,7 +416,24 @@ if ($action !== 'list') {
 }
 
 $existingFloorplans = normalize_upload_list(json_encode($extraData['floorplans'] ?? [], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
-$existingDocuments = normalize_upload_list(json_encode($extraData['documents'] ?? [], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+$existingDocuments = normalize_upload_list(json_encode($extraData['private_expose']['documents'] ?? [], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+$existingPrivateExpose = is_array($extraData['private_expose'] ?? null) ? $extraData['private_expose'] : [];
+$unitOverviewText = implode("\n", array_map(static function ($unit): string {
+    return implode(' | ', array_map(static fn($field): string => (string)($unit[$field] ?? ''), ['unit', 'floor', 'area', 'rooms', 'status', 'rent']));
+}, is_array($existingPrivateExpose['unit_overview'] ?? null) ? $existingPrivateExpose['unit_overview'] : []));
+$existingImages = [];
+if ($postedFormData) {
+    if ($property) $property = array_merge($property, $postedFormData);
+    $extraData = $postedExtraData;
+    $existingPrivateExpose = is_array($extraData['private_expose'] ?? null) ? $extraData['private_expose'] : [];
+    $postedImages = json_decode((string)($postedFormData['images_json'] ?? '[]'), true);
+    $existingImages = is_array($postedImages) ? $postedImages : [];
+    $existingFloorplans = normalize_upload_list($postedFormData['floorplans_json'] ?? '[]');
+    $existingDocuments = normalize_upload_list($postedFormData['private_documents_json'] ?? '[]');
+}
+$unitOverviewText = implode("\n", array_map(static function ($unit): string {
+    return implode(' | ', array_map(static fn($field): string => (string)($unit[$field] ?? ''), ['unit', 'floor', 'area', 'rooms', 'status', 'rent']));
+}, is_array($existingPrivateExpose['unit_overview'] ?? null) ? $existingPrivateExpose['unit_overview'] : []));
 $properties = [];
 if ($action === 'list') {
     $where = [];
@@ -531,6 +643,7 @@ $pageTitle = $action === 'list' ? 'Immobilien' : ($action === 'new' ? 'Neue Immo
                     <h1>Immobilien (<?= count($properties) ?>)</h1>
                     <a href="?action=new" class="btn btn-primary">+ Neue Immobilie</a>
                 </div>
+                <?php if ($msg && strpos($msg, 'error:') === 0): ?><div class="alert alert-error"><?= htmlspecialchars(substr($msg, 6)) ?></div><?php endif; ?>
                 <?php if (isset($_GET['deleted'])): ?><div class="alert alert-success">Immobilie gelöscht.</div><?php endif; ?>
                 <?php if (isset($_GET['toggled'])): ?><div class="alert alert-success">Sichtbarkeit aktualisiert.</div><?php endif; ?>
                 <div class="card">
@@ -638,7 +751,9 @@ $pageTitle = $action === 'list' ? 'Immobilien' : ($action === 'new' ? 'Neue Immo
                     <div class="card">
                         <h2 style="margin:0 0 1rem;font-size:1rem;color:#555;">Grunddaten</h2>
                         <p class="form-help">Prüfen Sie vor der Veröffentlichung, ob Texte und Fotos persönliche Daten oder Rechte Dritter betreffen. Nur Angaben und Bilder verwenden, für deren Veröffentlichung eine Berechtigung vorliegt.</p>
-                        <p class="form-help">Bei vorhandenem Energieausweis können Angaben in Immobilienanzeigen gesetzlich vorgeschrieben sein. Prüfen Sie Ausweisart, Energiekennwert, Energieträger und bei Wohngebäuden Baujahr und Effizienzklasse nach <a href="https://www.gesetze-im-internet.de/geg/__87.html" target="_blank" rel="noopener noreferrer">§ 87 GEG</a>. Die Hinweise ersetzen keine Rechtsberatung.</p>
+                        <p class="form-help">Mit * markierte Felder sind Voraussetzungen dieses Systems zur Veröffentlichung und nicht automatisch gesetzliche Pflichtangaben. Empfehlungen aus Ratgebern sind keine gesetzlichen Mindest- oder Höchstwerte.</p>
+                        <p class="form-help">Orientierung: <a href="https://www.bodenrichtwerte-deutschland.de/immobilienwissen/immobilienanzeige-erstellen" target="_blank" rel="noopener noreferrer">Immobilienanzeige erstellen</a> und <a href="https://www.bodenrichtwerte-deutschland.de/immobilienwissen" target="_blank" rel="noopener noreferrer">Immobilienwissen</a>. Die Beiträge sind Ratgeber, keine Rechtsberatung.</p>
+                        <p class="form-help"><a href="https://www.gesetze-im-internet.de/geg/__80.html" target="_blank" rel="noopener noreferrer">§ 80 GModG</a> regelt, wann ein Energieausweis auszustellen und vorzulegen ist. Liegt bei einer kommerziellen Immobilienanzeige ein Ausweis vor, nennt <a href="https://www.gesetze-im-internet.de/geg/__87.html" target="_blank" rel="noopener noreferrer">§ 87 GModG</a> die Pflichtangaben: Ausweisart, Kennwert und Energieträger; bei Wohngebäuden außerdem Baujahr und Effizienzklasse, bei Nichtwohngebäuden Wärme und Strom getrennt.</p>
                         <div class="form-group">
                             <label>Titel *</label>
                             <input type="text" name="title" value="<?= htmlspecialchars($property['title'] ?? '') ?>" required>
@@ -647,7 +762,7 @@ $pageTitle = $action === 'list' ? 'Immobilien' : ($action === 'new' ? 'Neue Immo
                             <div class="form-group">
                                 <label>Typ</label>
                                 <select name="type">
-                                    <?php foreach (['Wohnung', 'Haus', 'Gewerbe', 'Grundstück'] as $t): ?>
+                                    <?php foreach (['Wohnung', 'Haus', 'Einfamilienhaus', 'Mehrfamilienhaus', 'Gewerbe', 'Grundstück'] as $t): ?>
                                         <option value="<?= $t ?>" <?= ($property['type'] ?? 'Wohnung') === $t ? 'selected' : '' ?>><?= $t ?></option>
                                     <?php endforeach; ?>
                                 </select>
@@ -662,11 +777,13 @@ $pageTitle = $action === 'list' ? 'Immobilien' : ($action === 'new' ? 'Neue Immo
                         </div>
                         <div class="form-group">
                             <label>Kurzbeschreibung</label>
-                            <input type="text" name="short_description" value="<?= htmlspecialchars($property['short_description'] ?? '') ?>">
+                            <input type="text" name="short_description" maxlength="160" value="<?= htmlspecialchars($property['short_description'] ?? '') ?>">
+                            <p class="form-help">Sachlich formulieren. Bei Auswahlkriterien das <a href="https://www.gesetze-im-internet.de/agg/__19.html" target="_blank" rel="noopener noreferrer">AGG</a> und dessen Anwendungsbereich sowie Ausnahmen prüfen.</p>
                         </div>
                         <div class="form-group">
                             <label>Beschreibung</label>
                             <textarea name="description" style="min-height:180px;"><?= htmlspecialchars($property['description'] ?? '') ?></textarea>
+                            <p class="form-help">Wahrheitsgemäß und nachvollziehbar beschreiben; bekannte wesentliche Einschränkungen sachlich nennen. Der Ratgeber nennt etwa 300-500 Wörter als Orientierung, nicht als gesetzliche Pflicht.</p>
                         </div>
                     </div>
 
@@ -681,7 +798,9 @@ $pageTitle = $action === 'list' ? 'Immobilien' : ($action === 'new' ? 'Neue Immo
                             <div class="form-group" data-rent-only><label>Warmmiete / Monat (€)</label><input type="number" id="warm_rent_input" name="warm_rent" value="<?= $property['warm_rent'] ?? 0 ?>" step="0.01"></div>
                             <div class="form-group" data-rent-only><label>Kaution (€)</label><input type="number" name="deposit" value="<?= $property['deposit'] ?? 0 ?>" step="0.01"></div>
                         </div>
+                        <div class="form-group" data-rent-only><label><input type="checkbox" name="heating_costs_included" value="1" <?= !empty($extraData['heating_costs_included']) ? 'checked' : '' ?>> Heizkosten sind in den Nebenkosten enthalten</label></div>
                         <p id="warm-rent-help" class="form-help">Warmmiete wird aus Kaltmiete + Nebenkosten + Heizkosten berechnet, bis Sie den Wert manuell ändern.</p>
+                        <p class="form-help" data-rent-only>Bei Wohnraummiete örtliche Mietpreisbremse und Ausnahmen prüfen (<a href="https://www.gesetze-im-internet.de/bgb/__556d.html" target="_blank" rel="noopener noreferrer">§§ 556d ff. BGB</a>). Kostenbestandteile korrekt und nachvollziehbar ausweisen.</p>
                     </div>
 
                     <div class="card">
@@ -724,8 +843,16 @@ $pageTitle = $action === 'list' ? 'Immobilien' : ($action === 'new' ? 'Neue Immo
 
                     <div class="card">
                         <h2 style="margin:0 0 1rem;font-size:1rem;color:#555;">Energieausweis</h2>
-                        <p class="form-help">Nur ausgefüllte Energieangaben erscheinen im Inserat und im PDF. Die erforderlichen Angaben anhand des gültigen Ausweises prüfen; fehlende Werte nicht schätzen.</p>
-                        <?php if (empty($extraData['energy_certificate_type']) || !isset($extraData['energy_value']) || $extraData['energy_value'] === '' || empty($extraData['energy_source']) || empty($extraData['energy_building_year']) || empty($extraData['energy_efficiency_class'])): ?>
+                        <div class="form-group">
+                            <label>Status Energieausweis *</label>
+                            <select name="energy_certificate_status" required>
+                                <?php foreach (['' => 'Bitte wählen', 'available' => 'Vorhanden', 'ordered' => 'Beantragt — noch nicht veröffentlichen', 'not_required' => 'Nicht erforderlich (Ausnahme geprüft)', 'missing' => 'Fehlt / ungeklärt — noch nicht veröffentlichen'] as $value => $label): ?>
+                                    <option value="<?= htmlspecialchars($value) ?>" <?= (($extraData['energy_certificate_status'] ?? '') === $value ? 'selected' : '') ?>><?= htmlspecialchars($label) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <p class="form-help">„Nicht erforderlich“ nur wählen, wenn die Ausnahme für dieses Objekt geprüft wurde. Sonst vor der Veröffentlichung einen gültigen Ausweis beschaffen. Angaben aus dem Ausweis übernehmen und nicht schätzen; bei Nichtwohngebäuden Wärme- und Stromkennwert getrennt erfassen.</p>
+                        <?php if (($extraData['energy_certificate_status'] ?? '') === 'available' && (empty($extraData['energy_certificate_type']) || !isset($extraData['energy_value']) || $extraData['energy_value'] === '' || empty($extraData['energy_source']) || empty($extraData['energy_building_year']) || empty($extraData['energy_efficiency_class']))): ?>
                             <p class="form-help"><strong>Energieangaben unvollständig:</strong> Bitte vor der Vermarktung anhand des Energieausweises prüfen, welche Angaben für dieses Objekt erforderlich sind.</p>
                         <?php endif; ?>
                         <div class="form-row three">
@@ -775,8 +902,10 @@ $pageTitle = $action === 'list' ? 'Immobilien' : ($action === 'new' ? 'Neue Immo
                         </div>
                         <div class="form-row">
                             <div class="form-group"><label>Baujahr Heizung</label><input type="number" name="heating_year" value="<?= htmlspecialchars((string)($extraData['heating_year'] ?? '')) ?>" min="1800" max="2100"></div>
-                            <div></div>
+                            <div class="form-group"><label>Energiekennwert Strom (Nichtwohngebäude)</label><input type="number" name="energy_value_electricity" min="0" step="0.1" value="<?= htmlspecialchars((string)($extraData['energy_value_electricity'] ?? '')) ?>"></div>
+                            <div class="form-group"><label>Berechnungsgrundlage Fläche (optional)</label><input type="text" name="area_calculation_basis" value="<?= htmlspecialchars((string)($extraData['area_calculation_basis'] ?? '')) ?>" placeholder="z. B. WoFlV, DIN 277 oder Unterlage"></div>
                         </div>
+                        <p class="form-help">Die Flächenmethode transparent anzugeben ist hilfreich, aber keine allgemeine gesetzliche Pflicht für jedes Inserat.</p>
                     </div>
 
                     <div class="card">
@@ -818,7 +947,7 @@ $pageTitle = $action === 'list' ? 'Immobilien' : ($action === 'new' ? 'Neue Immo
                             <div class="form-group"><label>Wer zahlt die Courtage?</label><input type="text" name="commission_payer" value="<?= htmlspecialchars((string)($extraData['commission_payer'] ?? '')) ?>" placeholder="z.B. Käufer, Verkäufer, Mieter"></div>
                             <div class="form-group"><label>Provisionshinweis</label><input type="text" name="commission_note" value="<?= htmlspecialchars((string)($extraData['commission_note'] ?? '')) ?>" placeholder="z.B. inkl. gesetzlicher Umsatzsteuer"></div>
                         </div>
-                        <p class="form-help">Falls eine Provision anfällt, Höhe, Einheit und zahlende Partei vollständig eintragen und rechtlich prüfen.</p>
+                        <p class="form-help">Falls eine Provision anfällt, Höhe, Einheit und zahlende Partei vollständig eintragen und rechtlich prüfen. Bei Wohnraummiete gelten besondere Regeln nach dem <a href="https://www.gesetze-im-internet.de/wovermrg/__2.html" target="_blank" rel="noopener noreferrer">WoVermRG</a>; beim Verkauf von Wohnungen und Einfamilienhäusern können <a href="https://www.gesetze-im-internet.de/bgb/__656c.html" target="_blank" rel="noopener noreferrer">§ 656c BGB</a> und <a href="https://www.gesetze-im-internet.de/bgb/__656d.html" target="_blank" rel="noopener noreferrer">§ 656d BGB</a> gelten. Das Formular ersetzt keine rechtliche Prüfung.</p>
                     </div>
 
                     <div class="card">
@@ -832,29 +961,82 @@ $pageTitle = $action === 'list' ? 'Immobilien' : ($action === 'new' ? 'Neue Immo
                             <div class="form-group"><label>Verfügbar ab</label><input type="text" name="available_from" value="<?= htmlspecialchars($property['available_from'] ?? '') ?>" placeholder="z.B. 01.04.2026 oder Sofort"></div>
                         </div>
                         <div class="form-group">
-                            <label for="location_description">Lagebeschreibung</label>
+                            <label for="location_description">Lagebeschreibung *</label>
                             <textarea id="location_description" name="location_description" rows="5" placeholder="Beschreiben Sie nur überprüfte Angaben zur Umgebung und Anbindung."><?= htmlspecialchars((string)($extraData['location_description'] ?? '')) ?></textarea>
                         </div>
                         <p class="form-hint">Im Inserat und auf der Karte erscheinen nur Ort und PLZ. Die genaue Adresse steht im persönlich angeforderten Exposé, sofern sie hier eingetragen ist. Die Lagebeschreibung ist öffentlich.</p>
                     </div>
 
+                    <div class="card">
+                        <h2 style="margin:0 0 1rem;font-size:1rem;color:#555;">Private Exposé-Daten</h2>
+                        <p class="form-help">Diese Angaben werden nicht in der öffentlichen Immobilien-API ausgegeben. Private Dokumente liegen außerhalb des Webroots; Exposé-Downloadlinks sind signiert und sieben Tage gültig. Links können vom Empfänger weitergegeben werden, daher nur erforderliche Unterlagen aufnehmen.</p>
+                        <div class="form-row three">
+                            <div class="form-group">
+                                <label>Vermietungsstand</label>
+                                <select name="rental_status">
+                                    <?php foreach (['' => 'Bitte wählen', 'vacant' => 'Leerstehend', 'leased' => 'Vollständig vermietet', 'partially_leased' => 'Teilweise vermietet'] as $value => $label): ?>
+                                        <option value="<?= htmlspecialchars($value) ?>" <?= (($existingPrivateExpose['rental_status'] ?? '') === $value ? 'selected' : '') ?>><?= htmlspecialchars($label) ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                            <div class="form-group"><label>Jahresnettokaltmiete aktuell (€)</label><input type="number" min="0" step="0.01" name="current_annual_rent" value="<?= htmlspecialchars((string)($existingPrivateExpose['current_annual_rent'] ?? '')) ?>"></div>
+                            <div class="form-group"><label>Jahresnettokaltmiete Soll (€)</label><input type="number" min="0" step="0.01" name="target_annual_rent" value="<?= htmlspecialchars((string)($existingPrivateExpose['target_annual_rent'] ?? '')) ?>"></div>
+                        </div>
+                        <div class="form-group">
+                            <label>Übersicht Wohneinheiten (eine pro Zeile)</label>
+                            <textarea name="unit_overview_text" rows="4" placeholder="Einheit | Etage | Fläche m² | Zimmer | Status | Kaltmiete €/Monat"><?= htmlspecialchars($unitOverviewText) ?></textarea>
+                            <p class="form-help">Format: Einheit | Etage | Fläche m² | Zimmer | Vermietungsstatus | Kaltmiete €/Monat</p>
+                        </div>
+                        <div class="form-row three">
+                            <div class="form-group">
+                                <label>Erbbaurecht</label>
+                                <select name="leasehold_status">
+                                    <?php foreach (['' => 'Bitte wählen', 'no' => 'Nein', 'yes' => 'Ja', 'unknown' => 'Ungeklärt'] as $value => $label): ?>
+                                        <option value="<?= htmlspecialchars($value) ?>" <?= (($existingPrivateExpose['leasehold_status'] ?? '') === $value ? 'selected' : '') ?>><?= htmlspecialchars($label) ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                            <div class="form-group"><label>Erbbauzins jährlich (€)</label><input type="number" min="0" step="0.01" name="leasehold_annual_fee" value="<?= htmlspecialchars((string)($existingPrivateExpose['leasehold_annual_fee'] ?? '')) ?>"></div>
+                            <div class="form-group"><label>Restlaufzeit Erbbaurecht (Jahre)</label><input type="number" min="0" step="1" name="leasehold_remaining_years" value="<?= htmlspecialchars((string)($existingPrivateExpose['leasehold_remaining_years'] ?? '')) ?>"></div>
+                        </div>
+                        <div class="form-row three">
+                            <?php foreach ([
+                                'monument_status' => ['Denkmalschutz', ['' => 'Bitte wählen', 'no' => 'Nein', 'yes' => 'Ja', 'unknown' => 'Ungeklärt']],
+                                'burdens_status' => ['Baulasten / Rechte Dritter', ['' => 'Bitte wählen', 'no' => 'Nein', 'yes' => 'Ja', 'unknown' => 'Ungeklärt']],
+                                'development_status' => ['Erschließungsstand', ['' => 'Bitte wählen', 'developed' => 'Erschlossen', 'partial' => 'Teilerschlossen', 'undeveloped' => 'Unerschlossen', 'unknown' => 'Ungeklärt']],
+                            ] as $field => [$label, $options]): ?>
+                                <div class="form-group">
+                                    <label><?= htmlspecialchars($label) ?></label>
+                                    <select name="<?= htmlspecialchars($field) ?>">
+                                        <?php foreach ($options as $value => $optionLabel): ?>
+                                            <option value="<?= htmlspecialchars($value) ?>" <?= (($existingPrivateExpose[$field] ?? '') === $value ? 'selected' : '') ?>><?= htmlspecialchars($optionLabel) ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
+                        <div class="form-group"><label>Hinweise zu Baulasten / Rechten Dritter</label><textarea name="burdens_notes" rows="3"><?= htmlspecialchars((string)($existingPrivateExpose['burdens_notes'] ?? '')) ?></textarea></div>
+                        <div class="form-group"><label>Modernisierungs- und Sanierungshistorie</label><textarea name="modernization_history" rows="4"><?= htmlspecialchars((string)($existingPrivateExpose['modernization_history'] ?? '')) ?></textarea></div>
+                        <div class="form-group"><label>Raum- und Nutzungsdetails</label><textarea name="room_details" rows="4"><?= htmlspecialchars((string)($existingPrivateExpose['room_details'] ?? '')) ?></textarea></div>
+                        <div class="form-group"><label>Ausrichtung / Garten</label><input type="text" name="garden_orientation" value="<?= htmlspecialchars((string)($existingPrivateExpose['garden_orientation'] ?? '')) ?>"></div>
+                    </div>
+
                     <div class="card" id="upload-card">
                         <h2 style="margin:0 0 1rem;font-size:1rem;color:#555;">Bilder &amp; Video</h2>
 
-                        <?php
-                        // Prepare existing images for JS
-                        $existingImagesRaw = json_decode($property['images'] ?? '[]', true) ?: [];
-                        $existingImages = array_map(function ($img) {
-                            if (is_string($img)) return ['url' => $img, 'label' => ''];
-                            return ['url' => $img['url'] ?? '', 'label' => $img['label'] ?? ''];
-                        }, $existingImagesRaw);
-                        ?>
+                        <?php if (!$postedFormData):
+                            $existingImagesRaw = json_decode($property['images'] ?? '[]', true) ?: [];
+                            $existingImages = array_map(function ($img) {
+                                if (is_string($img)) return ['url' => $img, 'label' => ''];
+                                return ['url' => $img['url'] ?? '', 'label' => $img['label'] ?? ''];
+                            }, $existingImagesRaw);
+                        endif; ?>
 
                         <!-- Hidden inputs for form submission -->
                         <input type="hidden" name="images_json" id="images_json_input" value="<?= htmlspecialchars(json_encode($existingImages, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), ENT_QUOTES) ?>">
                         <input type="hidden" name="main_image" id="main_image_input" value="<?= htmlspecialchars($property['main_image'] ?? '') ?>">
                         <input type="hidden" name="floorplans_json" id="floorplans_json_input" value="<?= htmlspecialchars(json_encode($existingFloorplans, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), ENT_QUOTES) ?>">
-                        <input type="hidden" name="documents_json" id="documents_json_input" value="<?= htmlspecialchars(json_encode($existingDocuments, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), ENT_QUOTES) ?>">
+                        <input type="hidden" name="private_documents_json" id="documents_json_input" value="<?= htmlspecialchars(json_encode($existingDocuments, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), ENT_QUOTES) ?>">
 
                         <!-- Drag & Drop Upload Zone -->
                         <div class="upload-zone" id="upload-zone">
@@ -880,12 +1062,12 @@ $pageTitle = $action === 'list' ? 'Immobilien' : ($action === 'new' ? 'Neue Immo
                         <div class="upload-previews" id="upload-previews">
                             <!-- Populated by JS from existing images and new uploads -->
                         </div>
-                        <p class="form-help">Die ersten acht Bilder werden im Exposé verwendet. Mit den Pfeilen können Sie die Reihenfolge ändern; digital eingerichtete Bilder bitte als Visualisierung kennzeichnen.</p>
+                        <p class="form-help">Das System verlangt mindestens ein Foto. Der Ratgeber empfiehlt 12–25 aussagekräftige Bilder; das ist eine Empfehlung, keine gesetzliche Höchstzahl. Die ersten acht Bilder werden im Exposé verwendet. Digital eingerichtete Bilder als Visualisierung kennzeichnen.</p>
 
                         <hr style="border:none;border-top:1px solid #e5e7eb;margin:1.25rem 0;">
 
                         <h3 style="margin:0 0 .5rem;font-size:.95rem;color:#475569;">Grundrisse</h3>
-                        <p class="form-help">Grundrisse und Dokumente sind öffentlich abrufbar. Laden Sie keine vertraulichen Unterlagen oder personenbezogenen Daten ohne Berechtigung hoch.</p>
+                        <p class="form-help">Grundrisse sind öffentlich abrufbar. Vertrauliche Unterlagen ausschließlich unter „Private Exposé-Daten“ hochladen.</p>
                         <div class="upload-zone" id="floorplan-zone" style="padding:1rem;">
                             <div>
                                 <p style="margin:0;color:#374151;font-weight:600;">Grundriss hochladen</p>
@@ -895,10 +1077,10 @@ $pageTitle = $action === 'list' ? 'Immobilien' : ($action === 'new' ? 'Neue Immo
                         </div>
                         <div class="file-list" id="floorplan-list" style="margin-top:.6rem;"></div>
 
-                        <h3 style="margin:1.1rem 0 .5rem;font-size:.95rem;color:#475569;">Dokumente</h3>
+                        <h3 style="margin:1.1rem 0 .5rem;font-size:.95rem;color:#475569;">Private Exposé-Dokumente</h3>
                         <div class="upload-zone" id="document-zone" style="padding:1rem;">
                             <div>
-                                <p style="margin:0;color:#374151;font-weight:600;">Dokumente hochladen</p>
+                                <p style="margin:0;color:#374151;font-weight:600;">Vertrauliche Anlagen hochladen</p>
                                 <p style="margin:.3rem 0 0;color:#9ca3af;font-size:.8rem;">PDF, DOC, DOCX (max. 15 MB)</p>
                             </div>
                             <input type="file" id="document-file-input" accept="application/pdf,.pdf,.doc,.docx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" multiple style="display:none">
@@ -1138,8 +1320,12 @@ $pageTitle = $action === 'list' ? 'Immobilien' : ($action === 'new' ? 'Neue Immo
                                 data.forEach(function(item, idx) {
                                     var row = document.createElement('div');
                                     row.className = 'file-row';
+                                    var name = escHtml(item.name || ('Datei ' + (idx + 1)));
+                                    var fileLink = String(item.url || '').indexOf('private:') === 0
+                                        ? '<span class="file-row-name">' + name + ' · privat gespeichert</span>'
+                                        : '<a class="file-row-name" href="' + escHtml(item.url) + '" target="_blank" rel="noopener">' + name + '</a>';
                                     row.innerHTML =
-                                        '<a class="file-row-name" href="' + escHtml(item.url) + '" target="_blank" rel="noopener">' + escHtml(item.name || ('Datei ' + (idx + 1))) + '</a>' +
+                                        fileLink +
                                         (type === 'floorplan' ? '<input type="text" data-floorplan-label="' + idx + '" placeholder="Geschoss / Einheit" aria-label="Grundriss beschriften" value="' + escHtml(item.label || '') + '">' : '') +
                                         '<button type="button" data-file-type="' + type + '" data-file-idx="' + idx + '">Entfernen</button>';
                                     targetEl.appendChild(row);
@@ -1423,7 +1609,7 @@ $pageTitle = $action === 'list' ? 'Immobilien' : ($action === 'new' ? 'Neue Immo
                                         /\.(pdf|doc|docx)$/i.test(f.name);
                                 });
                                 if (!valid.length) return;
-                                uploadAssetQueue(valid, 'document', 0);
+                                uploadAssetQueue(valid, 'private_document', 0);
                             });
 
                             renderPreviews();
@@ -1435,7 +1621,7 @@ $pageTitle = $action === 'list' ? 'Immobilien' : ($action === 'new' ? 'Neue Immo
                         <h2 style="margin:0 0 1rem;font-size:1rem;color:#555;">Ausstattung &amp; Status</h2>
                         <div class="form-group">
                             <label>Ausstattungsmerkmale (eine pro Zeile)</label>
-                            <textarea name="features_text" placeholder="z. B. Erstbezug, Einbauküche, Balkon"><?= htmlspecialchars(implode("\n", json_decode($property['features'] ?? '[]', true) ?: [])) ?></textarea>
+                            <textarea name="features_text" placeholder="z. B. Erstbezug, Einbauküche, Balkon"><?= htmlspecialchars((string)($postedFormData['features_text'] ?? implode("\n", json_decode((string)($property['features'] ?? '[]'), true) ?: []))) ?></textarea>
                             <p class="form-help">Passende Symbole werden auf der Detailseite automatisch zugeordnet.</p>
                         </div>
                         <div class="form-row">

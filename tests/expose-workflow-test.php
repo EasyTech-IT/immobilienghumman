@@ -29,7 +29,19 @@ $property = [
     'deposit' => '500.00',
     'description' => "Heller Wohnbereich.\n\nZwei Ebenen.\n\nHeller Wohnbereich.",
     'features' => json_encode(['Balkon']),
-    'extra_data' => json_encode(['commission_required' => true, 'commission_amount' => 3.57, 'commission_payer' => 'Käufer', 'location_description' => 'Nah am Bahnhof', 'plot_area' => 1234, 'residential_units' => 4]),
+    'extra_data' => json_encode([
+        'commission_required' => true,
+        'commission_amount' => 3.57,
+        'commission_payer' => 'Käufer',
+        'location_description' => 'Nah am Bahnhof',
+        'plot_area' => 1234,
+        'residential_units' => 4,
+        'private_expose' => [
+            'current_annual_rent' => 18000,
+            'burdens_notes' => 'Nur im privaten Exposé',
+            'unit_overview' => [['unit' => 'A', 'floor' => 'EG', 'area' => '80', 'rooms' => '3', 'status' => 'vermietet', 'rent' => '1200']],
+        ],
+    ]),
 ];
 $recipient = ['name' => 'Anna <Test>', 'email' => 'anna@example.test', 'phone' => '12345'];
 $html = expose_pdf_html($property, $recipient);
@@ -39,6 +51,7 @@ check(strpos($html, '<h2>Lage</h2>') !== false && strpos($html, 'Nah am Bahnhof'
 check(strpos($html, '<h2>Energieinformationen</h2>') === false, 'Leere Energieinformationen bleiben verborgen');
 check(strpos($html, 'Nebenkosten') === false && strpos($html, 'Warmmiete') === false && strpos($html, 'Kaution') === false && strpos($html, 'Heizkosten') === false, 'Mietkosten erscheinen nicht im Kaufexposé');
 check(strpos($html, 'Grundstücksfläche') !== false && strpos($html, '1.234,00 m²') !== false && strpos($html, 'Wohneinheiten') !== false, 'Eingetragene Grundstücksfläche und Wohneinheiten erscheinen');
+check(strpos($html, 'Nur im privaten Exposé') !== false && strpos($html, 'Übersicht Wohneinheiten') !== false, 'Private Exposé-Angaben und Einheitenübersicht erscheinen');
 check(substr_count($html, 'Heller Wohnbereich.') === 1, 'Identische Beschreibungsabsätze werden nicht wiederholt');
 check(strpos($html, 'gesetzliche Haftungsansprüche bleiben unberührt') !== false && strpos($html, '<h2>Ihr Kontakt</h2>') !== false, 'Kontakt und Hinweis zu den Angaben erscheinen');
 $rental = $property;

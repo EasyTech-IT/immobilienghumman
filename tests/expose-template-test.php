@@ -2,6 +2,9 @@
 define('BASE', '');
 define('SITE_LOGO', '/logo.png');
 define('SITE_EMAIL', 'info@example.test');
+define('SITE_URL', 'https://example.test');
+define('AUTH_SECRET', 'test-secret-with-more-than-thirty-two-characters');
+define('AUTH_SECRET_CONFIGURED', true);
 
 $property = [
     'id' => 42,
@@ -22,9 +25,13 @@ $property = [
         'commission_required' => true,
         'commission_amount' => 2.975,
         'commission_unit' => 'percent',
-        'documents' => [
+        'floorplans' => [
             ['url' => '/grundriss.pdf', 'name' => 'Grundriss'],
             ['url' => 'javascript:alert(1)', 'name' => 'Unsicher'],
+        ],
+        'private_expose' => [
+            'documents' => [['url' => 'private:0123456789abcdef0123456789abcdef', 'name' => 'Mieterliste']],
+            'current_annual_rent' => 18000,
         ],
     ]),
 ];
@@ -39,7 +46,7 @@ $checks = [
     'Mietpreis wird formatiert' => strpos($html, '1.250,00 €') !== false && strpos($html, 'Kaltmiete') !== false,
     'Provision und Ausstattung erscheinen' => strpos($html, '2,975 %') !== false && strpos($html, 'Balkon') !== false,
     'Objektnummer wird nicht öffentlich angezeigt' => strpos($html, 'Objekt 0042') === false,
-    'Bilder und Dokumente sind verknüpft' => strpos($html, 'Wohnzimmer') !== false && strpos($html, '/grundriss.pdf') !== false,
+    'Bilder, öffentliche Grundrisse und private Anlagen sind verknüpft' => strpos($html, 'Wohnzimmer') !== false && strpos($html, '/grundriss.pdf') !== false && strpos($html, 'private-expose-document.php') !== false,
     'Druckansicht verwendet dieselbe Exposé-Vorlage' => strpos($html, 'window.print()') !== false,
     'Unsichere URL wird verworfen' => strpos($html, 'javascript:') === false,
 ];

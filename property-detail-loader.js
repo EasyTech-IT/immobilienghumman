@@ -609,9 +609,11 @@
         const cert = { verbrauchsausweis: 'Verbrauchsausweis', bedarfsausweis: 'Bedarfsausweis' }[String(e.energy_certificate_type || '').toLowerCase()] || e.energy_certificate_type || '';
         const kind = { bedarf: 'Endenergiebedarf', verbrauch: 'Endenergieverbrauch' }[String(e.energy_value_kind || '').toLowerCase()] || 'Energiekennwert';
         const cls = String(e.energy_efficiency_class || '').trim().toUpperCase();
+        const hasElectricityValue = e.energy_value_electricity !== null && e.energy_value_electricity !== undefined && String(e.energy_value_electricity).trim() !== '';
         const list = [
             { label: 'Energieausweis', value: cert },
-            { label: kind, value: e.energy_value !== null && e.energy_value !== undefined && String(e.energy_value).trim() !== '' ? `${fmtNum(e.energy_value)} kWh/(m²·a)` : '' },
+            { label: hasElectricityValue ? `${kind} Wärme` : kind, value: e.energy_value !== null && e.energy_value !== undefined && String(e.energy_value).trim() !== '' ? `${fmtNum(e.energy_value)} kWh/(m²·a)` : '' },
+            { label: `${kind} Strom`, value: hasElectricityValue ? `${fmtNum(e.energy_value_electricity)} kWh/(m²·a)` : '' },
             { label: 'Energieträger', value: e.energy_source || '' },
             { label: 'Effizienzklasse', value: cls },
             { label: 'Heizungsart', value: e.heating_type || '' },
@@ -620,7 +622,7 @@
             { label: 'Gültig bis', value: fmtDate(e.energy_valid_until) }
         ];
         const hasEnergyData = [
-            cert, e.energy_value, e.energy_source, cls,
+            cert, e.energy_value, e.energy_value_electricity, e.energy_source, cls,
             e.heating_type, e.heating_year, e.energy_building_year, e.energy_valid_until
         ].some(value => value != null && String(value).trim() !== '');
         if (!hasEnergyData) return '';
@@ -632,6 +634,7 @@
         const e = extra(p);
         const list = [
             { label: 'Baujahr', value: e.building_year || p.year_built || '' },
+            { label: 'Berechnungsgrundlage Fläche', value: e.area_calculation_basis || '' },
             { label: 'Grundstücksfläche', value: hasVal(e.plot_area) ? `${fmtNum(e.plot_area)} m²` : '' },
             { label: 'Wohneinheiten', value: hasVal(e.residential_units) ? fmtNum(e.residential_units) : '' },
             { label: 'Gäste-WCs', value: hasVal(e.guest_toilets) ? fmtNum(e.guest_toilets) : '' },

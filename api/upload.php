@@ -5,6 +5,7 @@
  * Unterstützt: Cloudinary (falls konfiguriert) oder lokaler Upload nach /uploads/
  */
 require_once __DIR__ . '/../includes/config.php';
+require_once __DIR__ . '/../includes/private-expose.php';
 require_once __DIR__ . '/auth_helper.php';
 
 header('Content-Type: application/json; charset=utf-8');
@@ -28,7 +29,7 @@ if (!csrf_verify($_POST['csrf_token'] ?? '')) {
 
 // Upload-Kontext: image (default), floorplan, document
 $kind = strtolower(trim((string)($_POST['kind'] ?? 'image')));
-if (!in_array($kind, ['image', 'floorplan', 'document'], true)) {
+if (!in_array($kind, ['image', 'floorplan', 'document', 'private_document'], true)) {
     $kind = 'image';
 }
 
@@ -63,10 +64,10 @@ if (!in_array($mime, $allowed, true)) {
 }
 
 // Größe prüfen
-$maxBytes = ($kind === 'document') ? 15 * 1024 * 1024 : 10 * 1024 * 1024;
+$maxBytes = in_array($kind, ['document', 'private_document'], true) ? 15 * 1024 * 1024 : 10 * 1024 * 1024;
 if ($file['size'] > $maxBytes) {
     http_response_code(400);
-    exit(json_encode(['error' => 'Datei zu groß. Maximum ' . (($kind === 'document') ? '15 MB' : '10 MB') . '.']));
+    exit(json_encode(['error' => 'Datei zu groß. Maximum ' . (in_array($kind, ['document', 'private_document'], true) ? '15 MB' : '10 MB') . '.']));
 }
 
 // Cloudinary nur für reine Bildtypen nutzen; Dokumente/Floorplan-PDF lokal speichern.
@@ -113,7 +114,7 @@ echo json_encode([
 
 function allowed_mimes_for_kind(string $kind): array
 {
-    if ($kind === 'document') {
+    if ($kind === 'document' || $kind === 'private_document') {
         return [
             'application/pdf',
             'application/msword',
@@ -188,6 +189,30 @@ function upload_cloudinary(string $tmp, string $mime, string &$error = ''): ?arr
 /* ── Lokaler Upload ───────────────────────────────────────── */
 function upload_local(array $file, string $mime, string $kind = 'image', string &$error = ''): ?array
 {
+    if ($kind === 'private_document') {
+        $uploadDir = private_expose_storage_dir();
+        if (!is_dir($uploadDir) && !mkdir($uploadDir, 0700, true) && !is_dir($uploadDir)) {
+            $error = 'Privater Dokumentenordner kann nicht erstellt werden.';
+            error_log('Cannot create private expose directory: ' . $uploadDir);
+            return null;
+        }
+        @chmod($uploadDir, 0700);
+        if (!is_writable($uploadDir)) {
+            $error = 'Privater Dokumentenordner nicht schreibbar.';
+            error_log('Private expose directory not writable: ' . $uploadDir);
+            return null;
+        }
+        $id = bin2hex(random_bytes(16));
+        $dest = $uploadDir . DIRECTORY_SEPARATOR . $id . '.bin';
+        if (!move_uploaded_file($file['tmp_name'], $dest)) {
+            $error = 'Datei konnte nicht sicher gespeichert werden.';
+            error_log('Cannot move upload to private expose storage.');
+            return null;
+        }
+        @chmod($dest, 0600);
+        return ['url' => 'private:' . $id, 'thumb' => '', 'name' => basename((string)($file['name'] ?? 'Dokument'))];
+    }
+
     $uploadDir = __DIR__ . '/../uploads/';
     if (!is_dir($uploadDir)) {
         if (!mkdir($uploadDir, 0755, true)) {

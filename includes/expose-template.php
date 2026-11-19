@@ -1,4 +1,6 @@
 <?php
+require_once __DIR__ . '/private-expose.php';
+
 function expose_escape($value): string
 {
     return htmlspecialchars((string)$value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
@@ -24,6 +26,7 @@ function expose_money($value): string
 }
 
 $extra = expose_list($property['extra_data'] ?? []);
+$private = expose_list($extra['private_expose'] ?? []);
 $images = expose_list($property['images'] ?? []);
 if (!$images && !empty($property['main_image'])) $images = [$property['main_image']];
 $imageItems = [];
@@ -58,12 +61,27 @@ if ($property) {
         'Aufzug' => !empty($extra['has_elevator']) ? 'Ja' : '',
         'Energieausweis' => isset($extra['energy_certificate_type']) ? ucfirst($extra['energy_certificate_type']) : '',
         'Energiekennwert' => isset($extra['energy_value']) && $extra['energy_value'] !== '' ? $extra['energy_value'] . ' kWh/(m²·a)' : '',
+        'Energiekennwert Strom' => isset($extra['energy_value_electricity']) && $extra['energy_value_electricity'] !== '' ? $extra['energy_value_electricity'] . ' kWh/(m²·a)' : '',
         'Art des Energiekennwerts' => ['bedarf' => 'Endenergiebedarf', 'verbrauch' => 'Endenergieverbrauch'][$extra['energy_value_kind'] ?? ''] ?? '',
         'Energieeffizienzklasse' => $extra['energy_efficiency_class'] ?? '',
         'Energieträger' => $extra['energy_source'] ?? '',
         'Hausgeld' => !empty($extra['house_fee']) ? expose_money($extra['house_fee']) : '',
         'Stellplatz' => $extra['parking_info'] ?? '',
+        'Berechnungsgrundlage Wohnfläche' => $extra['area_calculation_basis'] ?? '',
+        'Vermietungsstand' => ['vacant' => 'Leerstehend', 'leased' => 'Vollständig vermietet', 'partially_leased' => 'Teilweise vermietet'][$private['rental_status'] ?? ''] ?? '',
+        'Jahresnettokaltmiete aktuell' => isset($private['current_annual_rent']) && $private['current_annual_rent'] !== '' ? expose_money($private['current_annual_rent']) : '',
+        'Jahresnettokaltmiete Soll' => isset($private['target_annual_rent']) && $private['target_annual_rent'] !== '' ? expose_money($private['target_annual_rent']) : '',
+        'Erbbaurecht' => ['yes' => 'Ja', 'no' => 'Nein', 'unknown' => 'Ungeklärt'][$private['leasehold_status'] ?? ''] ?? '',
+        'Erbbauzins jährlich' => isset($private['leasehold_annual_fee']) && $private['leasehold_annual_fee'] !== '' ? expose_money($private['leasehold_annual_fee']) : '',
+        'Restlaufzeit Erbbaurecht' => isset($private['leasehold_remaining_years']) ? $private['leasehold_remaining_years'] . ' Jahre' : '',
+        'Denkmalschutz' => ['yes' => 'Ja', 'no' => 'Nein', 'unknown' => 'Ungeklärt'][$private['monument_status'] ?? ''] ?? '',
+        'Baulasten / Rechte Dritter' => ['yes' => 'Ja', 'no' => 'Nein', 'unknown' => 'Ungeklärt'][$private['burdens_status'] ?? ''] ?? '',
+        'Erschließungsstand' => ['developed' => 'Erschlossen', 'partial' => 'Teilerschlossen', 'undeveloped' => 'Unerschlossen', 'unknown' => 'Ungeklärt'][$private['development_status'] ?? ''] ?? '',
+        'Ausrichtung / Garten' => $private['garden_orientation'] ?? '',
     ];
+    if (!empty($private['current_annual_rent']) && (float)($property['price'] ?? 0) > 0) {
+        $facts['Bruttomietrendite (Ist)'] = number_format((float)$private['current_annual_rent'] / (float)$property['price'] * 100, 2, ',', '.') . ' %';
+    }
     if (!empty($extra['commission_required']) && isset($extra['commission_amount']) && $extra['commission_amount'] !== '') {
         $facts['Provision'] = ($extra['commission_unit'] ?? 'percent') === 'eur'
             ? expose_money($extra['commission_amount'])
@@ -72,12 +90,21 @@ if ($property) {
     }
 }
 $attachments = [];
-foreach (['floorplans' => 'Grundriss', 'documents' => 'Dokument'] as $key => $label) {
+foreach (['floorplans' => 'Grundriss'] as $key => $label) {
     foreach (expose_list($extra[$key] ?? []) as $file) {
         $url = expose_url(is_string($file) ? $file : ($file['url'] ?? ''));
         if ($url !== '') $attachments[] = ['url' => $url, 'label' => is_array($file) ? (($file['label'] ?? '') ?: (($file['name'] ?? '') ?: $label)) : $label];
     }
 }
+foreach (expose_list($private['documents'] ?? []) as $file) {
+    $url = is_array($file) ? (string)($file['url'] ?? '') : '';
+    if (!preg_match('/^private:([a-f0-9]{32})$/', $url, $matches)) continue;
+    $attachments[] = [
+        'url' => private_expose_signed_url($matches[1], time() + 7 * 86400),
+        'label' => (string)(($file['label'] ?? '') ?: (($file['name'] ?? '') ?: 'Dokument')),
+    ];
+}
+$unitOverview = expose_list($private['unit_overview'] ?? []);
 ?>
 <!DOCTYPE html>
 <html lang="de">
@@ -143,6 +170,24 @@ foreach (['floorplans' => 'Grundriss', 'documents' => 'Dokument'] as $key => $la
         <?php endforeach; ?></ul>
     </section>
     <?php endif; ?>
+    <?php if ($unitOverview): ?>
+    <section class="expose-text">
+        <h2>Übersicht Wohneinheiten</h2>
+        <div class="expose-table-wrap"><table>
+            <thead><tr><th>Einheit</th><th>Etage</th><th>Fläche</th><th>Zimmer</th><th>Status</th><th>Kaltmiete</th></tr></thead>
+            <tbody><?php foreach ($unitOverview as $unit): if (!is_array($unit)) continue; ?>
+                <tr><?php foreach (['unit', 'floor', 'area', 'rooms', 'status', 'rent'] as $key): ?><td><?= expose_escape($unit[$key] ?? '') ?></td><?php endforeach; ?></tr>
+            <?php endforeach; ?></tbody>
+        </table></div>
+    </section>
+    <?php endif; ?>
+    <?php foreach ([
+        'Modernisierungs- und Sanierungshistorie' => $private['modernization_history'] ?? '',
+        'Raum- und Nutzungsdetails' => $private['room_details'] ?? '',
+        'Baulasten / Rechte Dritter – Hinweise' => $private['burdens_notes'] ?? '',
+    ] as $heading => $text): if (trim((string)$text) !== ''): ?>
+    <section class="expose-text"><h2><?= expose_escape($heading) ?></h2><p><?= nl2br(expose_escape($text)) ?></p></section>
+    <?php endif; endforeach; ?>
     <?php if ($attachments): ?>
     <section class="expose-text expose-attachments">
         <h2>Anlagen</h2>
