@@ -10,10 +10,8 @@ if (($inquiryId > 0) === ($propertyId > 0)) {
 
 try {
     if ($inquiryId > 0) {
-        $stmt = db()->prepare('SELECT pdf FROM expose_requests WHERE inquiry_id = ?');
-        $stmt->execute([$inquiryId]);
-        $pdf = $stmt->fetchColumn();
-        if (is_resource($pdf)) $pdf = stream_get_contents($pdf);
+        require_once __DIR__ . '/../includes/expose-pdf.php';
+        $pdf = expose_request_snapshot(db(), $inquiryId);
     } else {
         $stmt = db()->prepare('SELECT * FROM properties WHERE id = ?');
         $stmt->execute([$propertyId]);

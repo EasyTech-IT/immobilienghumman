@@ -94,13 +94,34 @@ require_once __DIR__ . '/includes/header.php';
                 <input id="pd-inquiry-phone" type="tel" name="phone" autocomplete="tel" maxlength="50" required>
             </div>
         </div>
+        <p class="pd-form-note">Für die Exposé-Anfrage benötigen wir zusätzlich Ihre Anschrift.</p>
+        <div class="pd-form-row">
+            <div class="pd-form-field">
+                <label for="pd-inquiry-street">Straße (für Exposé erforderlich)</label>
+                <input id="pd-inquiry-street" type="text" name="street" autocomplete="address-line1" maxlength="100">
+            </div>
+            <div class="pd-form-field">
+                <label for="pd-inquiry-house-number">Hausnummer (für Exposé erforderlich)</label>
+                <input id="pd-inquiry-house-number" type="text" name="house_number" maxlength="100">
+            </div>
+        </div>
+        <div class="pd-form-row">
+            <div class="pd-form-field">
+                <label for="pd-inquiry-postal-code">Postleitzahl (für Exposé erforderlich)</label>
+                <input id="pd-inquiry-postal-code" type="text" name="postal_code" autocomplete="postal-code" maxlength="100">
+            </div>
+            <div class="pd-form-field">
+                <label for="pd-inquiry-city">Stadt (für Exposé erforderlich)</label>
+                <input id="pd-inquiry-city" type="text" name="city" autocomplete="address-level2" maxlength="100">
+            </div>
+        </div>
         <div class="pd-form-field">
             <label for="pd-inquiry-message">Ihre Nachricht</label>
             <textarea id="pd-inquiry-message" name="message" rows="4"></textarea>
         </div>
 
         <?php $consentPrefix = 'pd'; include __DIR__ . '/includes/consent-fields.php'; ?>
-        <p class="pd-form-note">Bei einer Exposé-Anfrage werden Name, E-Mail und Telefonnummer im persönlichen PDF und zur Bearbeitung Ihrer Anfrage gespeichert. Der Versand erfolgt per E-Mail.</p>
+        <p class="pd-form-note">Für das Exposé bestätigen Sie zunächst Ihre E-Mail-Adresse. Anschließend senden wir Ihnen das freigegebene Exposé automatisch zu.</p>
         <button type="submit" class="pd-btn pd-btn-primary pd-btn-block">
             <i class="fas fa-paper-plane"></i> Anfrage senden
         </button>

@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 
 /**
  * admin/properties.php – Immobilien verwalten
@@ -100,6 +100,7 @@ function normalize_upload_list($raw): array
             'mime' => trim((string)($item['mime'] ?? '')),
             'label' => trim((string)($item['label'] ?? '')),
             'legacy_source' => trim((string)($item['legacy_source'] ?? '')),
+            'expose_approved' => ($item['expose_approved'] ?? false) === true,
         ];
     }
 
@@ -399,12 +400,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && in_array($action, ['new', 'edit']))
 
 // ── Daten laden ──────────────────────────────────────────────
 $property = null;
+$exposeApproved = null;
 if ($action === 'edit' && $id) {
     $property = $pdo->prepare('SELECT * FROM properties WHERE id = ?');
     $property->execute([$id]);
     $property = $property->fetch();
     if (!$property) {
         $action = 'list';
+    } else {
+        try {
+            require_once __DIR__ . '/../includes/expose-confirmation.php';
+            expose_automatic_ensure_tables($pdo);
+            $exposeApproved = ($property['status'] ?? '') === 'available' && expose_property_is_approved($pdo, $property);
+        } catch (Throwable $e) {
+            error_log('Exposé-Freigabestatus: ' . $e->getMessage());
+        }
     }
 }
 
@@ -748,8 +758,22 @@ $pageTitle = $action === 'list' ? 'Immobilien' : ($action === 'new' ? 'Neue Immo
                     <a href="?action=list" class="btn btn-secondary">← Zurück</a>
                 </div>
                 <?php if (isset($_GET['saved'])): ?><div class="alert alert-success">Gespeichert!</div><?php endif; ?>
+                <?php if (isset($_GET['expose_approved'])): ?><div class="alert alert-success">Das Exposé ist für den automatischen Versand freigegeben. Änderungen am Objekt, an der Exposé-Vorlage oder am Logo erfordern eine erneute Freigabe.</div><?php endif; ?>
                 <?php if ($msg && strpos($msg, 'error:') === 0): ?><div class="alert alert-error"><?= htmlspecialchars(substr($msg, 6)) ?></div><?php endif; ?>
 
+                <?php if ($action === 'edit' && $id): ?>
+                    <div class="card">
+                        <h2>Automatischer Exposé-Versand</h2>
+                        <p><strong>Status des gespeicherten Objekts:</strong> <?= $exposeApproved === null ? 'Nicht prüfbar – bitte technische Betreuung kontaktieren.' : ($exposeApproved ? 'Freigegeben' : 'Nicht freigegeben') ?></p>
+                        <p>Speichern Sie zuerst alle Änderungen, laden Sie das Exposé herunter und prüfen Sie Bilder, Angaben und freigegebene Dokumente. Erst danach geben Sie den gespeicherten Stand frei. Änderungen am Objekt, an der Exposé-Vorlage oder am Logo machen eine erneute Freigabe erforderlich.</p>
+                        <a class="btn btn-secondary" href="<?= BASE ?>/admin/expose-download.php?property_id=<?= (int)$id ?>">Exposé zur Prüfung herunterladen</a>
+                        <form method="post" action="<?= BASE ?>/admin/expose-approve.php">
+                            <?= csrf_field() ?>
+                            <input type="hidden" name="property_id" value="<?= (int)$id ?>">
+                            <button type="submit" class="btn btn-primary">Geprüftes Exposé für automatischen Versand freigeben</button>
+                        </form>
+                    </div>
+                <?php endif; ?>
                 <form method="post" id="adminPropertyForm">
                     <?= csrf_field() ?>
                     <div class="card">
@@ -1088,6 +1112,7 @@ $pageTitle = $action === 'list' ? 'Immobilien' : ($action === 'new' ? 'Neue Immo
                         <div class="file-list" id="floorplan-list" style="margin-top:.6rem;"></div>
 
                         <h3 style="margin:1.1rem 0 .5rem;font-size:.95rem;color:#475569;">Private Exposé-Dokumente</h3>
+                        <p class="form-help">Nur einzeln freigegebene Dateien werden im Exposé verlinkt. Die Links sind sieben Tage gültig und können weitergegeben werden. Bitte Rechte und personenbezogene Daten vor der Freigabe prüfen.</p>
                         <div class="upload-zone" id="document-zone" style="padding:1rem;">
                             <div>
                                 <p style="margin:0;color:#374151;font-weight:600;">Vertrauliche Anlagen hochladen</p>
@@ -1337,6 +1362,7 @@ $pageTitle = $action === 'list' ? 'Immobilien' : ($action === 'new' ? 'Neue Immo
                                     row.innerHTML =
                                         fileLink +
                                         (type === 'floorplan' ? '<input type="text" data-floorplan-label="' + idx + '" placeholder="Geschoss / Einheit" aria-label="Grundriss beschriften" value="' + escHtml(item.label || '') + '">' : '') +
+                                        (type === 'document' ? '<label><input type="checkbox" data-document-approved="' + idx + '"' + (item.expose_approved === true ? ' checked' : '') + '> Für automatischen Exposé-Versand freigeben</label>' : '') +
                                         '<button type="button" data-file-type="' + type + '" data-file-idx="' + idx + '">Entfernen</button>';
                                     targetEl.appendChild(row);
                                 });
@@ -1378,6 +1404,12 @@ $pageTitle = $action === 'list' ? 'Immobilien' : ($action === 'new' ? 'Neue Immo
                             floorplanList.addEventListener('input', function(e) {
                                 if (e.target.dataset.floorplanLabel !== undefined) {
                                     floorplans[parseInt(e.target.dataset.floorplanLabel, 10)].label = e.target.value;
+                                    syncInputs();
+                                }
+                            });
+                            documentList.addEventListener('change', function(e) {
+                                if (e.target.dataset.documentApproved !== undefined) {
+                                    documents[parseInt(e.target.dataset.documentApproved, 10)].expose_approved = e.target.checked;
                                     syncInputs();
                                 }
                             });

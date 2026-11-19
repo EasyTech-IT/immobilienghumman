@@ -1,11 +1,13 @@
-﻿<?php
+<?php
 
 /**
  * admin/inquiries.php – Kontaktanfragen verwalten
  */
 require_once __DIR__ . '/_auth_check.php';
+require_once __DIR__ . '/../includes/expose-pdf.php';
 
 $pdo = db();
+expose_requests_ensure_table($pdo);
 $id  = isset($_GET['id']) ? (int)$_GET['id'] : null;
 $statusFilter = trim((string)($_GET['status'] ?? ''));
 $searchQuery = trim((string)($_GET['q'] ?? ''));
@@ -70,12 +72,56 @@ if ($id && isset($_GET['delete'])) {
 
 // ── E-Mail-Antwort senden ─────────────────────────────────────
 $replyError = '';
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_reply'])) {
+$replyText = trim((string)($_POST['reply_text'] ?? ''));
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['refresh_expose'])) {
+    $id = (int)($_POST['reply_id'] ?? 0);
     if (!csrf_verify($_POST['csrf_token'] ?? '')) {
         $replyError = 'Ungültiges Sicherheitstoken.';
     } else {
-        $replyId   = (int)($_POST['reply_id'] ?? 0);
-        $replyText = trim($_POST['reply_text'] ?? '');
+        $stmt = $pdo->prepare("UPDATE expose_requests SET pdf = ? WHERE inquiry_id = ? AND delivery_status = 'new'");
+        $stmt->bindValue(1, '', PDO::PARAM_LOB);
+        $stmt->bindValue(2, $id, PDO::PARAM_INT);
+        $stmt->execute();
+        if ($stmt->rowCount() === 1) {
+            header('Location: ' . BASE . '/admin/expose-download.php?inquiry_id=' . $id);
+            exit;
+        }
+        $replyError = 'Die Vorschau konnte nicht aktualisiert werden. Bitte prüfen Sie den Versandstatus.';
+    }
+}
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['resend_confirmation'])) {
+    $id = (int)($_POST['reply_id'] ?? 0);
+    if (!csrf_verify($_POST['csrf_token'] ?? '')) {
+        $replyError = 'Ungültiges Sicherheitstoken.';
+    } else {
+        try {
+            require_once __DIR__ . '/../includes/expose-confirmation.php';
+            expose_automatic_ensure_tables($pdo);
+            $stmt = $pdo->prepare("SELECT i.name, i.email, p.title FROM contact_inquiries i JOIN properties p ON p.id = i.property_id JOIN expose_requests er ON er.inquiry_id = i.id WHERE i.id = ? AND er.delivery_status = 'pending_email'");
+            $stmt->execute([$id]);
+            $request = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (!$request) throw new RuntimeException('Anfrage wartet nicht auf Bestätigung.');
+            $token = bin2hex(random_bytes(32));
+            $stmt = $pdo->prepare("UPDATE expose_confirmations SET token_hash = ?, expires_at = ? WHERE inquiry_id = ? AND used_at IS NULL AND EXISTS (SELECT 1 FROM expose_requests WHERE inquiry_id = ? AND delivery_status = 'pending_email')");
+            $stmt->execute([hash('sha256', $token), time() + 48 * 3600, $id, $id]);
+            if ($stmt->rowCount() !== 1) throw new RuntimeException('Bestätigungslink konnte nicht erneuert werden.');
+            if (!expose_send_confirmation($request['email'], $request['name'], $request['title'], $token)) {
+                throw new RuntimeException('Bestätigungsmail konnte nicht versendet werden.');
+            }
+            header('Location: ' . BASE . '/admin/inquiries.php?id=' . $id . '&confirmation_resent=1');
+            exit;
+        } catch (Throwable $e) {
+            error_log('Exposé-Bestätigung erneut senden: ' . $e->getMessage());
+            $replyError = 'Bestätigungsmail konnte nicht erneut versendet werden. Bitte Versandkonfiguration und Anfragestatus prüfen.';
+        }
+    }
+}
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['send_reply']) || isset($_POST['send_expose']))) {
+    $replyId = (int)($_POST['reply_id'] ?? 0);
+    $id = $replyId;
+    if (!csrf_verify($_POST['csrf_token'] ?? '')) {
+        $replyError = 'Ungültiges Sicherheitstoken.';
+    } else {
         $stmt = $pdo->prepare('SELECT * FROM contact_inquiries WHERE id = ?');
         $stmt->execute([$replyId]);
         $inqRow = $stmt->fetch();
@@ -85,14 +131,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_reply'])) {
                 . "\n\n" . str_repeat('-', 40)
                 . "\nIhre ursprüngliche Nachricht:\n" . $inqRow['message']
                 . "\n\n-- \n" . SITE_NAME . "\n" . SITE_PHONE . "\n" . SITE_EMAIL;
-            $ok = app_mail_text($inqRow['email'], $subject, $body, MAIL_FROM);
-            if ($ok) {
+            if (isset($_POST['send_expose'])) {
+                try {
+                    $stmt = $pdo->prepare('SELECT pdf FROM expose_requests WHERE inquiry_id = ?');
+                    $stmt->execute([$replyId]);
+                    $pdf = $stmt->fetchColumn();
+                    if (is_resource($pdf)) $pdf = stream_get_contents($pdf);
+                    if (!is_string($pdf) || strncmp($pdf, '%PDF-', 5) !== 0) {
+                        throw new RuntimeException('Bitte das Exposé zuerst zur Prüfung herunterladen.');
+                    }
+                    $ok = expose_request_deliver($pdo, $replyId, $pdf, static fn($contents) => mailer_send(
+                        $inqRow['email'], 'Ihr Exposé – ' . SITE_NAME, $body, '', '', '', '', ['content' => $contents]
+                    ));
+                    if (!$ok) {
+                        $replyError = 'Versand fehlgeschlagen oder nicht bestätigt. Bitte Postausgang prüfen, bevor Sie erneut senden.';
+                    } else {
+                        $pdo->prepare("UPDATE contact_inquiries SET status='replied' WHERE id=?")->execute([$replyId]);
+                        header('Location: ' . BASE . '/admin/inquiries.php?id=' . $replyId . '&expose_sent=1');
+                        exit;
+                    }
+                } catch (Throwable $e) {
+                    error_log('Exposé-Versand: ' . $e->getMessage());
+                    $replyError = 'Exposé konnte nicht versendet oder der Versandstatus nicht bestätigt werden. Bitte Vorschau und Postausgang prüfen, bevor Sie erneut senden.';
+                }
+            } elseif (app_mail_text($inqRow['email'], $subject, $body, MAIL_FROM)) {
                 $pdo->prepare("UPDATE contact_inquiries SET status='replied' WHERE id=?")->execute([$replyId]);
                 header('Location: ' . BASE . '/admin/inquiries.php?id=' . $replyId . '&replied=1');
                 exit;
             } else {
                 $replyError = 'E-Mail konnte nicht gesendet werden. SMTP/Socket-Mailer-Konfiguration unter Einstellungen prüfen.';
-                $id = $replyId;
             }
         } else {
             $replyError = 'Antworttext darf nicht leer sein.';
@@ -115,7 +182,7 @@ if ($searchQuery !== '') {
     $params[] = $like;
     $params[] = $like;
 }
-$sql = 'SELECT * FROM contact_inquiries';
+$sql = 'SELECT contact_inquiries.*, (SELECT delivery_status FROM expose_requests WHERE inquiry_id = contact_inquiries.id) AS expose_status FROM contact_inquiries';
 if (!empty($where)) {
     $sql .= ' WHERE ' . implode(' AND ', $where);
 }
@@ -125,14 +192,17 @@ $stmt->execute($params);
 $inquiries = $stmt->fetchAll();
 $detail    = null;
 $exposeStatus = null;
+$hasExposePdf = false;
 if ($id) {
     $stmt = $pdo->prepare('SELECT * FROM contact_inquiries WHERE id = ?');
     $stmt->execute([$id]);
     $detail = $stmt->fetch() ?: null;
-    if ($detail && strpos((string)$detail['message'], 'Betreff: Exposé-Anfrage: ') !== false) {
-        $stmt = $pdo->prepare('SELECT delivery_status FROM expose_requests WHERE inquiry_id = ?');
+    if ($detail) {
+        $stmt = $pdo->prepare('SELECT delivery_status, length(pdf) AS pdf_length FROM expose_requests WHERE inquiry_id = ?');
         $stmt->execute([$id]);
-        $exposeStatus = $stmt->fetchColumn();
+        $expose = $stmt->fetch(PDO::FETCH_ASSOC);
+        $exposeStatus = $expose ? $expose['delivery_status'] : null;
+        $hasExposePdf = $expose && (int)$expose['pdf_length'] > 0;
     }
 }
 ?>
@@ -360,8 +430,34 @@ if ($id) {
                     <?php if ($exposeStatus !== false && $exposeStatus !== null): ?>
                         <div style="margin-top:1rem;">
                             <strong>Exposé-Anfrage:</strong>
-                            <?= $exposeStatus === 'sent' ? 'An den E-Mail-Server übergeben.' : 'Versand nicht bestätigt; bitte manuell prüfen.' ?>
-                            <a class="btn btn-sm btn-outline" href="<?= BASE ?>/admin/expose-download.php?inquiry_id=<?= (int)$detail['id'] ?>">Gespeichertes PDF herunterladen</a>
+                            <?php
+                            echo match ($exposeStatus) {
+                                'pending_email' => 'Wartet auf Bestätigung der E-Mail-Adresse.',
+                                'sent' => 'Exposé versendet (an den E-Mail-Server übergeben).',
+                                'unknown' => 'Versand fehlgeschlagen oder nicht bestätigt. Bitte Postausgang prüfen.',
+                                'sending' => 'Versand läuft oder sein Ergebnis ist ungeklärt. Bitte Postausgang prüfen. Bleibt dieser Status bestehen, wenden Sie sich an die technische Betreuung.',
+                                default => 'Neu – noch nicht versendet.',
+                            };
+                            ?>
+                            <?php if ($exposeStatus === 'pending_email'): ?>
+                                <form method="post">
+                                    <?= csrf_field() ?>
+                                    <input type="hidden" name="reply_id" value="<?= (int)$detail['id'] ?>">
+                                    <button type="submit" name="resend_confirmation" value="1" class="btn btn-sm btn-outline">Bestätigungsmail erneut senden</button>
+                                </form>
+                                <p>Der bisherige Bestätigungslink wird dadurch ungültig.</p>
+                            <?php endif; ?>
+                            <?php if ($exposeStatus !== 'pending_email'): ?>
+                                <a class="btn btn-sm btn-outline" href="<?= BASE ?>/admin/expose-download.php?inquiry_id=<?= (int)$detail['id'] ?>">Exposé zur Prüfung herunterladen</a>
+                            <?php endif; ?>
+                            <?php if ($exposeStatus === 'new' && $hasExposePdf): ?>
+                                <form method="post" style="display:inline;">
+                                    <?= csrf_field() ?>
+                                    <input type="hidden" name="reply_id" value="<?= (int)$detail['id'] ?>">
+                                    <button type="submit" name="refresh_expose" value="1" class="btn btn-sm btn-outline">Vorschau mit aktuellen Objektdaten erneuern</button>
+                                </form>
+                                <p>Die gespeicherte Vorschau wird unverändert versendet. Nach Änderungen am Objekt oder vor einem späteren Versand bitte erneuern und prüfen; private Dokumentenlinks gelten sieben Tage.</p>
+                            <?php endif; ?>
                         </div>
                     <?php endif; ?>
 
@@ -372,13 +468,18 @@ if ($id) {
                         <?php if (isset($_GET['replied'])): ?>
                             <div class="alert alert-success">&#10003; Antwort erfolgreich gesendet &ndash; Anfrage als &bdquo;Beantwortet&ldquo; markiert.</div>
                         <?php endif; ?>
+                        <?php if (isset($_GET['expose_sent'])): ?>
+                            <div class="alert alert-success">&#10003; Exposé an den E-Mail-Server übergeben.</div>
+                        <?php endif; ?>
+                        <?php if (isset($_GET['confirmation_resent'])): ?>
+                            <div class="alert alert-success">Bestätigungsmail erneut an den E-Mail-Server übergeben.</div>
+                        <?php endif; ?>
                         <?php if ($replyError): ?>
                             <div class="alert alert-error">&#9888; <?= htmlspecialchars($replyError) ?></div>
                         <?php endif; ?>
 
                         <form method="POST" autocomplete="off">
                             <?= csrf_field() ?>
-                            <input type="hidden" name="send_reply" value="1">
                             <input type="hidden" name="reply_id" value="<?= $detail['id'] ?>">
 
                             <div class="reply-row">
@@ -395,11 +496,14 @@ if ($id) {
                             <div class="reply-field" style="margin-bottom:.75rem;">
                                 <label>Ihre Antwort</label>
                                 <textarea name="reply_text" required rows="7"
-                                    placeholder="Sehr geehrte(r) <?= htmlspecialchars($detail['name']) ?>,..?"></textarea>
+                                    placeholder="Guten Tag <?= htmlspecialchars($detail['name']) ?>,"><?= htmlspecialchars($replyText) ?></textarea>
                             </div>
 
                             <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;">
-                                <button type="submit" class="btn btn-primary">&#9993; Antwort senden</button>
+                                <button type="submit" name="send_reply" value="1" class="btn btn-secondary">&#9993; Antwort ohne Exposé senden</button>
+                                <?php if ($exposeStatus !== false && $exposeStatus !== null && !in_array($exposeStatus, ['sent', 'sending', 'pending_email'], true)): ?>
+                                    <button type="submit" name="send_expose" value="1" class="btn btn-primary"<?= $exposeStatus === 'unknown' ? ' onclick="return confirm(\'Wurde der Postausgang geprüft? Das Exposé könnte bereits versendet worden sein.\')"' : '' ?>>Exposé senden</button>
+                                <?php endif; ?>
                                 <?php if (!empty($detail['phone'])): ?>
                                     <a href="tel:<?= htmlspecialchars($detail['phone']) ?>" class="btn btn-secondary">&#128222; <?= htmlspecialchars($detail['phone']) ?></a>
                                 <?php endif; ?>
@@ -453,7 +557,17 @@ if ($id) {
                                                                                     'replied' => '&#10003; Beantwortet',
                                                                                     default   => 'Gelesen',
                                                                                 };
-                                                                                ?></span></td>
+                                                                                ?></span>
+                                    <?php if ($inq['expose_status'] !== null): ?>
+                                        <br><small><?= htmlspecialchars(match ($inq['expose_status']) {
+                                            'pending_email' => 'Exposé: E-Mail-Bestätigung ausstehend',
+                                            'sent' => 'Exposé versendet',
+                                            'unknown' => 'Exposé-Versand nicht bestätigt',
+                                            'sending' => 'Exposé-Versand ungeklärt',
+                                            default => 'Exposé: Neu',
+                                        }) ?></small>
+                                    <?php endif; ?>
+                                </td>
                                 <td><?= date('d.m.Y H:i', strtotime($inq['created_at'])) ?></td>
                                 <td style="display:flex;gap:.4rem;flex-wrap:wrap;">
                                     <a href="?id=<?= $inq['id'] ?>" class="btn btn-sm btn-secondary">Details</a>

@@ -238,7 +238,7 @@ require_once __DIR__ . '/includes/header.php';
                     Die Newsletterverwaltung erfolgt über die Website-Datenbank beim Hosting-Anbieter; Bestätigungs-
                     und Benachrichtigungs-E-Mails werden ebenfalls über IONOS versendet.</p>
 
-                <p>Bei einer Exposé-Anfrage erstellen und speichern wir ein personalisiertes PDF mit Ihren angegebenen Kontaktdaten und senden es Ihnen per E-Mail zu. Eine Kopie ist für die Bearbeitung im geschützten Verwaltungsbereich verfügbar. E-Mails bieten keinen durchgehenden Ende-zu-Ende-Schutz.</p>
+                <p>Bei einer Exposé-Anfrage speichern wir Ihre Kontaktdaten und Anschrift zur Bearbeitung und benachrichtigen unser Team per E-Mail. Sie erhalten einen 48 Stunden gültigen Bestätigungslink. Nach Bestätigung Ihrer E-Mail-Adresse erstellen wir ein PDF mit Ihrem Namen, speichern eine Kopie im geschützten Verwaltungsbereich und senden es Ihnen per E-Mail zu. Eine optionale Anmeldung für Nachrichten über neue Immobilien bestätigen Sie unabhängig davon. E-Mails bieten keinen durchgehenden Ende-zu-Ende-Schutz.</p>
                 <p><strong>Speicherdauer:</strong> Ihre Anfragen werden nach abschließender Bearbeitung gelöscht,
                     sofern keine gesetzlichen Aufbewahrungspflichten entgegenstehen.</p>
 

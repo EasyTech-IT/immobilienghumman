@@ -73,6 +73,10 @@ if (in_array($action, ['inquiry', 'general']) && $method === 'POST') {
     $isAnalysis = isset($analysisFlows[$formType]);
     $propId   = isset($data['property_id']) ? (int)$data['property_id'] : null;
     $subjectInput = trim((string)($data['subject'] ?? $data['betreff'] ?? ''));
+    $exposeAddress = [];
+    foreach (['street' => 'Straße', 'house_number' => 'Hausnummer', 'postal_code' => 'Postleitzahl', 'city' => 'Stadt'] as $key => $label) {
+        $exposeAddress[$label] = isset($data[$key]) && is_string($data[$key]) ? trim($data[$key]) : '';
+    }
 
     // If no message provided, auto-generate from form type
     if (empty($message) && $formType) {
@@ -112,6 +116,11 @@ if (in_array($action, ['inquiry', 'general']) && $method === 'POST') {
     if ($isAnalysis && analyse_validate_answers($formType, $data))         $errors[] = 'Bitte beantworten Sie alle Fragen vollständig und gültig.';
     if ($isExpose && (!$propId || !csrf_verify($data['csrf_token'] ?? ''))) $errors[] = 'Ungültige Immobilienanfrage. Bitte laden Sie die Seite neu.';
     if ($isExpose && (mb_strlen($name) > 100 || mb_strlen($email) > 255 || mb_strlen($phone) > 50)) $errors[] = 'Bitte prüfen Sie die Länge Ihrer Kontaktdaten.';
+    if ($isExpose) {
+        foreach ($exposeAddress as $label => $value) {
+            if ($value === '' || mb_strlen($value) > 100 || preg_match('/[\r\n]/', $value)) $errors[] = $label . ' ist erforderlich und muss gültig sein.';
+        }
+    }
     $newsletterOptin = !empty($data['newsletter_optin']) && $data['newsletter_optin'] !== 'false' && $data['newsletter_optin'] !== '0';
 
     if (!empty($errors)) {
@@ -197,6 +206,12 @@ if (in_array($action, ['inquiry', 'general']) && $method === 'POST') {
     ];
     $extraInfo = '';
     $extraRows = [];
+    if ($isExpose) {
+        foreach ($exposeAddress as $label => $value) {
+            $extraInfo .= $label . ': ' . $value . "\n";
+            $extraRows[$label] = $value;
+        }
+    }
     foreach ($extraFields as $field) {
         if (!empty($data[$field]) && is_scalar($data[$field])) {
             $extraInfo .= ucfirst($field) . ': ' . $data[$field] . "\n";
@@ -256,10 +271,15 @@ if (in_array($action, ['inquiry', 'general']) && $method === 'POST') {
         $extraInfo .= "Betreff: " . $subject . "\n";
 
         if ($isExpose) {
-            require_once __DIR__ . '/../includes/expose-pdf.php';
-            expose_requests_ensure_table($pdo);
-            $pdf = expose_pdf_render($prop, ['name' => $name, 'email' => $email, 'phone' => $phone]);
-            $inquiryId = expose_request_store($pdo, [$name, $email, $phone, $message . ($extraInfo ? "\n\nWeitere Angaben:\n" . $extraInfo : ''), $propId, $ip], $pdf);
+            require_once __DIR__ . '/../includes/expose-confirmation.php';
+            expose_automatic_ensure_tables($pdo);
+            if (!expose_property_is_approved($pdo, $prop)) {
+                http_response_code(503);
+                echo json_encode(['success' => false, 'message' => 'Das Exposé wird derzeit geprüft. Bitte kontaktieren Sie uns persönlich.'], JSON_UNESCAPED_UNICODE);
+                exit;
+            }
+            $confirmationToken = bin2hex(random_bytes(32));
+            $inquiryId = expose_store_pending_confirmation($pdo, [$name, $email, $phone, $message . ($extraInfo ? "\n\nWeitere Angaben:\n" . $extraInfo : ''), $propId, $ip], $confirmationToken);
         } else {
             $stmt = $pdo->prepare('
                 INSERT INTO contact_inquiries (name, email, phone, message, property_id, ip_address, created_at)
@@ -304,24 +324,8 @@ if (in_array($action, ['inquiry', 'general']) && $method === 'POST') {
     if ($isExpose) {
         ignore_user_abort(true);
         if (session_status() === PHP_SESSION_ACTIVE) session_write_close();
-        try {
-            $sent = expose_request_deliver($pdo, $inquiryId, $pdf, static fn($contents) => mailer_send(
-                $email,
-                'Ihr Exposé – ' . $propertyTitle,
-                "Guten Tag $name,\n\nvielen Dank für Ihr Interesse. Ihr persönliches Exposé finden Sie im Anhang.\n\nFreundliche Grüße\n" . SITE_NAME,
-                '',
-                '',
-                '',
-                '',
-                ['content' => $contents]
-            ));
-        } catch (Throwable $e) {
-            error_log('Exposé-Status konnte nicht gespeichert werden: ' . $e->getMessage());
-            http_response_code(503);
-            echo json_encode(['success' => false, 'stored' => true, 'message' => 'Ihre Anfrage wurde gespeichert, der Versandstatus konnte aber nicht bestätigt werden. Bitte nicht erneut senden und uns telefonisch kontaktieren.'], JSON_UNESCAPED_UNICODE);
-            exit;
-        }
-        if (!mailer_send(MAIL_TO, $subject, $mailBody, $adminHtml, $email)) {
+        $adminSent = mailer_send(MAIL_TO, $subject, $mailBody, $adminHtml, $email);
+        if (!$adminSent) {
             error_log('Exposé-Anfrage: interne Benachrichtigung konnte nicht gesendet werden.');
         }
         if ($newsletterOptin) {
@@ -334,12 +338,13 @@ if (in_array($action, ['inquiry', 'general']) && $method === 'POST') {
                 error_log('Newsletter opt-in: ' . $e->getMessage());
             }
         }
-        if (!$sent) {
-            error_log('Exposé-Versand konnte nicht bestätigt werden; Anfrage ' . $inquiryId);
+        $confirmationSent = expose_send_confirmation($email, $name, $propertyTitle, $confirmationToken);
+        if (!$confirmationSent) error_log('Exposé-Anfrage: Bestätigungsmail konnte nicht gesendet werden.');
+        if (!$adminSent || !$confirmationSent) {
             http_response_code(503);
-            echo json_encode(['success' => false, 'stored' => true, 'message' => 'Ihre Anfrage wurde gespeichert, der E-Mail-Versand konnte aber nicht bestätigt werden. Bitte nicht erneut senden und uns telefonisch kontaktieren.'], JSON_UNESCAPED_UNICODE);
+            echo json_encode(['success' => false, 'stored' => true, 'message' => 'Ihre Anfrage wurde gespeichert, aber mindestens eine E-Mail konnte nicht versendet werden. Bitte nicht erneut senden und uns telefonisch kontaktieren.'], JSON_UNESCAPED_UNICODE);
         } else {
-            echo json_encode(['success' => true, 'message' => 'Ihre Anfrage wurde gespeichert und das Exposé an den E-Mail-Server übergeben. Bitte prüfen Sie auch Ihren Spam-Ordner und kontaktieren Sie uns, falls die E-Mail nicht ankommt.'], JSON_UNESCAPED_UNICODE);
+            echo json_encode(['success' => true, 'message' => 'Vielen Dank. Bitte bestätigen Sie Ihre E-Mail-Adresse über den Link in unserer Nachricht. Danach senden wir Ihnen das Exposé zu.'], JSON_UNESCAPED_UNICODE);
         }
         exit;
     }
