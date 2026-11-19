@@ -257,6 +257,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && in_array($action, ['new', 'edit']))
             'energy_value' => $energyValue,
             'energy_value_electricity' => (($d['energy_value_electricity'] ?? '') !== '' ? (float)$d['energy_value_electricity'] : null),
             'energy_efficiency_class' => $energyClass,
+            'energy_efficiency_class_not_in_certificate' => !empty($d['energy_efficiency_class_not_in_certificate']),
+            'energy_issue_date' => trim((string)($d['energy_issue_date'] ?? '')),
             'energy_source' => $energySource,
             'energy_certificate_status' => trim((string)($d['energy_certificate_status'] ?? '')),
             'energy_valid_until' => trim((string)($d['energy_valid_until'] ?? '')),
@@ -499,6 +501,8 @@ $pageTitle = $action === 'list' ? 'Immobilien' : ($action === 'new' ? 'Neue Immo
         .properties-table-wrap th, .properties-table-wrap td { padding: .55rem .7rem; }
         #adminPropertyForm > .card { padding: 1.1rem; margin-bottom: .9rem; }
         #adminPropertyForm .form-group { min-width: 0; margin-bottom: .55rem; }
+        #adminPropertyForm .publish-required-mark { color: #b42318; font-weight: 700; }
+        #adminPropertyForm [data-residential-energy-only][hidden] { display: none !important; }
         .table-actions { display: flex; flex-wrap: wrap; gap: .35rem; min-width: 190px; }
         .form-help { margin: .2rem 0 0; color: #64748b; font-size: .82rem; }
         @media (max-width: 900px) {
@@ -751,16 +755,16 @@ $pageTitle = $action === 'list' ? 'Immobilien' : ($action === 'new' ? 'Neue Immo
                     <div class="card">
                         <h2 style="margin:0 0 1rem;font-size:1rem;color:#555;">Grunddaten</h2>
                         <p class="form-help">Prüfen Sie vor der Veröffentlichung, ob Texte und Fotos persönliche Daten oder Rechte Dritter betreffen. Nur Angaben und Bilder verwenden, für deren Veröffentlichung eine Berechtigung vorliegt.</p>
-                        <p class="form-help">Mit * markierte Felder sind Voraussetzungen dieses Systems zur Veröffentlichung und nicht automatisch gesetzliche Pflichtangaben. Empfehlungen aus Ratgebern sind keine gesetzlichen Mindest- oder Höchstwerte.</p>
+                        <p class="form-help">Mit * markierte Felder sind Voraussetzungen dieses Systems zur Veröffentlichung und nicht automatisch gesetzliche Pflichtangaben. Einige Markierungen hängen von Objektart, Angebotsart oder Energieausweis ab.</p>
                         <p class="form-help">Orientierung: <a href="https://www.bodenrichtwerte-deutschland.de/immobilienwissen/immobilienanzeige-erstellen" target="_blank" rel="noopener noreferrer">Immobilienanzeige erstellen</a> und <a href="https://www.bodenrichtwerte-deutschland.de/immobilienwissen" target="_blank" rel="noopener noreferrer">Immobilienwissen</a>. Die Beiträge sind Ratgeber, keine Rechtsberatung.</p>
-                        <p class="form-help"><a href="https://www.gesetze-im-internet.de/geg/__80.html" target="_blank" rel="noopener noreferrer">§ 80 GModG</a> regelt, wann ein Energieausweis auszustellen und vorzulegen ist. Liegt bei einer kommerziellen Immobilienanzeige ein Ausweis vor, nennt <a href="https://www.gesetze-im-internet.de/geg/__87.html" target="_blank" rel="noopener noreferrer">§ 87 GModG</a> die Pflichtangaben: Ausweisart, Kennwert und Energieträger; bei Wohngebäuden außerdem Baujahr und Effizienzklasse, bei Nichtwohngebäuden Wärme und Strom getrennt.</p>
+                        <p class="form-help"><a href="https://www.gesetze-im-internet.de/geg/__79.html" target="_blank" rel="noopener noreferrer">§ 79 GModG</a> sieht eine zehnjährige Gültigkeit für Energieausweise vor. <a href="https://www.gesetze-im-internet.de/geg/__80.html" target="_blank" rel="noopener noreferrer">§ 80 GModG</a> regelt, wann ein Energieausweis auszustellen und vorzulegen ist. Liegt bei einer kommerziellen Immobilienanzeige ein Ausweis vor, nennt <a href="https://www.gesetze-im-internet.de/geg/__87.html" target="_blank" rel="noopener noreferrer">§ 87 GModG</a> die Pflichtangaben: Ausweisart, Kennwert und Energieträger; bei Wohngebäuden außerdem Baujahr und Effizienzklasse, bei Nichtwohngebäuden Wärme und Strom getrennt.</p>
                         <div class="form-group">
-                            <label>Titel *</label>
+                            <label>Titel <span class="publish-required-mark" aria-hidden="true">*</span></label>
                             <input type="text" name="title" value="<?= htmlspecialchars($property['title'] ?? '') ?>" required>
                         </div>
                         <div class="form-row">
                             <div class="form-group">
-                                <label>Typ</label>
+                                <label>Typ <span class="publish-required-mark" aria-hidden="true">*</span></label>
                                 <select name="type">
                                     <?php foreach (['Wohnung', 'Haus', 'Einfamilienhaus', 'Mehrfamilienhaus', 'Gewerbe', 'Grundstück'] as $t): ?>
                                         <option value="<?= $t ?>" <?= ($property['type'] ?? 'Wohnung') === $t ? 'selected' : '' ?>><?= $t ?></option>
@@ -768,7 +772,7 @@ $pageTitle = $action === 'list' ? 'Immobilien' : ($action === 'new' ? 'Neue Immo
                                 </select>
                             </div>
                             <div class="form-group">
-                                <label>Angebotsart</label>
+                                <label>Angebotsart <span class="publish-required-mark" aria-hidden="true">*</span></label>
                                 <select name="offer_type" id="offer_type_input">
                                     <option value="Miete" <?= ($property['offer_type'] ?? 'Miete') === 'Miete' ? 'selected' : '' ?>>Miete</option>
                                     <option value="Kauf" <?= ($property['offer_type'] ?? '') === 'Kauf' ? 'selected' : '' ?>>Kauf</option>
@@ -776,12 +780,12 @@ $pageTitle = $action === 'list' ? 'Immobilien' : ($action === 'new' ? 'Neue Immo
                             </div>
                         </div>
                         <div class="form-group">
-                            <label>Kurzbeschreibung</label>
+                            <label>Kurzbeschreibung <span class="publish-required-mark" aria-hidden="true">*</span></label>
                             <input type="text" name="short_description" maxlength="160" value="<?= htmlspecialchars($property['short_description'] ?? '') ?>">
                             <p class="form-help">Sachlich formulieren. Bei Auswahlkriterien das <a href="https://www.gesetze-im-internet.de/agg/__19.html" target="_blank" rel="noopener noreferrer">AGG</a> und dessen Anwendungsbereich sowie Ausnahmen prüfen.</p>
                         </div>
                         <div class="form-group">
-                            <label>Beschreibung</label>
+                            <label>Beschreibung <span class="publish-required-mark" aria-hidden="true">*</span></label>
                             <textarea name="description" style="min-height:180px;"><?= htmlspecialchars($property['description'] ?? '') ?></textarea>
                             <p class="form-help">Wahrheitsgemäß und nachvollziehbar beschreiben; bekannte wesentliche Einschränkungen sachlich nennen. Der Ratgeber nennt etwa 300-500 Wörter als Orientierung, nicht als gesetzliche Pflicht.</p>
                         </div>
@@ -791,28 +795,29 @@ $pageTitle = $action === 'list' ? 'Immobilien' : ($action === 'new' ? 'Neue Immo
                         <h2 style="margin:0 0 1rem;font-size:1rem;color:#555;">Kosten</h2>
                         <div class="form-row three">
                             <div class="form-group"><label id="price_label">Kaltmiete / Kaufpreis (€) *</label><input type="number" id="price_input" name="price" value="<?= $property['price'] ?? '' ?>" step="0.01" required></div>
-                            <div class="form-group" data-rent-only><label>Nebenkosten / Monat (€)</label><input type="number" id="extra_costs_input" name="extra_costs" value="<?= $property['extra_costs'] ?? 0 ?>" step="0.01"></div>
-                            <div class="form-group" data-rent-only><label>Heizkosten / Monat (€)</label><input type="number" id="heating_costs_input" name="heating_costs" value="<?= $property['heating_costs'] ?? 0 ?>" step="0.01"></div>
+                            <div class="form-group" data-rent-only><label>Nebenkosten / Monat (€) <span class="publish-required-mark" data-publish-required="extra_costs" aria-hidden="true" hidden>*</span></label><input type="number" id="extra_costs_input" name="extra_costs" value="<?= $property['extra_costs'] ?? 0 ?>" step="0.01"></div>
+                            <div class="form-group" data-rent-only><label>Heizkosten / Monat (€) <span class="publish-required-mark" data-publish-required="heating_costs" aria-hidden="true" hidden>*</span></label><input type="number" id="heating_costs_input" name="heating_costs" value="<?= $property['heating_costs'] ?? 0 ?>" step="0.01"></div>
                         </div>
                         <div class="form-row">
                             <div class="form-group" data-rent-only><label>Warmmiete / Monat (€)</label><input type="number" id="warm_rent_input" name="warm_rent" value="<?= $property['warm_rent'] ?? 0 ?>" step="0.01"></div>
-                            <div class="form-group" data-rent-only><label>Kaution (€)</label><input type="number" name="deposit" value="<?= $property['deposit'] ?? 0 ?>" step="0.01"></div>
+                            <div class="form-group" data-rent-only><label>Kaution (€) <span class="publish-required-mark" data-publish-required="deposit" aria-hidden="true" hidden>*</span></label><input type="number" name="deposit" value="<?= $property['deposit'] ?? 0 ?>" step="0.01"></div>
                         </div>
                         <div class="form-group" data-rent-only><label><input type="checkbox" name="heating_costs_included" value="1" <?= !empty($extraData['heating_costs_included']) ? 'checked' : '' ?>> Heizkosten sind in den Nebenkosten enthalten</label></div>
                         <p id="warm-rent-help" class="form-help">Warmmiete wird aus Kaltmiete + Nebenkosten + Heizkosten berechnet, bis Sie den Wert manuell ändern.</p>
+                        <p class="form-help" data-rent-only>Bei Miete sind Nebenkosten und Kaution Pflichtfelder (0 ist möglich). Heizkosten eintragen oder bestätigen, dass sie in den Nebenkosten enthalten sind.</p>
                         <p class="form-help" data-rent-only>Bei Wohnraummiete örtliche Mietpreisbremse und Ausnahmen prüfen (<a href="https://www.gesetze-im-internet.de/bgb/__556d.html" target="_blank" rel="noopener noreferrer">§§ 556d ff. BGB</a>). Kostenbestandteile korrekt und nachvollziehbar ausweisen.</p>
                     </div>
 
                     <div class="card">
                         <h2 style="margin:0 0 1rem;font-size:1rem;color:#555;">Fläche &amp; Zimmer</h2>
                         <div class="form-row three">
-                            <div class="form-group"><label>Wohnfläche (m²)</label><input type="number" name="area" value="<?= $property['area'] ?? '' ?>" step="0.01"></div>
-                            <div class="form-group"><label>Zimmer</label><input type="number" name="rooms" value="<?= $property['rooms'] ?? '' ?>" step="0.5"></div>
-                            <div class="form-group"><label>Badezimmer</label><input type="number" name="bathrooms" value="<?= $property['bathrooms'] ?? 1 ?>"></div>
+                            <div class="form-group"><label>Wohnfläche (m²) <span class="publish-required-mark" data-publish-required="area" aria-hidden="true" hidden>*</span></label><input type="number" name="area" value="<?= $property['area'] ?? '' ?>" step="0.01"></div>
+                            <div class="form-group"><label>Zimmer <span class="publish-required-mark" data-publish-required="rooms" aria-hidden="true" hidden>*</span></label><input type="number" name="rooms" value="<?= $property['rooms'] ?? '' ?>" step="0.5"></div>
+                            <div class="form-group"><label>Badezimmer <span class="publish-required-mark" data-publish-required="bathrooms" aria-hidden="true" hidden>*</span></label><input type="number" name="bathrooms" value="<?= $property['bathrooms'] ?? 1 ?>"></div>
                         </div>
                         <div class="form-row">
-                            <div class="form-group"><label>Grundstücksfläche (m²)</label><input type="number" name="plot_area" min="0" step="0.01" value="<?= htmlspecialchars((string)($extraData['plot_area'] ?? '')) ?>"></div>
-                            <div class="form-group"><label>Wohneinheiten</label><input type="number" name="residential_units" min="0" step="1" value="<?= htmlspecialchars((string)($extraData['residential_units'] ?? '')) ?>"></div>
+                            <div class="form-group"><label>Grundstücksfläche (m²) <span class="publish-required-mark" data-publish-required="plot_area" aria-hidden="true" hidden>*</span></label><input type="number" name="plot_area" min="0" step="0.01" value="<?= htmlspecialchars((string)($extraData['plot_area'] ?? '')) ?>"></div>
+                            <div class="form-group"><label>Wohneinheiten <span class="publish-required-mark" data-publish-required="residential_units" aria-hidden="true" hidden>*</span></label><input type="number" name="residential_units" min="0" step="1" value="<?= htmlspecialchars((string)($extraData['residential_units'] ?? '')) ?>"></div>
                             <div class="form-group"><label>Gäste-WCs</label><input type="number" name="guest_toilets" min="0" step="1" value="<?= htmlspecialchars((string)($extraData['guest_toilets'] ?? '')) ?>"></div>
                         </div>
                         <p class="form-help">Zimmer, Bäder und Wohneinheiten anhand der Unterlagen prüfen; keine Werte aus Grundrissen schätzen.</p>
@@ -828,7 +833,7 @@ $pageTitle = $action === 'list' ? 'Immobilien' : ($action === 'new' ? 'Neue Immo
                         <div class="form-row three">
                             <div class="form-group"><label>Stellplätze</label><input type="number" name="parking_spaces" min="0" step="1" value="<?= htmlspecialchars((string)($extraData['parking_spaces'] ?? '')) ?>"></div>
                             <div class="form-group"><label>Stellplatztyp</label><input type="text" name="parking_type" value="<?= htmlspecialchars((string)($extraData['parking_type'] ?? '')) ?>" placeholder="z.B. Tiefgarage"></div>
-                            <div class="form-group"><label>Zustand</label><input type="text" name="condition" value="<?= htmlspecialchars((string)($extraData['condition'] ?? '')) ?>" placeholder="z.B. gepflegt"></div>
+                            <div class="form-group"><label>Zustand <span class="publish-required-mark" aria-hidden="true">*</span></label><input type="text" name="condition" value="<?= htmlspecialchars((string)($extraData['condition'] ?? '')) ?>" placeholder="z.B. gepflegt"></div>
                         </div>
                         <div class="form-row">
                             <div class="form-group"><label>Bad</label><input type="text" name="bath_features" value="<?= htmlspecialchars((string)($extraData['bath_features'] ?? '')) ?>" placeholder="z.B. Dusche, Wanne"></div>
@@ -844,20 +849,18 @@ $pageTitle = $action === 'list' ? 'Immobilien' : ($action === 'new' ? 'Neue Immo
                     <div class="card">
                         <h2 style="margin:0 0 1rem;font-size:1rem;color:#555;">Energieausweis</h2>
                         <div class="form-group">
-                            <label>Status Energieausweis *</label>
+                            <label>Status Energieausweis <span class="publish-required-mark" aria-hidden="true">*</span></label>
                             <select name="energy_certificate_status" required>
                                 <?php foreach (['' => 'Bitte wählen', 'available' => 'Vorhanden', 'ordered' => 'Beantragt — noch nicht veröffentlichen', 'not_required' => 'Nicht erforderlich (Ausnahme geprüft)', 'missing' => 'Fehlt / ungeklärt — noch nicht veröffentlichen'] as $value => $label): ?>
                                     <option value="<?= htmlspecialchars($value) ?>" <?= (($extraData['energy_certificate_status'] ?? '') === $value ? 'selected' : '') ?>><?= htmlspecialchars($label) ?></option>
                                 <?php endforeach; ?>
                             </select>
                         </div>
-                        <p class="form-help">„Nicht erforderlich“ nur wählen, wenn die Ausnahme für dieses Objekt geprüft wurde. Sonst vor der Veröffentlichung einen gültigen Ausweis beschaffen. Angaben aus dem Ausweis übernehmen und nicht schätzen; bei Nichtwohngebäuden Wärme- und Stromkennwert getrennt erfassen.</p>
-                        <?php if (($extraData['energy_certificate_status'] ?? '') === 'available' && (empty($extraData['energy_certificate_type']) || !isset($extraData['energy_value']) || $extraData['energy_value'] === '' || empty($extraData['energy_source']) || empty($extraData['energy_building_year']) || empty($extraData['energy_efficiency_class']))): ?>
-                            <p class="form-help"><strong>Energieangaben unvollständig:</strong> Bitte vor der Vermarktung anhand des Energieausweises prüfen, welche Angaben für dieses Objekt erforderlich sind.</p>
-                        <?php endif; ?>
+                        <p class="form-help">„Nicht erforderlich“ nur wählen, wenn die Ausnahme für dieses Objekt geprüft wurde. Sonst vor der Veröffentlichung einen gültigen Ausweis beschaffen. Bei „Vorhanden“ die markierten Angaben aus dem Ausweis übernehmen; bei Nichtwohngebäuden Wärme- und Stromkennwert getrennt erfassen.</p>
+                        <p class="form-help">Gültigkeitsende aus dem Energieausweis übernehmen; abgelaufene Ausweise blockieren die Veröffentlichung. Bei Wohngebäude-Ausweisen ohne Effizienzklasse kann diese nach <a href="https://www.gesetze-im-internet.de/geg/__112.html" target="_blank" rel="noopener noreferrer">§ 112 Abs. 3 GModG</a> nur für Ausweise vom 01.10.2007 bis 30.04.2014 entfallen. Ausstellungsdatum eintragen und die Ausnahme nur nach Prüfung markieren.</p>
                         <div class="form-row three">
                             <div class="form-group">
-                                <label>Energieausweistyp</label>
+                                <label>Energieausweistyp <span class="publish-required-mark" data-publish-required="energy_certificate_type" aria-hidden="true" hidden>*</span></label>
                                 <select name="energy_certificate_type">
                                     <option value="" <?= (($extraData['energy_certificate_type'] ?? '') === '' ? 'selected' : '') ?>>Bitte wählen</option>
                                     <option value="bedarfsausweis" <?= (($extraData['energy_certificate_type'] ?? '') === 'bedarfsausweis' ? 'selected' : '') ?>>Bedarfsausweis</option>
@@ -865,27 +868,31 @@ $pageTitle = $action === 'list' ? 'Immobilien' : ($action === 'new' ? 'Neue Immo
                                 </select>
                             </div>
                             <div class="form-group">
-                                <label>Art Kennwert</label>
+                                <label>Art Kennwert <span class="publish-required-mark" data-publish-required="energy_value_kind" aria-hidden="true" hidden>*</span></label>
                                 <select name="energy_value_kind">
                                     <option value="" <?= (($extraData['energy_value_kind'] ?? '') === '' ? 'selected' : '') ?>>Bitte wählen</option>
                                     <option value="bedarf" <?= (($extraData['energy_value_kind'] ?? '') === 'bedarf' ? 'selected' : '') ?>>Endenergiebedarf</option>
                                     <option value="verbrauch" <?= (($extraData['energy_value_kind'] ?? '') === 'verbrauch' ? 'selected' : '') ?>>Endenergieverbrauch</option>
                                 </select>
                             </div>
-                            <div class="form-group"><label>Energiekennwert (kWh/(m²·a))</label><input type="number" name="energy_value" step="0.1" value="<?= htmlspecialchars((string)($extraData['energy_value'] ?? '')) ?>"></div>
+                            <div class="form-group"><label>Energiekennwert (kWh/(m²·a)) <span class="publish-required-mark" data-publish-required="energy_value" aria-hidden="true" hidden>*</span></label><input type="number" name="energy_value" step="0.1" value="<?= htmlspecialchars((string)($extraData['energy_value'] ?? '')) ?>"></div>
                         </div>
                         <div class="form-row three">
                             <div class="form-group">
-                                <label>Energieeffizienzklasse</label>
+                                <label>Energieeffizienzklasse <span class="publish-required-mark" data-publish-required="energy_efficiency_class" aria-hidden="true" hidden>*</span></label>
                                 <select name="energy_efficiency_class">
                                     <option value="" <?= (($extraData['energy_efficiency_class'] ?? '') === '' ? 'selected' : '') ?>>Bitte wählen</option>
                                     <?php foreach (['A+', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'] as $clazz): ?>
                                         <option value="<?= $clazz ?>" <?= (($extraData['energy_efficiency_class'] ?? '') === $clazz ? 'selected' : '') ?>><?= $clazz ?></option>
                                     <?php endforeach; ?>
                                 </select>
+                                <div class="check-wrap" data-residential-energy-only style="margin-top:.45rem;">
+                                    <input type="checkbox" name="energy_efficiency_class_not_in_certificate" id="energy_efficiency_class_not_in_certificate" value="1" <?= !empty($extraData['energy_efficiency_class_not_in_certificate']) ? 'checked' : '' ?>>
+                                    <label for="energy_efficiency_class_not_in_certificate" style="margin:0;font-weight:normal;">Im geprüften Alt-Ausweis nicht angegeben</label>
+                                </div>
                             </div>
                             <div class="form-group">
-                                <label>Wesentlicher Energieträger</label>
+                                <label>Wesentlicher Energieträger <span class="publish-required-mark" data-publish-required="energy_source" aria-hidden="true" hidden>*</span></label>
                                 <select name="energy_source">
                                     <option value="" <?= (($extraData['energy_source'] ?? '') === '' ? 'selected' : '') ?>>Bitte wählen</option>
                                     <?php foreach (['Gas', 'Öl', 'Fernwärme', 'Wärmepumpe', 'Strom', 'Pellets', 'Sonstige'] as $source): ?>
@@ -896,13 +903,16 @@ $pageTitle = $action === 'list' ? 'Immobilien' : ($action === 'new' ? 'Neue Immo
                             <div class="form-group"><label>Baujahr Gebäude</label><input type="number" name="building_year" value="<?= htmlspecialchars((string)($extraData['building_year'] ?? '')) ?>" min="1800" max="2100"></div>
                         </div>
                         <div class="form-row three">
-                            <div class="form-group"><label>Gültig bis</label><input type="date" name="energy_valid_until" value="<?= htmlspecialchars((string)($extraData['energy_valid_until'] ?? '')) ?>"></div>
-                            <div class="form-group"><label>Baujahr lt. Energieausweis</label><input type="number" name="energy_building_year" value="<?= htmlspecialchars((string)($extraData['energy_building_year'] ?? '')) ?>" min="1800" max="2100"></div>
+                            <div class="form-group"><label>Gültig bis <span class="publish-required-mark" data-publish-required="energy_valid_until" aria-hidden="true" hidden>*</span></label><input type="date" name="energy_valid_until" value="<?= htmlspecialchars((string)($extraData['energy_valid_until'] ?? '')) ?>"></div>
+                            <div class="form-group"><label>Baujahr lt. Energieausweis <span class="publish-required-mark" data-publish-required="energy_building_year" aria-hidden="true" hidden>*</span></label><input type="number" name="energy_building_year" value="<?= htmlspecialchars((string)($extraData['energy_building_year'] ?? '')) ?>" min="1800" max="2100"></div>
                             <div class="form-group"><label>Heizungsart</label><input type="text" name="heating_type" value="<?= htmlspecialchars((string)($extraData['heating_type'] ?? '')) ?>" placeholder="z.B. Zentralheizung"></div>
+                        </div>
+                        <div class="form-row" data-residential-energy-only>
+                            <div class="form-group"><label>Ausstellungsdatum Energieausweis <span class="publish-required-mark" data-publish-required="energy_issue_date" aria-hidden="true" hidden>*</span></label><input type="date" name="energy_issue_date" value="<?= htmlspecialchars((string)($extraData['energy_issue_date'] ?? '')) ?>"></div>
                         </div>
                         <div class="form-row">
                             <div class="form-group"><label>Baujahr Heizung</label><input type="number" name="heating_year" value="<?= htmlspecialchars((string)($extraData['heating_year'] ?? '')) ?>" min="1800" max="2100"></div>
-                            <div class="form-group"><label>Energiekennwert Strom (Nichtwohngebäude)</label><input type="number" name="energy_value_electricity" min="0" step="0.1" value="<?= htmlspecialchars((string)($extraData['energy_value_electricity'] ?? '')) ?>"></div>
+                            <div class="form-group"><label>Energiekennwert Strom (Nichtwohngebäude) <span class="publish-required-mark" data-publish-required="energy_value_electricity" aria-hidden="true" hidden>*</span></label><input type="number" name="energy_value_electricity" min="0" step="0.1" value="<?= htmlspecialchars((string)($extraData['energy_value_electricity'] ?? '')) ?>"></div>
                             <div class="form-group"><label>Berechnungsgrundlage Fläche (optional)</label><input type="text" name="area_calculation_basis" value="<?= htmlspecialchars((string)($extraData['area_calculation_basis'] ?? '')) ?>" placeholder="z. B. WoFlV, DIN 277 oder Unterlage"></div>
                         </div>
                         <p class="form-help">Die Flächenmethode transparent anzugeben ist hilfreich, aber keine allgemeine gesetzliche Pflicht für jedes Inserat.</p>
@@ -922,7 +932,7 @@ $pageTitle = $action === 'list' ? 'Immobilien' : ($action === 'new' ? 'Neue Immo
                             <div class="form-group"><label>Letzte Modernisierung (Jahr)</label><input type="number" name="last_modernization_year" value="<?= htmlspecialchars((string)($extraData['last_modernization_year'] ?? '')) ?>" min="1800" max="2100"></div>
                         </div>
                         <div class="form-row three">
-                            <div class="form-group"><label>Hausgeld (€/Monat, Kauf)</label><input type="number" name="house_fee" value="<?= htmlspecialchars((string)($extraData['house_fee'] ?? '')) ?>" step="0.01"></div>
+                            <div class="form-group"><label>Hausgeld (€/Monat, Kauf) <span class="publish-required-mark" data-publish-required="house_fee" aria-hidden="true" hidden>*</span></label><input type="number" name="house_fee" value="<?= htmlspecialchars((string)($extraData['house_fee'] ?? '')) ?>" step="0.01"></div>
                             <div class="form-group"><label>Stellplatz/Garage Kosten</label><input type="text" name="parking_info" value="<?= htmlspecialchars((string)($extraData['parking_info'] ?? '')) ?>" placeholder="z.B. Garage 60 €/Monat"></div>
                             <div class="form-group"></div>
                         </div>
@@ -934,7 +944,7 @@ $pageTitle = $action === 'list' ? 'Immobilien' : ($action === 'new' ? 'Neue Immo
                                     <label for="commission_required" style="margin:0;font-weight:normal;">Provision/Courtage fällt an</label>
                                 </div>
                             </div>
-                            <div class="form-group"><label>Courtage-Höhe</label><input type="number" name="commission_amount" value="<?= htmlspecialchars((string)($extraData['commission_amount'] ?? '')) ?>" step="0.01"></div>
+                            <div class="form-group"><label>Courtage-Höhe <span class="publish-required-mark" data-publish-required="commission_amount" aria-hidden="true" hidden>*</span></label><input type="number" name="commission_amount" value="<?= htmlspecialchars((string)($extraData['commission_amount'] ?? '')) ?>" step="0.01"></div>
                             <div class="form-group">
                                 <label>Einheit</label>
                                 <select name="commission_unit">
@@ -944,8 +954,8 @@ $pageTitle = $action === 'list' ? 'Immobilien' : ($action === 'new' ? 'Neue Immo
                             </div>
                         </div>
                         <div class="form-row">
-                            <div class="form-group"><label>Wer zahlt die Courtage?</label><input type="text" name="commission_payer" value="<?= htmlspecialchars((string)($extraData['commission_payer'] ?? '')) ?>" placeholder="z.B. Käufer, Verkäufer, Mieter"></div>
-                            <div class="form-group"><label>Provisionshinweis</label><input type="text" name="commission_note" value="<?= htmlspecialchars((string)($extraData['commission_note'] ?? '')) ?>" placeholder="z.B. inkl. gesetzlicher Umsatzsteuer"></div>
+                            <div class="form-group"><label>Wer zahlt die Courtage? <span class="publish-required-mark" data-publish-required="commission_payer" aria-hidden="true" hidden>*</span></label><input type="text" name="commission_payer" value="<?= htmlspecialchars((string)($extraData['commission_payer'] ?? '')) ?>" placeholder="z.B. Käufer, Verkäufer, Mieter"></div>
+                            <div class="form-group"><label>Provisionshinweis <span class="publish-required-mark" data-publish-required="commission_note" aria-hidden="true" hidden>*</span></label><input type="text" name="commission_note" value="<?= htmlspecialchars((string)($extraData['commission_note'] ?? '')) ?>" placeholder="z.B. inkl. gesetzlicher Umsatzsteuer"></div>
                         </div>
                         <p class="form-help">Falls eine Provision anfällt, Höhe, Einheit und zahlende Partei vollständig eintragen und rechtlich prüfen. Bei Wohnraummiete gelten besondere Regeln nach dem <a href="https://www.gesetze-im-internet.de/wovermrg/__2.html" target="_blank" rel="noopener noreferrer">WoVermRG</a>; beim Verkauf von Wohnungen und Einfamilienhäusern können <a href="https://www.gesetze-im-internet.de/bgb/__656c.html" target="_blank" rel="noopener noreferrer">§ 656c BGB</a> und <a href="https://www.gesetze-im-internet.de/bgb/__656d.html" target="_blank" rel="noopener noreferrer">§ 656d BGB</a> gelten. Das Formular ersetzt keine rechtliche Prüfung.</p>
                     </div>
@@ -953,15 +963,15 @@ $pageTitle = $action === 'list' ? 'Immobilien' : ($action === 'new' ? 'Neue Immo
                     <div class="card">
                         <h2 style="margin:0 0 1rem;font-size:1rem;color:#555;">Lage</h2>
                         <div class="form-row">
-                            <div class="form-group"><label>Ort *</label><input type="text" name="location" value="<?= htmlspecialchars($property['location'] ?? '') ?>" required></div>
-                            <div class="form-group"><label>PLZ</label><input type="text" name="zip" value="<?= htmlspecialchars($property['zip'] ?? '') ?>"></div>
+                            <div class="form-group"><label>Ort <span class="publish-required-mark" aria-hidden="true">*</span></label><input type="text" name="location" value="<?= htmlspecialchars($property['location'] ?? '') ?>" required></div>
+                            <div class="form-group"><label>PLZ <span class="publish-required-mark" aria-hidden="true">*</span></label><input type="text" name="zip" value="<?= htmlspecialchars($property['zip'] ?? '') ?>"></div>
                         </div>
                         <div class="form-row">
-                            <div class="form-group"><label>Adresse</label><input type="text" name="address" value="<?= htmlspecialchars($property['address'] ?? '') ?>"></div>
-                            <div class="form-group"><label>Verfügbar ab</label><input type="text" name="available_from" value="<?= htmlspecialchars($property['available_from'] ?? '') ?>" placeholder="z.B. 01.04.2026 oder Sofort"></div>
+                            <div class="form-group"><label>Adresse <span class="publish-required-mark" aria-hidden="true">*</span></label><input type="text" name="address" value="<?= htmlspecialchars($property['address'] ?? '') ?>"></div>
+                            <div class="form-group"><label>Verfügbar ab <span class="publish-required-mark" aria-hidden="true">*</span></label><input type="text" name="available_from" value="<?= htmlspecialchars($property['available_from'] ?? '') ?>" placeholder="z.B. sofort oder nach Absprache"></div>
                         </div>
                         <div class="form-group">
-                            <label for="location_description">Lagebeschreibung *</label>
+                            <label for="location_description">Lagebeschreibung <span class="publish-required-mark" aria-hidden="true">*</span></label>
                             <textarea id="location_description" name="location_description" rows="5" placeholder="Beschreiben Sie nur überprüfte Angaben zur Umgebung und Anbindung."><?= htmlspecialchars((string)($extraData['location_description'] ?? '')) ?></textarea>
                         </div>
                         <p class="form-hint">Im Inserat und auf der Karte erscheinen nur Ort und PLZ. Die genaue Adresse steht im persönlich angeforderten Exposé, sofern sie hier eingetragen ist. Die Lagebeschreibung ist öffentlich.</p>
@@ -1642,6 +1652,7 @@ $pageTitle = $action === 'list' ? 'Immobilien' : ($action === 'new' ? 'Neue Immo
                                 </div>
                             </div>
                         </div>
+                        <p class="form-help">Status „Verfügbar“ veröffentlicht das Inserat. „Inaktiv“ bleibt verborgen; Abonnenten werden nur bei markierter Benachrichtigung kontaktiert.</p>
                     </div>
 
                     <?php
@@ -1737,6 +1748,55 @@ $pageTitle = $action === 'list' ? 'Immobilien' : ($action === 'new' ? 'Neue Immo
                             });
                         }
 
+                        function updatePublishRequirements() {
+                            var value = function(name) {
+                                var field = form.querySelector('[name="' + name + '"]');
+                                return field ? field.value : '';
+                            };
+                            var checked = function(name) {
+                                var field = form.querySelector('[name="' + name + '"]');
+                                return !!(field && field.checked);
+                            };
+                            var markRequired = function(name, required) {
+                                var marker = form.querySelector('[data-publish-required="' + name + '"]');
+                                if (marker) marker.hidden = !required;
+                            };
+                            var type = value('type');
+                            var isRent = value('offer_type') === 'Miete';
+                            var isHouse = ['Haus', 'Einfamilienhaus', 'Mehrfamilienhaus'].indexOf(type) !== -1;
+                            var isPlot = type === 'Grundstück';
+                            var isCommercial = type === 'Gewerbe';
+                            var hasCertificate = value('energy_certificate_status') === 'available';
+                            var classInput = form.querySelector('[name="energy_efficiency_class"]');
+                            var mayOmitClass = checked('energy_efficiency_class_not_in_certificate')
+                                && classInput && classInput.value === '';
+
+                            markRequired('area', !isPlot);
+                            markRequired('rooms', !isPlot && !isCommercial);
+                            markRequired('bathrooms', type === 'Wohnung' || isHouse);
+                            markRequired('plot_area', isHouse || isPlot);
+                            markRequired('residential_units', type === 'Mehrfamilienhaus');
+                            markRequired('extra_costs', isRent);
+                            markRequired('deposit', isRent);
+                            markRequired('heating_costs', isRent && !checked('heating_costs_included'));
+                            markRequired('house_fee', !isRent && type === 'Wohnung');
+                            markRequired('commission_amount', !isRent && checked('commission_required'));
+                            markRequired('commission_payer', !isRent && checked('commission_required'));
+                            markRequired('commission_note', !isRent && checked('commission_required'));
+                            markRequired('energy_certificate_type', hasCertificate);
+                            markRequired('energy_value_kind', hasCertificate);
+                            markRequired('energy_value', hasCertificate);
+                            markRequired('energy_source', hasCertificate);
+                            markRequired('energy_valid_until', hasCertificate);
+                            markRequired('energy_value_electricity', hasCertificate && isCommercial);
+                            markRequired('energy_efficiency_class', hasCertificate && !isCommercial && !mayOmitClass);
+                            markRequired('energy_building_year', hasCertificate && !isCommercial);
+                            markRequired('energy_issue_date', hasCertificate && !isCommercial && mayOmitClass);
+                            form.querySelectorAll('[data-residential-energy-only]').forEach(function(element) {
+                                element.hidden = isCommercial;
+                            });
+                        }
+
                         try {
                             var raw = localStorage.getItem(draftKey);
                             if (raw) {
@@ -1753,12 +1813,15 @@ $pageTitle = $action === 'list' ? 'Immobilien' : ($action === 'new' ? 'Neue Immo
                             setStatus('Entwurf konnte nicht gelesen werden.');
                         }
 
+                        updatePublishRequirements();
                         var saveTimer = null;
                         form.addEventListener('input', function() {
+                            updatePublishRequirements();
                             clearTimeout(saveTimer);
                             saveTimer = setTimeout(saveDraft, 450);
                         });
                         form.addEventListener('change', function() {
+                            updatePublishRequirements();
                             clearTimeout(saveTimer);
                             saveTimer = setTimeout(saveDraft, 200);
                         });

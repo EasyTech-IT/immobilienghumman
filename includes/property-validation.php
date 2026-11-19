@@ -103,6 +103,7 @@ function property_listing_validation_errors(array $data, array $images): array
             'energy_value_kind' => 'Art des Energiekennwerts',
             'energy_value' => 'Energiekennwert',
             'energy_source' => 'wesentlicher Energieträger',
+            'energy_valid_until' => 'Gültigkeitsdatum des Energieausweises',
         ] as $field => $label) {
             if (trim((string)($data[$field] ?? '')) === '') {
                 $errors[] = 'Beim vorhandenen Energieausweis fehlt: ' . $label . '.';
@@ -118,21 +119,41 @@ function property_listing_validation_errors(array $data, array $images): array
         if (!in_array($data['energy_source'] ?? '', ['Gas', 'Öl', 'Fernwärme', 'Wärmepumpe', 'Strom', 'Pellets', 'Sonstige'], true)) {
             $errors[] = 'Bitte einen gültigen wesentlichen Energieträger auswählen.';
         }
+        $validUntil = trim((string)($data['energy_valid_until'] ?? ''));
+        if ($validUntil !== '') {
+            $validUntilParts = explode('-', $validUntil);
+            $validExpiryDate = count($validUntilParts) === 3
+                && preg_match('/^\d{4}-\d{2}-\d{2}$/', $validUntil)
+                && checkdate((int)$validUntilParts[1], (int)$validUntilParts[2], (int)$validUntilParts[0]);
+            if (!$validExpiryDate) {
+                $errors[] = 'Das Gültigkeitsdatum des Energieausweises ist ungültig.';
+            } elseif ($validUntil < (new DateTimeImmutable('now', new DateTimeZone('Europe/Berlin')))->format('Y-m-d')) {
+                $errors[] = 'Der Energieausweis ist abgelaufen. Vor der Veröffentlichung einen gültigen Ausweis hinterlegen.';
+            }
+        }
         if ($isCommercial) {
             if (!is_numeric($data['energy_value_electricity'] ?? null) || (float)$data['energy_value_electricity'] < 0) {
                 $errors[] = 'Beim Nichtwohngebäude ist auch der Energiekennwert für Strom erforderlich.';
             }
         } else {
-            foreach ([
-                'energy_efficiency_class' => 'Energieeffizienzklasse',
-                'energy_building_year' => 'Baujahr laut Energieausweis',
-            ] as $field => $label) {
-                if (trim((string)($data[$field] ?? '')) === '') {
-                    $errors[] = 'Beim vorhandenen Energieausweis fehlt: ' . $label . '.';
-                }
+            if (trim((string)($data['energy_building_year'] ?? '')) === '') {
+                $errors[] = 'Beim vorhandenen Energieausweis fehlt: Baujahr laut Energieausweis.';
             }
-            if (!in_array($data['energy_efficiency_class'] ?? '', ['A+', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'], true)) {
+            $energyClass = trim((string)($data['energy_efficiency_class'] ?? ''));
+            if ($energyClass !== '' && !in_array($energyClass, ['A+', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'], true)) {
                 $errors[] = 'Bitte eine gültige Energieeffizienzklasse auswählen.';
+            }
+            if ($energyClass === '' && !empty($data['energy_efficiency_class_not_in_certificate'])) {
+                $issueDate = trim((string)($data['energy_issue_date'] ?? ''));
+                $dateParts = explode('-', $issueDate);
+                $validIssueDate = count($dateParts) === 3
+                    && preg_match('/^\d{4}-\d{2}-\d{2}$/', $issueDate)
+                    && checkdate((int)$dateParts[1], (int)$dateParts[2], (int)$dateParts[0]);
+                if (!$validIssueDate || $issueDate < '2007-10-01' || $issueDate >= '2014-05-01') {
+                    $errors[] = 'Eine fehlende Effizienzklasse ist nur bei geprüftem Energieausweis vom 01.10.2007 bis 30.04.2014 zulässig. Bitte Klasse eintragen oder Ausstellungsdatum prüfen.';
+                }
+            } elseif ($energyClass === '') {
+                $errors[] = 'Beim vorhandenen Energieausweis fehlt: Energieeffizienzklasse.';
             }
         }
     }

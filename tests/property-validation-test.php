@@ -56,9 +56,33 @@ $commercial['energy_value_kind'] = 'verbrauch';
 $commercial['energy_value'] = 0;
 $commercial['energy_value_electricity'] = 0;
 $commercial['energy_source'] = 'Gas';
+$futureExpiry = (new DateTimeImmutable('+1 year', new DateTimeZone('Europe/Berlin')))->format('Y-m-d');
+$commercial['energy_valid_until'] = $futureExpiry;
 assert_property_check(property_listing_validation_errors($commercial, [['url' => '/bild.jpg']]) === [], 'Nichtwohngebäude akzeptiert getrennte Wärme- und Stromkennwerte einschließlich 0');
+$expiredCertificate = $commercial;
+$expiredCertificate['energy_valid_until'] = '2020-01-01';
+assert_property_check(in_array('Der Energieausweis ist abgelaufen. Vor der Veröffentlichung einen gültigen Ausweis hinterlegen.', property_listing_validation_errors($expiredCertificate, [['url' => '/bild.jpg']]), true), 'Abgelaufener Energieausweis blockiert die Veröffentlichung');
 unset($commercial['energy_value_electricity']);
 assert_property_check(count(property_listing_validation_errors($commercial, [['url' => '/bild.jpg']])) > 0, 'Nichtwohngebäude benötigt den separaten Stromkennwert');
+
+$residentialEnergy = $rental;
+$residentialEnergy['energy_certificate_status'] = 'available';
+$residentialEnergy['energy_certificate_type'] = 'verbrauchsausweis';
+$residentialEnergy['energy_value_kind'] = 'verbrauch';
+$residentialEnergy['energy_value'] = 85;
+$residentialEnergy['energy_source'] = 'Gas';
+$residentialEnergy['energy_efficiency_class'] = 'C';
+$residentialEnergy['energy_building_year'] = 1980;
+$residentialEnergy['energy_valid_until'] = $futureExpiry;
+assert_property_check(property_listing_validation_errors($residentialEnergy, [['url' => '/bild.jpg']]) === [], 'Vollständige Energieangaben für ein Wohngebäude werden akzeptiert');
+$oldCertificateWithoutClass = $residentialEnergy;
+unset($oldCertificateWithoutClass['energy_efficiency_class']);
+$oldCertificateWithoutClass['energy_efficiency_class_not_in_certificate'] = true;
+$oldCertificateWithoutClass['energy_issue_date'] = '2014-04-30';
+assert_property_check(property_listing_validation_errors($oldCertificateWithoutClass, [['url' => '/bild.jpg']]) === [], 'Fehlende Effizienzklasse ist bei geprüftem Alt-Ausweis zulässig');
+$newCertificateWithoutClass = $oldCertificateWithoutClass;
+$newCertificateWithoutClass['energy_issue_date'] = '2014-05-01';
+assert_property_check(count(property_listing_validation_errors($newCertificateWithoutClass, [['url' => '/bild.jpg']])) > 0, 'Ausnahme für fehlende Effizienzklasse gilt nicht für spätere Ausweise');
 
 $purchase = $rental;
 $purchase['offer_type'] = 'Kauf';
@@ -71,8 +95,11 @@ $public = property_public_extra_data([
     'documents' => [['url' => '/uploads/legacy.pdf']],
     'area_calculation_basis' => 'WoFlV',
     'energy_value_electricity' => 32,
+    'energy_issue_date' => '2013-04-01',
+    'energy_efficiency_class_not_in_certificate' => true,
     'private_expose' => ['burdens_notes' => 'Nur intern'],
     'legacy_slugs' => ['alte-adresse'],
 ]);
 assert_property_check(isset($public['floorplans']) && !isset($public['documents']) && !isset($public['private_expose']), 'Private Dokumente und Exposé-Angaben fehlen in öffentlichen API-Daten');
 assert_property_check(($public['area_calculation_basis'] ?? '') === 'WoFlV' && ($public['energy_value_electricity'] ?? null) === 32, 'Flächenmethode und Stromkennwert bleiben für öffentliche Details verfügbar');
+assert_property_check(!isset($public['energy_issue_date']) && !isset($public['energy_efficiency_class_not_in_certificate']), 'Interne Alt-Ausweis-Prüffelder werden nicht öffentlich ausgegeben');
